@@ -1,4 +1,5 @@
 import express  from "express";
+import { imageFileFilter, safeFilename } from "../lib/uploadNaming.js";
 import multer   from "multer";
 import path     from "path";
 import { fileURLToPath } from "url";
@@ -26,19 +27,14 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    const ext  = path.extname(file.originalname).toLowerCase() || ".png";
-    const type = req.query.type || "asset";
-    const name = `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}${ext}`;
-    cb(null, name);
+    // Extension comes from the DETECTED type, not from the uploader.
+    cb(null, safeFilename(req.query.type || "asset", file.mimetype));
   },
 });
 
 const upload = multer({
   storage,
-  fileFilter: (req, file, cb) => {
-    const ok = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"].includes(file.mimetype);
-    cb(ok ? null : new Error("Only image files allowed"), ok);
-  },
+  fileFilter: imageFileFilter,   // SVG deliberately excluded — it can carry <script>
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 

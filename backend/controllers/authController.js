@@ -15,6 +15,7 @@ import { isLocked, recordFailure, recordSuccess } from "../lib/loginAttempts.js"
 import { writeAudit, AuditAction } from "../lib/audit.js";
 import { MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT } from "../lib/passwordPolicy.js";
 import { recoveryRedirectUrl } from "../lib/appUrl.js";
+import { isAllowedEmail, allowedDomainsMessage } from "../lib/emailDomain.js";
 
 /* Regenerate the session ID before writing user data.
    Defends against session-fixation: an attacker who tricked the victim
@@ -46,6 +47,14 @@ const register = async (req, res) => {
   try {
     const { name, email, password, invite_token } = req.body;
     if (!email || !password) return res.status(400).json({ error: "email and password required" });
+
+    // Domain gate (opt-in via ALLOWED_EMAIL_DOMAINS; off by default).
+    // Checked BEFORE the invite lookup so the common case is cheap, but
+    // an invite overrides it below — that is how faculty and alumni on
+    // personal addresses get in.
+    if (!invite_token && !isAllowedEmail(email)) {
+      return res.status(403).json({ error: allowedDomainsMessage() });
+    }
 
     // Validate invite token if provided
     let invitation = null;

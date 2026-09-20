@@ -105,10 +105,23 @@ function buildApp(opts = {}) {
     saveUninitialized: false,
   }));
 
-  // Preload a session for tests that simulate an already-logged-in user
+  // Preload a session for tests that simulate an already-logged-in user.
+  // The guards now re-read role/is_active from the database every couple
+  // of minutes, so the stubbed row has to AGREE with the preset session —
+  // a row that disagrees means "this person was demoted or suspended",
+  // and the session is revoked on purpose. Tests that want the
+  // disagreement set state.student themselves after calling buildApp.
   if (opts.presetSession) {
+    state.student = {
+      data: {
+        role:      opts.presetSession.role,
+        org_id:    opts.presetSession.org_id ?? null,
+        is_active: opts.presetSession.is_active !== false,
+      },
+      error: null,
+    };
     app.use((req, _res, next) => {
-      req.session.user = opts.presetSession;
+      req.session.user = { ...opts.presetSession };
       next();
     });
   }
