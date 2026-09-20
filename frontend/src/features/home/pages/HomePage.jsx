@@ -32,7 +32,7 @@ const MonumentVideo = lazy(() => import("@/features/home/components/HeroExperien
 const HeroNarrativeOverlay = lazy(() => import("@/features/home/components/HeroNarrativeOverlay"));
 // Phase 32 — EvolutionTimeline is also lazy-loaded. It pulls in
 // MathRender + KaTeX (~260KB) for formula rendering. The timeline
-// sits below the scroll-spacer so users scroll past 500vh of hero
+// sits below the scroll-spacer so users scroll past the hero span
 // before it enters the viewport — plenty of time to fetch the chunk
 // invisibly. Saves ~76KB gzipped from the initial HomePage payload.
 const EvolutionTimeline = lazy(() => import("@/features/home/components/EvolutionTimeline"));
@@ -334,7 +334,7 @@ export default function HomePage() {
       )}
 
       {/* ── SCROLL SPACER (drives video progress) ── */}
-      <div style={{ height: "500vh", position: "relative", pointerEvents: "none" }} />
+      <div style={{ height: "var(--hero-span)", position: "relative", pointerEvents: "none" }} />
 
       {/* ── CONTENT SECTIONS ── */}
       <div style={{ position: "relative", minHeight: "100vh" }} className="space-y-12 px-4 pb-16 pt-16 sm:space-y-20 sm:px-8">

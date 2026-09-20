@@ -91,7 +91,7 @@ export default function ContactPage() {
                     <InputField
                       label="Email"
                       type="email"
-                      placeholder="you@university.edu"
+                      placeholder="yourname@bmsit.in"
                       value={form.email}
                       onChange={update("email")}
                       required

@@ -122,7 +122,16 @@ const QUALITY_PRESETS = {
   high: { shelves: 9, booksPerLv: 100, dust: 350, stars: 900, candelabra: 10, buildings: 24, postprocess: true,  lanternLights: 8 },
 };
 
-function scrollSpan() { return window.innerHeight * 5; }
+/* Reads --hero-span (styles/theme.css), which also sizes HomePage's
+   spacer. Both MUST come from the same number or the camera timeline
+   desyncs from the content below it. Phones get a shorter hero. */
+function scrollSpan() {
+  const raw = window.getComputedStyle(document.documentElement)
+    .getPropertyValue("--hero-span").trim();
+  const vh = parseFloat(raw);
+  if (Number.isFinite(vh) && vh > 0) return window.innerHeight * (vh / 100);
+  return window.innerHeight * 5;   // fallback: the old desktop value
+}
 
 export default function LibraryScene() {
   const mountRef   = useRef(null);

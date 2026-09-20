@@ -307,6 +307,20 @@ h1, h2, h3, h4 {
   .px-5 { padding-left: 1rem; padding-right: 1rem; }
 }
 
+/* How much scrolling the homepage hero occupies.
+
+   500vh is about ten full screens of swiping on a phone before any
+   real content appears, through the most expensive thing on the site.
+   Phones get 200vh instead: the same camera journey, just covered in
+   less scrolling.
+
+   This is THE source of truth. HomePage sizes its spacer from it and
+   LibraryScene reads it back to map scroll position onto the camera
+   timeline — if the two ever disagree, the camera desyncs from the
+   content, so they must read the same number. */
+:root { --hero-span: 500vh; }
+@media (max-width: 767px) { :root { --hero-span: 200vh; } }
+
 /* Crop overflow WITHOUT creating a scroll container.
 
    MainLayout's root used `overflow-hidden`, which made it a scroll

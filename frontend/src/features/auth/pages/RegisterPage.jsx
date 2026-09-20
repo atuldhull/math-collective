@@ -286,7 +286,7 @@ export default function RegisterPage() {
               <InputField label="Full Name" placeholder="Your display name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </motion.div>
             <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <InputField label="Email" type="email" placeholder="you@university.edu" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+              <InputField label="Email" type="email" placeholder="yourname@bmsit.in" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
             </motion.div>
             <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
               <InputField label="Password" type="password" placeholder="Create a secure password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />

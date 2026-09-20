@@ -161,7 +161,7 @@ export default function LoginPage() {
               <InputField
                 label="Email"
                 type="email"
-                placeholder="you@university.edu"
+                placeholder="yourname@bmsit.in"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 required
