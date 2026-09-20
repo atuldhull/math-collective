@@ -49,7 +49,6 @@ export default function LiveQuizPage() {
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [answerSubmitted, setAnswerSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [questionStart, setQuestionStart] = useState(null);
   const timerRef = useRef(null);
 
   /* ── result ── */
@@ -78,7 +77,6 @@ export default function LiveQuizPage() {
 
     if (phase === PHASE.QUESTION && question?.timeLimit) {
       setTimeLeft(question.timeLimit);
-      setQuestionStart(Date.now());
 
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
@@ -204,17 +202,15 @@ export default function LiveQuizPage() {
 
       setSelectedAnswer(answerIndex);
 
-      const timeTaken = questionStart
-        ? Math.round((Date.now() - questionStart) / 1000)
-        : 0;
-
+      // No timing is sent any more. The server measures elapsed time
+      // from its own question clock — a client-supplied timeTaken of 0
+      // bought a full time bonus, and a negative one an unbounded one.
       socketRef.current.emit("submit_answer", {
         code: sessionCode,
         answerIndex,
-        timeTaken,
       });
     },
-    [answerSubmitted, sessionCode, questionStart]
+    [answerSubmitted, sessionCode]
   );
 
   /* ── leave / reset ── */

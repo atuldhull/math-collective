@@ -1,6 +1,9 @@
 import supabase from "../../config/supabase.js";
 import { logger } from "../../config/logger.js";
 import { toCsv, fetchAll, CSV_BOM } from "../../lib/exportHelpers.js";
+import { outranks } from "../../lib/roleHierarchy.js";
+import { writeAudit, AuditAction } from "../../lib/audit.js";
+import { MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT } from "../../lib/passwordPolicy.js";
 
 /* ═══════════════════════════════════════════
    USERS — Get all students
@@ -142,6 +145,61 @@ export const createUser = async (req, res) => {
 };
 
 /* ═══════════════════════════════════════════
+   Shared guard for privileged actions on another user.
+
+   Resolves :userId through the ORG-SCOPED req.db and refuses unless the
+   caller strictly outranks the target. Returns the target row on
+   success, or null after having already sent the response.
+
+   Both failure modes answer 404, deliberately: an admin probing for the
+   super-admin's user id should not be able to tell "exists but you may
+   not touch them" from "no such user in your organisation".
+═══════════════════════════════════════════ */
+async function resolveTarget(req, res, { action }) {
+  const { userId }  = req.params;
+  const actorId     = req.session?.user?.id;
+  const actorRole   = req.session?.user?.role;
+
+  const { data: target, error } = await req.db
+    .from("students")
+    .select("user_id, email, name, role, org_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    logger.error({ err: error, actorId, userId }, "resolveTarget lookup failed");
+    res.status(500).json({ error: "Failed to load user" });
+    return null;
+  }
+
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return null;
+  }
+
+  if (!outranks(actorRole, target.role)) {
+    logger.warn(
+      { actorId, actorRole, targetId: userId, targetRole: target.role, action },
+      "Refused privileged action: target ranks equal or higher",
+    );
+    writeAudit({
+      actorId,
+      actorRole,
+      orgId:      req.session?.user?.org_id,
+      action:     AuditAction.PRIVILEGE_DENIED,
+      targetType: "user",
+      targetId:   userId,
+      metadata:   { attempted: action, targetRole: target.role },
+      req,
+    });
+    res.status(404).json({ error: "User not found" });
+    return null;
+  }
+
+  return target;
+}
+
+/* ═══════════════════════════════════════════
    USERS — Reset password
    POST /api/admin/users/:userId/reset-password
 ═══════════════════════════════════════════ */
@@ -150,17 +208,33 @@ export const resetUserPassword = async (req, res) => {
     const { userId }      = req.params;
     const { newPassword } = req.body;
 
-    if (!newPassword || newPassword.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: PASSWORD_TOO_SHORT });
     }
+
+    const target = await resolveTarget(req, res, { action: "reset_password" });
+    if (!target) return undefined;
 
     const { error } = await supabase.auth.admin.updateUserById(userId, {
       password: newPassword,
     });
 
     if (error) return res.status(500).json({ error: error.message });
+
+    writeAudit({
+      actorId:    req.session?.user?.id,
+      actorRole:  req.session?.user?.role,
+      orgId:      req.session?.user?.org_id,
+      action:     AuditAction.ADMIN_PASSWORD_RESET,
+      targetType: "user",
+      targetId:   userId,
+      metadata:   { email: target.email, targetRole: target.role },
+      req,
+    });
+
     return res.json({ success: true, message: "Password reset successfully" });
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "resetUserPassword");
     return res.status(500).json({ error: "Failed to reset password" });
   }
 };
@@ -178,14 +252,37 @@ export const updateUserRole = async (req, res) => {
       return res.status(400).json({ error: "Role must be 'student', 'teacher' or 'admin'" });
     }
 
+    // Same guard as the other two. Without it an admin could demote a
+    // peer admin, which is the same takeover shape as resetting their
+    // password. You also cannot grant a rank you do not outrank.
+    const target = await resolveTarget(req, res, { action: "update_role" });
+    if (!target) return undefined;
+
+    if (!outranks(req.session?.user?.role, role)) {
+      return res.status(403).json({ error: "You cannot grant a role equal to or above your own" });
+    }
+
     const { error } = await req.db
       .from("students")
       .update({ role })
       .eq("user_id", userId);
 
     if (error) return res.status(500).json({ error: error.message });
+
+    writeAudit({
+      actorId:    req.session?.user?.id,
+      actorRole:  req.session?.user?.role,
+      orgId:      req.session?.user?.org_id,
+      action:     AuditAction.ROLE_CHANGED,
+      targetType: "user",
+      targetId:   userId,
+      metadata:   { from: target.role, to: role, email: target.email },
+      req,
+    });
+
     return res.json({ success: true });
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "updateUserRole");
     return res.status(500).json({ error: "Failed to update role" });
   }
 };
@@ -198,6 +295,13 @@ export const deleteUser = async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // The students-row delete below is org-scoped through req.db, but
+    // the Auth delete that follows is NOT — so without this guard an
+    // admin could destroy an auth account in another organisation while
+    // the scoped delete quietly matched nothing.
+    const target = await resolveTarget(req, res, { action: "delete_user" });
+    if (!target) return undefined;
+
     // Delete from students table first
     await req.db.from("students").delete().eq("user_id", userId);
 
@@ -205,8 +309,20 @@ export const deleteUser = async (req, res) => {
     const { error } = await supabase.auth.admin.deleteUser(userId);
     if (error) return res.status(500).json({ error: error.message });
 
+    writeAudit({
+      actorId:    req.session?.user?.id,
+      actorRole:  req.session?.user?.role,
+      orgId:      req.session?.user?.org_id,
+      action:     AuditAction.USER_DELETED,
+      targetType: "user",
+      targetId:   userId,
+      metadata:   { email: target.email, targetRole: target.role },
+      req,
+    });
+
     return res.json({ success: true, message: "User deleted" });
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "deleteUser");
     return res.status(500).json({ error: "Failed to delete user" });
   }
 };

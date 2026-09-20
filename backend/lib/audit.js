@@ -33,6 +33,9 @@ export const AuditAction = Object.freeze({
   PASSWORD_CHANGED:     "auth.password.changed",
   PASSWORD_RESET:       "auth.password.reset",       // via recovery token
   ROLE_CHANGED:         "user.role.changed",
+  ADMIN_PASSWORD_RESET: "admin.password.reset",      // staff resetting another user
+  USER_DELETED:         "admin.user.deleted",
+  PRIVILEGE_DENIED:     "admin.privilege.denied",    // refused: target outranks actor
   PAYMENT_VERIFIED:     "payment.verified",
   PAYMENT_WEBHOOK:      "payment.webhook.received",
   IMPERSONATION_START:  "admin.impersonation.start",

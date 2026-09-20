@@ -7,6 +7,32 @@ import { logger } from "../config/logger.js";
 // proxy's intermittent null-org_id injection on inserts was leaking
 // NULLs into NOT NULL columns and producing a bare 500.
 
+
+/* ── Answer visibility ──
+   /current, /next and /:id used to return correct_index AND solution
+   to anyone, before the student had answered and without requiring a
+   login. Opening the Network tab was enough to win every arena
+   challenge, so arena XP and the leaderboards meant nothing.
+
+   The answer is now withheld from the people who are about to be
+   asked the question. Staff still get it, because the admin and
+   teacher screens legitimately edit and preview challenges.
+
+   Students are NOT left without an answer: POST /api/arena/submit
+   already returns correctIndex and solution once an attempt has been
+   recorded, which is the right moment to reveal them. */
+const PUBLIC_FIELDS = "id, title, question, options, difficulty, points, is_active, created_at";
+const FULL_FIELDS   = PUBLIC_FIELDS + ", correct_index, solution";
+
+function canSeeAnswers(req) {
+  const role = req.session?.user?.role;
+  return role === "teacher" || role === "admin" || role === "super_admin";
+}
+
+function challengeFields(req) {
+  return canSeeAnswers(req) ? FULL_FIELDS : PUBLIC_FIELDS;
+}
+
 /* GET CURRENT ACTIVE CHALLENGE — GET /api/challenge/current */
 export const getCurrentChallenge = async (req, res) => {
   try {
@@ -14,7 +40,7 @@ export const getCurrentChallenge = async (req, res) => {
 
     const { data, error } = await req.db
       .from("challenges")
-      .select("id, title, question, options, correct_index, difficulty, points, solution, is_active, created_at")
+      .select(challengeFields(req))
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -79,7 +105,7 @@ export const getAllChallenges = async (req, res) => {
 export const getChallengeById = async (req, res) => {
   try {
     const { data, error } = await req.db
-      .from("challenges").select("*").eq("id", req.params.id).maybeSingle();
+      .from("challenges").select(challengeFields(req)).eq("id", req.params.id).maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
     if (!data)  return res.status(404).json({ error: "Challenge not found" });
     data.difficulty = (data.difficulty || "medium").toUpperCase();
@@ -194,7 +220,7 @@ export const getNextChallenge = async (req, res) => {
     // Fetch all active challenges (optionally filtered by difficulty)
     let query = req.db
       .from("challenges")
-      .select("id, title, question, options, correct_index, difficulty, points, solution, is_active, created_at")
+      .select(challengeFields(req))
       .eq("is_active", true);
 
     if (difficulty && difficulty !== 'all') {

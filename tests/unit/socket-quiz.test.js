@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { attachQuiz, cleanupQuiz } from "../../backend/socket/quiz.js";
+import { attachQuiz, cleanupQuiz, _resetQuizRateLimit } from "../../backend/socket/quiz.js";
 import { quizStore } from "../../backend/socket/store/quizStore.js";
 
 // Mock Supabase so announceNewQuiz doesn't try to hit a real DB.
@@ -46,11 +46,21 @@ function mockIo() {
   return { io: { to }, emitted };
 }
 
-function mockSocket({ id = "teacher-socket", userId = "teacher-id" } = {}) {
+// create_session is staff-only now, and the host name + org come from
+// the session rather than the payload, so the fixture carries both.
+function mockSocket({
+  id = "teacher-socket",
+  userId = "teacher-id",
+  userRole = "teacher",
+  orgId = "org-A",
+} = {}) {
   const handlers = {};
   return {
     id,
     userId,
+    userRole,
+    userName: "Prof X",
+    request: { session: { user: { id: userId, role: userRole, org_id: orgId } } },
     on:     vi.fn((event, fn) => { handlers[event] = fn; }),
     join:   vi.fn(),
     emit:   vi.fn(),
@@ -61,6 +71,7 @@ function mockSocket({ id = "teacher-socket", userId = "teacher-id" } = {}) {
 // Reset the shared quiz store between tests.
 beforeEach(() => {
   for (const [code] of quizStore.entries()) quizStore.delete(code);
+  _resetQuizRateLimit();   // the 5-per-hour host cap is process-wide
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -93,7 +104,6 @@ describe("create_session", () => {
     attachQuiz(io, socket, { pushNotification: vi.fn() });
 
     await socket._handlers.create_session({
-      teacherName: "Prof X",
       questions: [{ question: "2+2", options: ["3","4","5","6"], correct_index: 1, points: 50 }],
     });
 
@@ -108,7 +118,9 @@ describe("create_session", () => {
     const socket = mockSocket();
     attachQuiz(io, socket, { pushNotification: vi.fn() });
 
-    await socket._handlers.create_session({ teacherName: "Prof X", questions: [] });
+    await socket._handlers.create_session({
+      questions: [{ question: "2+2", options: ["3","4"], correct_index: 1 }],
+    });
     expect(socket.join).toHaveBeenCalledWith(expect.stringMatching(/^[A-Z0-9]{6}$/));
   });
 });
@@ -123,7 +135,6 @@ describe("join_session", () => {
     const teacher = mockSocket({ id: "teacher-socket" });
     attachQuiz(io, teacher, { pushNotification: vi.fn() });
     await teacher._handlers.create_session({
-      teacherName: "Prof X",
       questions: [
         { question: "2+2", options: ["3","4","5","6"], correct_index: 1, points: 50, timeLimit: 30 },
       ],
@@ -182,7 +193,6 @@ describe("next_question", () => {
     const teacher = mockSocket({ id: "teacher-socket" });
     attachQuiz(io, teacher, { pushNotification: vi.fn() });
     await teacher._handlers.create_session({
-      teacherName: "Prof X",
       questions: [{ question: "Q", options: ["A","B","C","D"], correct_index: 0, points: 50 }],
     });
     const code = socketLastEmitCode(teacher);
@@ -203,8 +213,7 @@ describe("next_question", () => {
       const teacher = mockSocket({ id: "teacher-socket" });
       attachQuiz(io, teacher, { pushNotification: vi.fn() });
       await teacher._handlers.create_session({
-        teacherName: "Prof X",
-        questions: [{ question: "Q", options: ["A","B","C","D"], correct_index: 0, points: 50 }],
+          questions: [{ question: "Q", options: ["A","B","C","D"], correct_index: 0, points: 50 }],
       });
       const code = socketLastEmitCode(teacher);
 
@@ -231,8 +240,7 @@ describe("next_question", () => {
       const teacher = mockSocket({ id: "teacher-socket" });
       attachQuiz(io, teacher, { pushNotification: vi.fn() });
       await teacher._handlers.create_session({
-        teacherName: "Prof X",
-        questions: [{ question: "Q1", options: ["A","B","C","D"], correct_index: 0, points: 50 }],
+          questions: [{ question: "Q1", options: ["A","B","C","D"], correct_index: 0, points: 50 }],
       });
       const code = socketLastEmitCode(teacher);
 
@@ -260,7 +268,6 @@ describe("submit_answer", () => {
     const teacher = mockSocket({ id: "teacher-socket" });
     attachQuiz(io, teacher, { pushNotification: vi.fn() });
     await teacher._handlers.create_session({
-      teacherName: "Prof X",
       questions: [{ question: "Q", options: ["A","B","C","D"], correct_index: 1, points: 50, timeLimit: 30 }],
     });
     const code = socketLastEmitCode(teacher);
@@ -276,7 +283,7 @@ describe("submit_answer", () => {
   it("awards base points + time bonus for a correct fast answer", async () => {
     const { student, code } = await setupAnswerFlow();
 
-    student._handlers.submit_answer({ code, answerIndex: 1, timeTaken: 0 });
+    student._handlers.submit_answer({ code, answerIndex: 1 });
 
     const session = quizStore.get(code);
     const player  = session.players["student-socket"];
@@ -287,16 +294,41 @@ describe("submit_answer", () => {
   it("awards only base points when the player answers at the last second", async () => {
     const { student, code } = await setupAnswerFlow();
 
-    student._handlers.submit_answer({ code, answerIndex: 1, timeTaken: 30 });
+    // Age the SERVER clock rather than claiming a time in the payload —
+    // questionStartedAt is now the only input to the bonus.
+    quizStore.get(code).questionStartedAt = Date.now() - 30_000;
+    student._handlers.submit_answer({ code, answerIndex: 1 });
 
     const session = quizStore.get(code);
     expect(session.players["student-socket"].score).toBe(50); // timeBonus = 0
   });
 
+  it("ignores a timeTaken the client sends — the score is the servers to set", async () => {
+    const { student, code } = await setupAnswerFlow();
+
+    quizStore.get(code).questionStartedAt = Date.now() - 30_000;
+    // The old handler read this field: 0 bought a full bonus and a
+    // negative number an unbounded one.
+    student._handlers.submit_answer({ code, answerIndex: 1, timeTaken: -1_000_000 });
+
+    expect(quizStore.get(code).players["student-socket"].score).toBe(50);
+  });
+
+  it.each([-1, 99, 1.5, "1", null, undefined])(
+    "ignores an out-of-range answerIndex (%p) instead of scoring it",
+    async (answerIndex) => {
+      const { student, code } = await setupAnswerFlow();
+      student._handlers.submit_answer({ code, answerIndex });
+      const player = quizStore.get(code).players["student-socket"];
+      expect(player.lastAnswer).toBeNull();
+      expect(player.score).toBe(0);
+    },
+  );
+
   it("awards zero for a wrong answer (no penalty in live quiz)", async () => {
     const { student, code } = await setupAnswerFlow();
 
-    student._handlers.submit_answer({ code, answerIndex: 2, timeTaken: 0 });
+    student._handlers.submit_answer({ code, answerIndex: 2 });
 
     expect(quizStore.get(code).players["student-socket"].score).toBe(0);
   });
@@ -304,8 +336,8 @@ describe("submit_answer", () => {
   it("ignores double submissions from the same socket", async () => {
     const { student, code } = await setupAnswerFlow();
 
-    student._handlers.submit_answer({ code, answerIndex: 1, timeTaken: 0 });
-    student._handlers.submit_answer({ code, answerIndex: 1, timeTaken: 0 }); // retry
+    student._handlers.submit_answer({ code, answerIndex: 1 });
+    student._handlers.submit_answer({ code, answerIndex: 1 }); // retry
 
     const attempts = quizStore.get(code).players["student-socket"].answers;
     expect(attempts.length).toBe(1);
@@ -315,7 +347,7 @@ describe("submit_answer", () => {
     const { student, code } = await setupAnswerFlow();
     quizStore.get(code).status = "results";
 
-    student._handlers.submit_answer({ code, answerIndex: 1, timeTaken: 0 });
+    student._handlers.submit_answer({ code, answerIndex: 1 });
 
     expect(quizStore.get(code).players["student-socket"].score).toBe(0);
   });
@@ -331,7 +363,6 @@ describe("reveal_answer / end_session — teacher guard", () => {
     const teacher = mockSocket({ id: "teacher-socket" });
     attachQuiz(io, teacher, { pushNotification: vi.fn() });
     await teacher._handlers.create_session({
-      teacherName: "Prof X",
       questions: [{ question: "Q", options: ["A","B","C","D"], correct_index: 0, points: 50 }],
     });
     const code = socketLastEmitCode(teacher);
@@ -371,7 +402,6 @@ describe("cleanupQuiz", () => {
     const teacher = mockSocket({ id: "teacher-socket" });
     attachQuiz(io, teacher, { pushNotification: vi.fn() });
     await teacher._handlers.create_session({
-      teacherName: "Prof X",
       questions: [{ question: "Q", options: ["A","B","C","D"], correct_index: 0 }],
     });
     const code = socketLastEmitCode(teacher);
@@ -398,3 +428,82 @@ function socketLastEmitCode(socket) {
   }
   throw new Error("no session_created call on this socket");
 }
+
+// ═══════════════════════════════════════════════════════════
+// create_session — who is allowed to host
+// ═══════════════════════════════════════════════════════════
+
+describe("create_session — authorisation", () => {
+  const ONE_Q = [{ question: "2+2", options: ["3", "4"], correct_index: 1 }];
+
+  async function attempt(socketOpts) {
+    const { io } = mockIo();
+    const socket = mockSocket(socketOpts);
+    attachQuiz(io, socket, { pushNotification: vi.fn() });
+    await socket._handlers.create_session({ questions: ONE_Q });
+    return socket;
+  }
+
+  it("refuses an anonymous socket", async () => {
+    const socket = await attempt({ userId: null, userRole: null });
+    expect(socket.emit).toHaveBeenCalledWith("session_error", expect.any(String));
+    expect(socket.join).not.toHaveBeenCalled();
+    expect([...quizStore.entries()]).toHaveLength(0);
+  });
+
+  it("refuses a signed-in student", async () => {
+    const socket = await attempt({ userId: "s-1", userRole: "student" });
+    expect(socket.emit).toHaveBeenCalledWith("session_error", expect.any(String));
+    expect([...quizStore.entries()]).toHaveLength(0);
+  });
+
+  it.each(["teacher", "admin", "super_admin"])("allows a %s", async (userRole) => {
+    const socket = await attempt({ userRole });
+    expect(socket.emit).toHaveBeenCalledWith("session_created", expect.any(Object));
+  });
+
+  it("takes the host name from the session, not the payload", async () => {
+    const { io } = mockIo();
+    const socket = mockSocket();
+    attachQuiz(io, socket, { pushNotification: vi.fn() });
+    // A hostile payload naming someone else — this text used to be
+    // mailed verbatim to every student in the database.
+    await socket._handlers.create_session({ teacherName: "Principal", questions: ONE_Q });
+    const [, session] = [...quizStore.entries()][0];
+    expect(session.teacherName).toBe("Prof X");
+  });
+
+  it("records the host's org so the announcement can be scoped", async () => {
+    const { io } = mockIo();
+    const socket = mockSocket({ orgId: "org-B" });
+    attachQuiz(io, socket, { pushNotification: vi.fn() });
+    await socket._handlers.create_session({ questions: ONE_Q });
+    const [, session] = [...quizStore.entries()][0];
+    expect(session.orgId).toBe("org-B");
+  });
+
+  it("refuses a malformed question list", async () => {
+    const socket = await attempt({});
+    expect(socket.emit).toHaveBeenCalledWith("session_created", expect.any(Object));
+
+    const { io } = mockIo();
+    const bad = mockSocket({ id: "other-socket" });
+    attachQuiz(io, bad, { pushNotification: vi.fn() });
+    await bad._handlers.create_session({ questions: [{ options: ["only one"] }] });
+    expect(bad.emit).toHaveBeenCalledWith("session_error", expect.any(String));
+  });
+
+  it("caps how many quizzes one host can start", async () => {
+    const { io } = mockIo();
+    const socket = mockSocket();
+    attachQuiz(io, socket, { pushNotification: vi.fn() });
+
+    for (let i = 0; i < 5; i++) {
+      await socket._handlers.create_session({ questions: ONE_Q });
+    }
+    expect(socket.emit).not.toHaveBeenCalledWith("session_error", expect.any(String));
+
+    await socket._handlers.create_session({ questions: ONE_Q });
+    expect(socket.emit).toHaveBeenCalledWith("session_error", expect.stringMatching(/too many/i));
+  });
+});

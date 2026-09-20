@@ -338,12 +338,16 @@ export default function ArenaPage() {
                         {result.alreadySolved && <p className="mt-1 text-xs text-text-dim">Already solved before</p>}
                       </div>
                       {/* Show correct answer */}
-                      {!result.correct && challenge.options && (
+                      {/* The answer comes from the SUBMIT response, not from the
+                          challenge payload. The question endpoints no longer ship
+                          correct_index — it was readable in the Network tab before
+                          the student had answered. */}
+                      {!result.correct && challenge.options && result.correctIndex != null && (
                         <div className="rounded-xl border border-success/15 bg-success/5 px-4 py-3">
                           <p className="font-mono text-[10px] uppercase tracking-wider text-success">Correct Answer</p>
                           <p className="mt-1 text-sm text-white">
-                            <span className="math-text mr-2 text-success">{String.fromCharCode(65 + (challenge.correct_index ?? 0))}.</span>
-                            {challenge.options[challenge.correct_index ?? 0]}
+                            <span className="math-text mr-2 text-success">{String.fromCharCode(65 + result.correctIndex)}.</span>
+                            {challenge.options[result.correctIndex]}
                           </p>
                         </div>
                       )}

@@ -79,7 +79,15 @@ export default function TeacherQuizPage() {
     const sock = io(window.location.origin, { transports: ["websocket", "polling"] });
     socketRef.current = sock;
 
-    sock.emit("create_session", { teacherName, questions });
+    // teacherName is no longer sent: the server takes the host name and
+    // org from the session, because this text was mailed to students.
+    sock.emit("create_session", { questions });
+
+    sock.on("session_error", (message) => {
+      setError(message || "Could not start the live quiz");
+      sock.disconnect();
+      socketRef.current = null;
+    });
 
     sock.on("session_created", ({ code }) => {
       setLiveCode(code);
@@ -106,7 +114,7 @@ export default function TeacherQuizPage() {
       setLivePodium(leaderboard || []);
       setLiveStatus("finished");
     });
-  }, [liveSelectedQs, challengePool, teacherName]);
+  }, [liveSelectedQs, challengePool]);
 
   const nextQuestion = () => {
     if (!socketRef.current || !liveCode) return;
