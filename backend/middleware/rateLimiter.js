@@ -7,6 +7,51 @@ const limitReached = (req, res) => {
   });
 };
 
+/* ── Campus NAT ──────────────────────────────────────────────────────
+   A college sends every student's traffic out through one or a few
+   public IPs. An IP-keyed limit therefore gives the WHOLE COLLEGE a
+   single quota: register was 5/hour, which means five students could
+   sign up per hour from campus Wi-Fi — an intake of 800 would have
+   taken a week of queuing.
+
+   Three things fix that, in order of preference:
+     1. Key on the signed-in user where there is one (userOrIpKey).
+        800 students then have 800 buckets instead of one.
+     2. Keep the per-(IP + email) keys on the credential endpoints, so
+        one person's mistakes don't deplete everyone else's budget.
+     3. Where a limit must stay IP-only, set the ceiling above a
+        classroom's worth of traffic and make it tunable, because the
+        right number depends on the campus.
+
+   TRUSTED_IPS exempts specific addresses from the IP-only limits
+   entirely — put the college's outbound IP here on intake day:
+     TRUSTED_IPS=203.0.113.4,203.0.113.5
+   Per-user and per-email limits still apply to trusted IPs, so this
+   is not a blanket amnesty. */
+
+let trustedCache = { raw: null, set: new Set() };
+function trustedIps() {
+  const raw = process.env.TRUSTED_IPS || "";
+  if (raw !== trustedCache.raw) {
+    trustedCache = {
+      raw,
+      set: new Set(raw.split(",").map((s) => s.trim()).filter(Boolean)),
+    };
+  }
+  return trustedCache.set;
+}
+
+export function isTrustedIp(req) {
+  const set = trustedIps();
+  return set.size > 0 && set.has(req.ip);
+}
+
+/** Read a positive integer from the environment, else the default. */
+export function envInt(name, fallback) {
+  const n = Number(process.env[name]);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
 /* ── Helper: key on (IP + normalised email).
    Used by /auth/login and /auth/forgot-password so a single shared
    NAT (a school lab, an office, a college Wi-Fi) can't lock every
@@ -24,6 +69,12 @@ const ipPlusEmailKey = (req) => {
   return email ? `${ip}|${email}` : ip;
 };
 
+/* ── Helper: key on the signed-in user, falling back to IP.
+   The shape several limiters below already used inline; named here so
+   the campus-NAT reasoning lives in one place. */
+export const userOrIpKey = (req) =>
+  (req.session?.user?.id ? `user:${req.session.user.id}` : ipKeyGenerator(req.ip));
+
 /* ── Auth (PARENT — kept as a global ceiling for /api/auth POST) ──
    10 attempts per 15 mins, IP-keyed. Acts as a hard cap across the
    entire /api/auth surface (covers /logout, /resend-verification,
@@ -32,9 +83,14 @@ const ipPlusEmailKey = (req) => {
    tighten the cap for the specific abuse pattern each one cares about. */
 export const authLimiter = rateLimit({
   windowMs:        15 * 60 * 1000,
-  max:             10,
+  // Was 10 per IP — i.e. ten auth requests per 15 minutes for an entire
+  // college. Keyed per (IP + email) now, so one person exhausting their
+  // budget no longer freezes everyone behind the same NAT. The tight
+  // per-pattern caps still live on the individual routes below.
+  max:             envInt("RATE_LIMIT_AUTH_PER_15MIN", 30),
   standardHeaders: true,
   legacyHeaders:   false,
+  keyGenerator:    ipPlusEmailKey,
   handler:         limitReached,
   skip: (req) => req.method === "GET",
 });
@@ -69,6 +125,25 @@ export const registerLimiter = rateLimit({
   max:             5,
   standardHeaders: true,
   legacyHeaders:   false,
+  // Per (IP + email): five attempts for ONE address, rather than five
+  // sign-ups for the whole campus. Someone retrying a failed signup is
+  // throttled; the student next to them is not.
+  keyGenerator:    ipPlusEmailKey,
+  handler:         limitReached,
+});
+
+/* ── Register, second wall: per IP per hour ──
+   The per-email cap above cannot see an attacker churning fresh random
+   addresses, so this keeps an IP-wide ceiling — just one set high
+   enough for a real intake instead of five. Raise it (or list the
+   campus in TRUSTED_IPS) before an orientation day where hundreds sign
+   up from the same Wi-Fi within the hour. */
+export const registerIpLimiter = rateLimit({
+  windowMs:        60 * 60 * 1000,
+  max:             envInt("RATE_LIMIT_REGISTER_PER_IP_PER_HOUR", 150),
+  standardHeaders: true,
+  legacyHeaders:   false,
+  skip:            isTrustedIp,
   handler:         limitReached,
 });
 
@@ -155,9 +230,14 @@ export const arenaLimiter = rateLimit({
      leak no secrets, so they're safe to leave open. */
 export const generalLimiter = rateLimit({
   windowMs:        60 * 1000,
-  max:             200,
+  // Per signed-in user where there is one, so a class opening their
+  // dashboards together gets a bucket each instead of sharing 200
+  // between the whole college. Anonymous traffic still shares per IP,
+  // which is why the ceiling is higher than it used to be.
+  max:             envInt("RATE_LIMIT_GENERAL_PER_MIN", 300),
   standardHeaders: true,
   legacyHeaders:   false,
+  keyGenerator:    userOrIpKey,
   handler:         limitReached,
   skip: (req) => {
     if (!req.path.startsWith("/api/")) return true;
@@ -187,6 +267,8 @@ export const contactLimiter = rateLimit({
   max:             5,
   standardHeaders: true,
   legacyHeaders:   false,
+  // Five per PERSON per hour, not five for the whole college.
+  keyGenerator:    userOrIpKey,
   handler:         limitReached,
 });
 

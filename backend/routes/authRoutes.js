@@ -11,6 +11,7 @@ import {
 import {
   loginLimiter,
   registerLimiter,
+  registerIpLimiter,
   forgotPasswordLimiter,
   resetPasswordLimiter,
   resendVerificationLimiter,
@@ -26,7 +27,7 @@ const router = express.Router();
 // Limiters run BEFORE validateBody so a single attempt counts even
 // when the body is malformed — preventing a "send junk to dodge the
 // limiter" pattern.
-router.post("/register",            registerLimiter,           validateBody(registerSchema),           authController.register);
+router.post("/register",            registerIpLimiter, registerLimiter, validateBody(registerSchema),  authController.register);
 router.post("/login",               loginLimiter,              validateBody(loginSchema),              authController.login);
 router.post("/logout",              authController.logout);
 router.get ("/logout",              authController.logoutRedirect);

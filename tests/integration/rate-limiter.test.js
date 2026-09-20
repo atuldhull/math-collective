@@ -43,8 +43,11 @@ describe("authLimiter", () => {
     app.get("/login", (_req, res) => res.json({ ok: true }));
   });
 
-  it("allows the first 10 POST requests, blocks the 11th with 429", async () => {
-    for (let i = 0; i < 10; i++) {
+  // The parent ceiling was 10 per IP, which on a campus NAT meant ten
+  // auth requests per 15 minutes for the ENTIRE college. It is now 30
+  // per (IP + email) and tunable via RATE_LIMIT_AUTH_PER_15MIN.
+  it("allows the first 30 POST requests, blocks the 31st with 429", async () => {
+    for (let i = 0; i < 30; i++) {
       const res = await request(app).post("/login");
       expect(res.status).toBe(200);
     }

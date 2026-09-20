@@ -10,6 +10,7 @@
 
 import supabase from "../config/supabase.js";
 import { logger } from "../config/logger.js";
+import { createTtlCache } from "../lib/ttlCache.js";
 
 /* ─────────────────────────────────────
    HELPERS
@@ -279,6 +280,11 @@ export const requireSameOrg = (req, res, next) => {
    enabled for the user's org plan.
    Usage: checkFeatureFlag('ai_tools')
 ───────────────────────────────────── */
+/* An org's plan and flags change on upgrade, so a short TTL is plenty.
+   Exported so a plan change can drop the entry immediately rather than
+   waiting the minute out. */
+export const featureCache = createTtlCache({ ttlMs: 60 * 1000 });
+
 export const checkFeatureFlag = (featureName) => async (req, res, next) => {
   // Super admins bypass all feature flags
   if (req.userRole === "super_admin") return next();
@@ -287,23 +293,29 @@ export const checkFeatureFlag = (featureName) => async (req, res, next) => {
   if (!orgId) return res.status(403).json({ error: "No organisation context" });
 
   try {
-    const { data: org } = await supabase
-      .from("organisations")
-      .select("feature_flags, plan_name, status")
-      .eq("id", orgId)
-      .single();
+    // Two queries on EVERY feature-gated request, for values that change
+    // when somebody upgrades their plan — not sixty times a second.
+    // Cached per org for a minute.
+    const { org, plan } = await featureCache.wrap(orgId, async () => {
+      const { data: o } = await supabase
+        .from("organisations")
+        .select("feature_flags, plan_name, status")
+        .eq("id", orgId)
+        .single();
+      if (!o) return { org: null, plan: null };
+
+      const { data: p } = await supabase
+        .from("subscription_plans")
+        .select("features")
+        .eq("name", o.plan_name)
+        .maybeSingle();
+      return { org: o, plan: p };
+    });
 
     if (!org) return res.status(403).json({ error: "Organisation not found" });
     if (org.status !== "active" && org.status !== "trial") {
       return res.status(403).json({ error: "Organisation account is " + org.status });
     }
-
-    // Check plan feature
-    const { data: plan } = await supabase
-      .from("subscription_plans")
-      .select("features")
-      .eq("name", org.plan_name)
-      .maybeSingle();
 
     const planFeatures = plan?.features || {};
     const orgOverrides = org.feature_flags || {};

@@ -107,6 +107,7 @@
     "vite-plugin-glsl": "1.5.6",
     "web-push": "3.6.7",
     "yaml": "2.8.3",
+    "zod": "4.3.6",
     "zustand": "5.0.12"
   },
   "engines": {

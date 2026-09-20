@@ -195,6 +195,11 @@ SPA served by Express.
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_CONTACT` | feature | Web push notifications. Generate with `node backend/scripts/generateVapidKeys.js` |
 | `SENTRY_DSN` | feature | Sentry error reporting (any free-tier DSN works) |
 | `PORT` | no | Server port (default 3000) |
+| `ALLOWED_EMAIL_DOMAINS` | no | Comma-separated domains allowed to self-register, e.g. `bmsit.in`. Unset = any domain (current behaviour). An invite token always overrides it. |
+| `TRUSTED_IPS` | no | Comma-separated IPs exempt from the IP-only rate limits — put the campus outbound IP here for an intake day. Per-user and per-email limits still apply. |
+| `RATE_LIMIT_REGISTER_PER_IP_PER_HOUR` | no | Sign-ups allowed per IP per hour (default 150). Raise for a big orientation-day intake behind one NAT. |
+| `RATE_LIMIT_AUTH_PER_15MIN` | no | Ceiling across `/api/auth` POSTs per (IP + email) per 15 min (default 30) |
+| `RATE_LIMIT_GENERAL_PER_MIN` | no | API requests per minute per signed-in user, or per IP when anonymous (default 300) |
 
 Missing a feature-gated var? Feature silently disables at boot with a warning log. Missing
 a required var in production → process exits immediately with a clear error (see
