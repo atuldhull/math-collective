@@ -83,7 +83,7 @@ export default function MainLayout() {
   const closeMobile = () => setMobileOpen(false);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-obsidian text-text-primary">
+    <div className="relative min-h-screen overflow-clip-safe bg-obsidian text-text-primary">
       {/* Outer is FULL WIDTH and so are the header + footer now. The
           earlier cap (max-w-7xl on header + footer) made them feel like
           centred pills floating in a full-bleed page — visually

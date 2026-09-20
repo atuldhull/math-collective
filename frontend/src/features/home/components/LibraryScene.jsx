@@ -110,9 +110,16 @@ const QUALITY_PRESETS = {
   // adds 2-4 ms per frame on integrated GPUs, which on a 60 fps budget
   // (16.6 ms) eats 12-24% of the per-frame slice. Removing it on every
   // mobile-class device was the single biggest measured perf win.
-  low:  { shelves: 6, booksPerLv: 60,  dust: 120, stars: 350, candelabra: 5,  buildings: 7,  postprocess: false },
-  mid:  { shelves: 8, booksPerLv: 80,  dust: 220, stars: 600, candelabra: 7,  buildings: 14, postprocess: false },
-  high: { shelves: 9, booksPerLv: 100, dust: 350, stars: 900, candelabra: 10, buildings: 24, postprocess: true  },
+  // lanternLights caps how many of the 8 lantern positions get a REAL
+  // PointLight. Every lit surface shades every light per pixel, so the
+  // cost is (lights x pixels) — and the lanterns were exempt from
+  // tiering entirely, which left even low-end phones shading 14 lights
+  // a frame (8 lanterns + 5 candelabra + 1 monument). The emissive bulb
+  // mesh is drawn at every position regardless, so the lanterns still
+  // LOOK lit; they just stop contributing real-time illumination.
+  low:  { shelves: 6, booksPerLv: 60,  dust: 120, stars: 350, candelabra: 5,  buildings: 7,  postprocess: false, lanternLights: 2 },
+  mid:  { shelves: 8, booksPerLv: 80,  dust: 220, stars: 600, candelabra: 7,  buildings: 14, postprocess: false, lanternLights: 4 },
+  high: { shelves: 9, booksPerLv: 100, dust: 350, stars: 900, candelabra: 10, buildings: 24, postprocess: true,  lanternLights: 8 },
 };
 
 function scrollSpan() { return window.innerHeight * 5; }
@@ -149,10 +156,14 @@ export default function LibraryScene() {
     try {
       renderer = new THREE.WebGLRenderer({
         // `mid` and `low` skip the postprocess composer entirely (see
-        // QUALITY_PRESETS), so MSAA on the main framebuffer is the
-        // only AA they get. Keep antialias true on every tier to
-        // hide the bookshelf edge aliasing.
-        antialias: true, alpha: true, powerPreference: "high-performance",
+        // QUALITY_PRESETS), so MSAA on the main framebuffer is the only
+        // AA they get — keep it there to hide bookshelf edge aliasing.
+        // On `high` the composer redraws the frame into its own target,
+        // so paying for MSAA on the main framebuffer first is buying the
+        // same pixels twice.
+        antialias: !Q.postprocess,
+        alpha: true,
+        powerPreference: "high-performance",
       });
       // DPR cap is tighter on mobile because rendering at devicePixelRatio
       // 3 on a 6.5-inch phone screen means pushing 6× the pixels through
@@ -833,10 +844,23 @@ export default function LibraryScene() {
       [-MONUMENT_W - 0.5, 0.5, MONUMENT_Z + 0.5],
       [ MONUMENT_W + 0.5, 0.5, MONUMENT_Z + 0.5],
     ];
-    lanternPositions.forEach(([x, y, z]) => {
+    // Pick which positions get a real light by walking the list at an
+    // even stride, so the surviving lights stay spread down the
+    // corridor instead of clustering at one end.
+    const lanternLightBudget = Math.min(Q.lanternLights ?? lanternPositions.length, lanternPositions.length);
+    const lanternStride = lanternPositions.length / Math.max(1, lanternLightBudget);
+    const litLanternIndexes = new Set(
+      Array.from({ length: lanternLightBudget }, (_, i) => Math.floor(i * lanternStride)),
+    );
+
+    lanternPositions.forEach(([x, y, z], i) => {
+      // The glowing bulb is drawn everywhere — it is one emissive mesh
+      // and costs almost nothing.
       const bulb = new THREE.Mesh(lanternBulbGeo, lanternBulbMat);
       bulb.position.set(x, y, z);
       scene.add(bulb);
+
+      if (!litLanternIndexes.has(i)) return;
       const light = new THREE.PointLight(0xffb866, 1.8, 6, 1.5);
       light.position.set(x, y, z);
       scene.add(light);
@@ -1275,7 +1299,14 @@ export default function LibraryScene() {
     };
     document.addEventListener("visibilitychange", onVisibility);
 
-    const tick = () => {
+    // Frame delta, so the smoothing below settles at the same RATE
+    // whether the device is running at 30, 60 or 120 fps. A fixed
+    // per-frame lerp does not: it converges twice as fast at 120 fps.
+    let lastFrameMs = 0;
+
+    const tick = (nowMs = 0) => {
+      const dt = lastFrameMs ? Math.min(0.1, (nowMs - lastFrameMs) / 1000) : 1 / 60;
+      lastFrameMs = nowMs;
       const span = scrollSpan();
       const p = span > 0 ? Math.max(0, Math.min(1, window.scrollY / span)) : 0;
 
@@ -1346,15 +1377,30 @@ export default function LibraryScene() {
         target.candleI    = 0.0;
       }
 
-      const k = 0.07;
+      // ── One smoothing layer, not two ──
+      // Lenis already smooths the scroll position (lerp 0.085), and the
+      // camera then smoothed itself toward that already-smoothed value
+      // at 0.07/frame. Two exponential smoothers in series put the
+      // camera about half a second behind the finger, which reads as lag
+      // even when the frame rate is fine. The camera now tracks the
+      // (already smooth) scroll closely and Lenis owns the feel.
+      //
+      // rate() converts a per-frame factor into a frame-rate independent
+      // one: the same settle time at 30 fps and at 120 fps.
+      const rate = (perFrameAt60) => 1 - Math.pow(1 - perFrameAt60, dt * 60);
+
+      const k = rate(0.35);
       current.camZ       = THREE.MathUtils.lerp(current.camZ,       target.camZ,       k);
       current.camY       = THREE.MathUtils.lerp(current.camY,       target.camY,       k);
       current.lookY      = THREE.MathUtils.lerp(current.lookY,      target.lookY,      k);
       current.lookZ      = THREE.MathUtils.lerp(current.lookZ,      target.lookZ,      k);
-      current.fogDensity = THREE.MathUtils.lerp(current.fogDensity, target.fogDensity, 0.04);
-      current.glyphAlpha = THREE.MathUtils.lerp(current.glyphAlpha, target.glyphAlpha, 0.05);
-      current.starAlpha  = THREE.MathUtils.lerp(current.starAlpha,  target.starAlpha,  0.05);
-      current.candleI    = THREE.MathUtils.lerp(current.candleI,    target.candleI,    0.05);
+
+      // Ambience, not scroll response — these stay slow on purpose so
+      // the candles and fog drift rather than snap.
+      current.fogDensity = THREE.MathUtils.lerp(current.fogDensity, target.fogDensity, rate(0.04));
+      current.glyphAlpha = THREE.MathUtils.lerp(current.glyphAlpha, target.glyphAlpha, rate(0.05));
+      current.starAlpha  = THREE.MathUtils.lerp(current.starAlpha,  target.starAlpha,  rate(0.05));
+      current.candleI    = THREE.MathUtils.lerp(current.candleI,    target.candleI,    rate(0.05));
 
       camera.position.set(0, current.camY, current.camZ);
       camera.lookAt(0, current.lookY, current.lookZ);

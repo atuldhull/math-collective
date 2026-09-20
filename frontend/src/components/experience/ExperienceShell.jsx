@@ -24,12 +24,34 @@ export default function ExperienceShell({ children }) {
       return undefined;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      setBooting(false);
-    }, 1500);
+    // Was a flat 1500ms on EVERY full page load, tied to nothing that
+    // was actually loading — a second and a half of forced waiting
+    // before the site appeared. Hand control to the browser instead:
+    // hide as soon as the page has finished loading, with a short
+    // floor so the animation does not flash, and a ceiling so a slow
+    // asset cannot trap anyone behind it.
+    const MIN_MS = 300;
+    const MAX_MS = 1500;
+    const startedAt = performance.now();
+
+    let timeoutId = 0;
+    const finish = () => {
+      const elapsed = performance.now() - startedAt;
+      const wait = Math.max(0, MIN_MS - elapsed);
+      timeoutId = window.setTimeout(() => setBooting(false), wait);
+    };
+
+    if (document.readyState === "complete") {
+      finish();
+    } else {
+      window.addEventListener("load", finish, { once: true });
+      // Safety net: never hold the screen longer than the old timeout.
+      timeoutId = window.setTimeout(() => setBooting(false), MAX_MS);
+    }
 
     return () => {
       window.clearTimeout(timeoutId);
+      window.removeEventListener("load", finish);
     };
   }, [reducedMotion]);
 

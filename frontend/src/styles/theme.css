@@ -307,6 +307,24 @@ h1, h2, h3, h4 {
   .px-5 { padding-left: 1rem; padding-right: 1rem; }
 }
 
+/* Crop overflow WITHOUT creating a scroll container.
+
+   MainLayout's root used `overflow-hidden`, which made it a scroll
+   container and disabled position:sticky for the whole site — the
+   header, the Problems filter sidebar, the Arena side card and the
+   Events hero were all written to stick and none of them did. Measured
+   at 375px before the fix: the sticky header moved -600px on a 600px
+   scroll, i.e. it scrolled away like static content.
+
+   `overflow: clip` crops exactly the same way but does not create a
+   scroll container. The `hidden` declaration comes first so Safari
+   before 16 still crops; browsers that understand `clip` take the
+   second line. */
+.overflow-clip-safe {
+  overflow: hidden;
+  overflow: clip;
+}
+
 /* Prevent horizontal overflow on any viewport narrower than a laptop.
    Previous rule only kicked in ≤480px, so phablets and small tablets
    (481–767px) could still show a horizontal scrollbar when a stray
@@ -314,8 +332,43 @@ h1, h2, h3, h4 {
    content over the edge. Applying it at the html + body level from
    767px down catches every mobile/tablet case without affecting
    desktop layouts. */
+/* Frosted glass is expensive, and most expensive exactly where it is
+   least affordable. A backdrop-filter forces the browser to re-sample
+   and blur everything behind the element; over a moving background it
+   redoes that every single frame. There are ~70 backdrop-blur usages
+   across the app, including the sign-in card that sits over an
+   animated canvas.
+
+   On phones the effect is nearly invisible at arm's length anyway, so
+   below 768px the blur is dropped and the translucency is replaced
+   with a more opaque surface — the panel still reads as a panel, at a
+   fraction of the cost. Desktop keeps the effect.
+
+   Anything that genuinely needs blur on a phone can opt back in with
+   .keep-blur. */
 @media (max-width: 767px) {
-  html, body { overflow-x: hidden; }
+  [class*="backdrop-blur"]:not(.keep-blur) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="backdrop-blur"]:not(.keep-blur) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+@media (max-width: 767px) {
+  /* clip, not hidden. `overflow: hidden` makes the element a SCROLL
+     CONTAINER, and a scroll container silently disables position:sticky
+     for everything inside it. `clip` crops identically without that
+     side effect. The hidden line stays first as a fallback for Safari
+     before 16, which ignores the clip line it cannot parse. */
+  html, body {
+    overflow-x: hidden;
+    overflow-x: clip;
+  }
 }
 @media (max-width: 480px) {
   .overflow-x-auto { -webkit-overflow-scrolling: touch; }
