@@ -22,6 +22,11 @@
  * `npm run build` after changing frontend source.
  */
 
+/* The callbacks passed to page.evaluate() run inside the BROWSER, not in
+   Node, so they legitimately use browser globals that the Node-flavoured
+   lint config for tests/ does not know about. */
+/* global document, window, getComputedStyle, requestAnimationFrame */
+
 import { test, expect } from "@playwright/test";
 
 const PHONES = [
