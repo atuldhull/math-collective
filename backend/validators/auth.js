@@ -14,12 +14,20 @@
  *       * presence (password can't be the empty string)
  *       * length caps (DoS defence — a 10MB "password" field would
  *         otherwise reach bcrypt)
- *   - Passwords have a floor of 6 for resetPassword to match what
- *     the controller already enforces; login has no floor because the
- *     existing password could be anything Supabase accepts.
+ *   - Every schema that SETS a new password shares the floor from
+ *     lib/passwordPolicy.js, so register / reset / change can no longer
+ *     drift apart. Login has no floor: an existing account's password
+ *     could be anything Supabase once accepted, and those members still
+ *     have to be able to sign in.
  */
 
 import { z } from "zod";
+import {
+  MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_LENGTH,
+  PASSWORD_TOO_SHORT,
+  PASSWORD_TOO_LONG,
+} from "../lib/passwordPolicy.js";
 
 const email       = z.string().trim().toLowerCase()
   .email("must be a valid email")
@@ -27,11 +35,11 @@ const email       = z.string().trim().toLowerCase()
 
 const password    = z.string()
   .min(1, "password required")
-  .max(128, "password too long");
+  .max(MAX_PASSWORD_LENGTH, PASSWORD_TOO_LONG);
 
 const newPassword = z.string()
-  .min(6,   "password must be at least 6 characters")
-  .max(128, "password too long");
+  .min(MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT)
+  .max(MAX_PASSWORD_LENGTH, PASSWORD_TOO_LONG);
 
 export const registerSchema = z.object({
   email,
@@ -49,10 +57,20 @@ export const forgotPasswordSchema = z.object({
   email,
 });
 
+/* A recovery link arrives in one of two shapes, depending on which
+   email template the Supabase project is on:
+     - implicit flow → #access_token=...&type=recovery
+     - OTP-hash flow → ?token_hash=...&type=recovery
+   The endpoint accepts either, so nobody is stranded on a link the UI
+   happened not to parse. Exactly one of the two must be present. */
 export const resetPasswordSchema = z.object({
-  access_token: z.string().min(1, "token required"),
+  access_token: z.string().min(1).max(4096).optional(),
+  token_hash:   z.string().min(1).max(4096).optional(),
   new_password: newPassword,
-});
+}).refine(
+  (v) => Boolean(v.access_token) !== Boolean(v.token_hash),
+  { path: ["access_token"], message: "a recovery token is required" },
+);
 
 export const resendVerificationSchema = z.object({
   email,

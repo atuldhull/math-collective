@@ -8,11 +8,13 @@
  *  - Role-based redirect updated for super_admin
  */
 
-import supabase from "../config/supabase.js";
+import supabase, { createAuthClient } from "../config/supabase.js";
 import { logger } from "../config/logger.js";
 import { SESSION_COOKIE_NAME } from "../middleware/sessionConfig.js";
 import { isLocked, recordFailure, recordSuccess } from "../lib/loginAttempts.js";
 import { writeAudit, AuditAction } from "../lib/audit.js";
+import { MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT } from "../lib/passwordPolicy.js";
+import { recoveryRedirectUrl } from "../lib/appUrl.js";
 
 /* Regenerate the session ID before writing user data.
    Defends against session-fixation: an attacker who tricked the victim
@@ -440,7 +442,7 @@ const forgotPassword = async (req, res) => {
   if (!email) return res.status(400).json({ error: "Email required" });
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${req.protocol}://${req.get("host")}/login`,
+      redirectTo: recoveryRedirectUrl(req),
     });
     if (error) {
       logger.info({ email, reason: error.message }, "forgotPassword: upstream declined (response masked)");
@@ -454,16 +456,45 @@ const forgotPassword = async (req, res) => {
   });
 };
 
-/* ── RESET PASSWORD (using Supabase recovery token) ── */
+/* ── RESET PASSWORD (using a Supabase recovery token) ──
+   Accepts either token shape a recovery link can carry:
+     - access_token — implicit flow, arrives in the URL fragment
+     - token_hash   — OTP-hash flow, arrives as a query param
+   Whichever the project's email template uses, the member lands on the
+   same form and this endpoint resolves it to a user id.
+
+   Both lookups run on a DETACHED client (createAuthClient) rather than
+   the shared service-role singleton: verifyOtp signs that client in as
+   the user, and doing that to the singleton left every later admin
+   query in the process carrying a member's JWT. */
 const resetPassword = async (req, res) => {
-  const { access_token, new_password } = req.body;
-  if (!access_token || !new_password) return res.status(400).json({ error: "Token and new password required" });
-  if (new_password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+  const { access_token, token_hash, new_password } = req.body;
+  if (!access_token && !token_hash) {
+    return res.status(400).json({ error: "Reset token and new password required" });
+  }
+  if (!new_password) return res.status(400).json({ error: "Reset token and new password required" });
+  if (new_password.length < MIN_PASSWORD_LENGTH) {
+    return res.status(400).json({ error: PASSWORD_TOO_SHORT });
+  }
+
+  const EXPIRED = "This reset link has expired or has already been used. Request a new one from the sign-in page.";
 
   try {
-    // Use the access token to get the user, then update password
-    const { data: { user }, error: userError } = await supabase.auth.getUser(access_token);
-    if (userError || !user) return res.status(400).json({ error: "Invalid or expired reset link. Please request a new one." });
+    const authClient = createAuthClient();
+    let user = null;
+
+    if (access_token) {
+      const { data, error } = await authClient.auth.getUser(access_token);
+      if (error || !data?.user) return res.status(400).json({ error: EXPIRED });
+      user = data.user;
+    } else {
+      const { data, error } = await authClient.auth.verifyOtp({
+        token_hash,
+        type: "recovery",
+      });
+      if (error || !data?.user) return res.status(400).json({ error: EXPIRED });
+      user = data.user;
+    }
 
     const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
       password: new_password,
@@ -478,7 +509,7 @@ const resetPassword = async (req, res) => {
       action:     AuditAction.PASSWORD_RESET,
       targetType: "user",
       targetId:   user.id,
-      metadata:   { email: user.email, via: "recovery_token" },
+      metadata:   { email: user.email, via: access_token ? "recovery_token" : "token_hash" },
       req,
     });
     return res.json({ success: true, message: "Password updated successfully" });

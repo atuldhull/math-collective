@@ -7,7 +7,7 @@ import Button from "@/components/ui/Button";
 import InputField from "@/components/ui/InputField";
 import { useAuthStore } from "@/store/auth-store";
 import { auth } from "@/lib/api";
-import http from "@/lib/http";
+import { apiErrorMessage } from "@/lib/apiError";
 import { dashboardForRole } from "@/lib/roles";
 
 export default function LoginPage() {
@@ -17,45 +17,22 @@ export default function LoginPage() {
   // If ProtectedRoute bounced a guest here, go back there after login.
   const returnTo = location.state?.from || null;
 
-  // ── Handle Supabase password recovery redirect ──
-  // Supabase sends: /login#access_token=xxx&type=recovery
-  const [recoveryMode, setRecoveryMode] = useState(false);
-  const [newPw, setNewPw] = useState("");
-  const [newPwConfirm, setNewPwConfirm] = useState("");
-  const [recoveryToken, setRecoveryToken] = useState("");
-  const [recoveryLoading, setRecoveryLoading] = useState(false);
-  const [recoveryMsg, setRecoveryMsg] = useState(null);
-
+  // ── Legacy recovery-link forwarding ──
+  // Reset emails now point at /reset-password (see backend/lib/appUrl.js),
+  // but links already sitting in inboxes — and anything still configured
+  // against the project's old Site URL — land here with the recovery
+  // token attached. Hand the whole fragment/query to the real page
+  // rather than re-implementing the form in two places. navigate() is
+  // basename-aware, so the "/app" mount is added for us.
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.includes("type=recovery")) {
-      const params = new URLSearchParams(hash.replace("#", "?"));
-      const token = params.get("access_token");
-      if (token) {
-        setRecoveryMode(true);
-        setRecoveryToken(token);
-        // Clean URL
-        window.history.replaceState(null, "", window.location.pathname);
-      }
-    }
-  }, []);
+    const { hash, search } = window.location;
+    const isRecovery =
+      hash.includes("type=recovery")
+      || hash.includes("access_token=")
+      || new URLSearchParams(search).get("type") === "recovery";
+    if (isRecovery) navigate(`/reset-password${search}${hash}`, { replace: true });
+  }, [navigate]);
 
-  const handleRecovery = async (e) => {
-    e.preventDefault();
-    if (newPw.length < 6) { setRecoveryMsg({ type: "error", text: "Password must be at least 6 characters" }); return; }
-    if (newPw !== newPwConfirm) { setRecoveryMsg({ type: "error", text: "Passwords don't match" }); return; }
-    setRecoveryLoading(true);
-    setRecoveryMsg(null);
-    try {
-      // Call backend to update password using the recovery token
-      await http.post("/auth/reset-password", { access_token: recoveryToken, new_password: newPw });
-      setRecoveryMsg({ type: "success", text: "Password updated! You can now sign in." });
-      setTimeout(() => { setRecoveryMode(false); }, 2000);
-    } catch (err) {
-      setRecoveryMsg({ type: "error", text: err.response?.data?.error || "Failed to reset password" });
-    }
-    setRecoveryLoading(false);
-  };
   const login = useAuthStore((s) => s.login);
   const clearError = useAuthStore((s) => s.clearError);
   const [form, setForm] = useState({ email: "", password: "" });
@@ -75,7 +52,7 @@ export default function LoginPage() {
       const { data } = await auth.forgotPassword(forgotEmail);
       setForgotMsg({ type: "success", text: data.message || "Reset email sent! Check your inbox." });
     } catch (err) {
-      setForgotMsg({ type: "error", text: err.response?.data?.error || "Failed to send reset email" });
+      setForgotMsg({ type: "error", text: apiErrorMessage(err, "Failed to send reset email") });
     }
     setForgotLoading(false);
   };
@@ -105,53 +82,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  // ── Recovery mode UI ──
-  if (recoveryMode) {
-    return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="city" intensity={0.35} />
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full">
-          <div
-            className="relative overflow-hidden border border-line/20 bg-surface/60 p-8 shadow-panel backdrop-blur-2xl sm:p-10"
-            style={{ clipPath: "var(--clip-notch)", borderTop: "2px solid var(--monument-city)" }}
-          >
-            {/* Background math symbol */}
-            <span
-              className="math-text pointer-events-none absolute right-4 top-4 select-none"
-              style={{ fontSize: "6rem", opacity: 0.04, lineHeight: 1 }}
-            >
-              λ
-            </span>
-
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-success">Password Recovery</p>
-            <h1 className="mt-3 font-display text-[2rem] font-extrabold tracking-[-0.05em] text-white">
-              Set New Password
-            </h1>
-            <p className="mt-3 text-sm text-text-muted">Enter your new password below.</p>
-
-            {recoveryMsg && (
-              <div className={`mt-5 border px-4 py-3 text-sm ${recoveryMsg.type === "success" ? "border-success/30 bg-success/10 text-success" : "border-danger/30 bg-danger/10 text-danger"}`} style={{ clipPath: "var(--clip-notch)" }}>
-                {recoveryMsg.text}
-              </div>
-            )}
-
-            <form onSubmit={handleRecovery} className="mt-6 space-y-5">
-              <InputField label="New Password" type="password" placeholder="Min 6 characters" value={newPw} onChange={(e) => setNewPw(e.target.value)} required />
-              <InputField label="Confirm Password" type="password" placeholder="Repeat password" value={newPwConfirm} onChange={(e) => setNewPwConfirm(e.target.value)} required />
-              <Button type="submit" loading={recoveryLoading} className="w-full justify-center" size="lg">
-                Update Password
-              </Button>
-            </form>
-
-            <Button variant="ghost" size="sm" onClick={() => setRecoveryMode(false)} className="mt-4 w-full justify-center">
-              Back to sign in
-            </Button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div style={{ position: "relative" }}>

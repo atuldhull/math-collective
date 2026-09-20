@@ -6,6 +6,8 @@ import { useMonument } from "@/hooks/useMonument";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { user } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/apiError";
+import { MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT } from "@/lib/passwordPolicy";
 import http from "@/lib/http";
 
 import ProfileInfoCard from "./profile/ProfileInfoCard";
@@ -198,8 +200,16 @@ export default function ProfilePage() {
       setPwError("Passwords do not match");
       return;
     }
-    if (newPassword.length < 6) {
-      setPwError("New password must be at least 6 characters");
+    // The floor mirrors backend/lib/passwordPolicy.js. It used to say 6
+    // here while the API demanded 8, so a 6- or 7-character password
+    // sailed past this check and came back as a 400 the catch below
+    // then rendered as a blank "Failed to change password".
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setPwError(PASSWORD_TOO_SHORT);
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setPwError("New password must be different from your current one");
       return;
     }
 
@@ -211,7 +221,9 @@ export default function ProfilePage() {
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setPwError(err.response?.data?.message || "Failed to change password");
+      // The API answers with { error } (and { issues } from Zod) —
+      // never { message }, which is what this used to read.
+      setPwError(apiErrorMessage(err, "Failed to change password"));
     } finally {
       setPwLoading(false);
     }

@@ -6,7 +6,9 @@
  *   POST  /api/user/change-password   — currentPassword + newPassword
  *
  * The controllers already enforce a few invariants (trim, slice to 60
- * chars, password floor of 8). Pulling those into Zod here lets us:
+ * chars, password floor — now shared via lib/passwordPolicy.js so register,
+ * recovery-reset and this route can never disagree again). Pulling
+ * those into Zod here lets us:
  *   - Reject obviously-bad input BEFORE the supabase round-trip
  *     (changePassword previously called signInWithPassword with junk).
  *   - Cap field sizes so a megabyte-long "bio" can't pass the global
@@ -16,6 +18,12 @@
  */
 
 import { z } from "zod";
+import {
+  MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_LENGTH,
+  PASSWORD_TOO_SHORT,
+  PASSWORD_TOO_LONG,
+} from "../lib/passwordPolicy.js";
 
 /* PATCH /api/user/profile.
    Every field is optional — UI sends only what changed. Strings are
@@ -41,6 +49,6 @@ export const updateProfileSchema = z.object({
    ceiling of 128 mirrors validators/auth.js — keeps bcrypt off a
    1 MB blob if the global body cap is ever raised. */
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "current password required").max(128, "password too long"),
-  newPassword:     z.string().min(8, "new password must be at least 8 characters").max(128, "password too long"),
+  currentPassword: z.string().min(1, "current password required").max(MAX_PASSWORD_LENGTH, PASSWORD_TOO_LONG),
+  newPassword:     z.string().min(MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT).max(MAX_PASSWORD_LENGTH, PASSWORD_TOO_LONG),
 }).strict();

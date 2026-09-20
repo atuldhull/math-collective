@@ -241,6 +241,27 @@ export function createApp() {
      where the SPA is mounted. */
   app.get("/", (_req, res) => res.redirect(302, "/app/"));
 
+  /* Auth pages that were ever linked WITHOUT the /app prefix. Serving
+     index.html at a bare /login "works" in the sense that the bundle
+     loads, but React Router (basename "/app") has no route for /login
+     and drops the visitor on the 404 page. That is what happened to
+     every password-reset email sent before the link was corrected:
+     Supabase pointed at <origin>/login#access_token=..., the SPA 404'd,
+     and the recovery token was never read.
+
+     A 302 fixes those links retroactively — the browser carries the URL
+     fragment across a redirect whose target has no fragment of its own,
+     so the recovery token survives the hop to /app/reset-password. */
+  const BARE_AUTH_PATHS = {
+    "/login":          "/app/login",
+    "/register":       "/app/register",
+    "/reset-password": "/app/reset-password",
+  };
+  app.get(Object.keys(BARE_AUTH_PATHS), (req, res) => {
+    const qs = req.originalUrl.includes("?") ? `?${req.originalUrl.split("?")[1]}` : "";
+    res.redirect(302, `${BARE_AUTH_PATHS[req.path]}${qs}`);
+  });
+
   /* ── SPA fallback — any non-API path renders the React SPA.
      express.static handles /app/assets/* etc. above; this catches everything
      else (e.g. direct-link entry to /app/dashboard) and lets client-side

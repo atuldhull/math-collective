@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import InputField from "@/components/ui/InputField";
+import { MIN_PASSWORD_LENGTH, PASSWORD_HELPER, PASSWORD_TOO_SHORT } from "@/lib/passwordPolicy";
 
 export default function PasswordChangeSection({
   showPassword,
@@ -59,6 +60,7 @@ export default function PasswordChangeSection({
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
+                  autoComplete="current-password"
                   required
                 />
                 <InputField
@@ -67,6 +69,16 @@ export default function PasswordChangeSection({
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
+                  autoComplete="new-password"
+                  /* State the rule up front. The form used to show no
+                     hint at all, so the length requirement was only
+                     discoverable by being rejected. */
+                  helper={PASSWORD_HELPER}
+                  error={
+                    newPassword && newPassword.length < MIN_PASSWORD_LENGTH
+                      ? PASSWORD_TOO_SHORT
+                      : undefined
+                  }
                   required
                 />
                 <InputField
@@ -75,6 +87,7 @@ export default function PasswordChangeSection({
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
+                  autoComplete="new-password"
                   error={
                     confirmPassword && newPassword !== confirmPassword
                       ? "Passwords do not match"
@@ -102,7 +115,16 @@ export default function PasswordChangeSection({
                   </motion.p>
                 )}
 
-                <Button type="submit" size="sm" loading={pwLoading}>
+                <Button
+                  type="submit"
+                  size="sm"
+                  loading={pwLoading}
+                  disabled={
+                    !currentPassword
+                    || newPassword.length < MIN_PASSWORD_LENGTH
+                    || newPassword !== confirmPassword
+                  }
+                >
                   Update Password
                 </Button>
               </div>

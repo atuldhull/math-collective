@@ -14,9 +14,10 @@
 //   2. syncTitle() helper — called without a request context (no
 //      req.db available); user_id alone is unique across orgs since
 //      it comes from auth.users.
-import supabase from "../config/supabase.js";
+import supabase, { createAuthClient } from "../config/supabase.js";
 import { logger } from "../config/logger.js";
 import { writeAudit, AuditAction } from "../lib/audit.js";
+import { MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT } from "../lib/passwordPolicy.js";
 
 /* ── XP → Title mapping ── */
 export const XP_TITLES = [
@@ -246,24 +247,47 @@ export const getUserStats = async (req, res) => {
 /* CHANGE PASSWORD — POST /api/user/change-password */
 export const changePassword = async (req, res) => {
   const userId = req.session?.user?.id;
+  const email  = req.session?.user?.email;
   if (!userId) return res.status(401).json({ error: "Login required" });
+  // A session row written before the payload carried `email` (or one
+  // restored from an old store) has no address to verify against.
+  // Saying so beats a blanket "current password is incorrect".
+  if (!email) return res.status(409).json({ error: "Your session is out of date. Sign out, sign back in, then try again." });
 
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword)
     return res.status(400).json({ error: "Both passwords required" });
-  if (newPassword.length < 8)
-    return res.status(400).json({ error: "New password must be at least 8 characters" });
+  if (newPassword.length < MIN_PASSWORD_LENGTH)
+    return res.status(400).json({ error: PASSWORD_TOO_SHORT });
+  if (newPassword === currentPassword)
+    return res.status(400).json({ error: "New password must be different from your current one" });
 
   try {
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: req.session.user.email, password: currentPassword,
+    // Verify the current password on a DETACHED client. signInWithPassword
+    // stores the resulting session on whichever client makes the call, so
+    // running it on the shared service-role singleton left the whole
+    // process signed in as this member — every admin query after that went
+    // out with their JWT and hit RLS. See config/supabase.js.
+    const authClient = createAuthClient();
+    const { error: signInError } = await authClient.auth.signInWithPassword({
+      email, password: currentPassword,
     });
-    if (signInError) return res.status(401).json({ error: "Current password is incorrect" });
+    if (signInError) {
+      logger.info({ userId, reason: signInError.message }, "changePassword: current-password check failed");
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
 
     const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
       password: newPassword,
     });
-    if (updateError) return res.status(500).json({ error: "Failed to update password" });
+    if (updateError) {
+      // Surface Supabase's own reason (e.g. its project-level strength
+      // rule, or "New password should be different"). Swallowing it was
+      // the reason members saw a bare "Failed to update password" with
+      // nothing to act on.
+      logger.warn({ userId, reason: updateError.message }, "changePassword: update rejected");
+      return res.status(400).json({ error: updateError.message || "Failed to update password" });
+    }
 
     // Audit the in-session password change (distinct from the
     // recovery-token reset path in authController.resetPassword).
@@ -279,7 +303,8 @@ export const changePassword = async (req, res) => {
     });
 
     return res.json({ success: true, message: "Password changed successfully" });
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "changePassword");
     return res.status(500).json({ error: "Password change failed" });
   }
 };

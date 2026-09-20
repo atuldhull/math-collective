@@ -7,6 +7,10 @@ export const auth = {
   register: (name, email, password) => http.post("/auth/register", { name, email, password }),
   logout: () => http.post("/auth/logout"),
   forgotPassword: (email) => http.post("/auth/forgot-password", { email }),
+  // The token arg is whichever half of the recovery link the email
+  // carried: { access_token } for the implicit flow, { token_hash }
+  // for the OTP flow. The endpoint accepts either.
+  resetPassword: (token, newPassword) => http.post("/auth/reset-password", { ...token, new_password: newPassword }),
 };
 
 // ── User ──

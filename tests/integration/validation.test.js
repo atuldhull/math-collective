@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { MIN_PASSWORD_LENGTH } from "../../backend/lib/passwordPolicy.js";
 import express from "express";
 import request from "supertest";
 
@@ -104,9 +105,13 @@ describe("auth schemas — specific rules", () => {
     expect(res.body.issues[0].path).toBe("password");
   });
 
-  it("registerSchema accepts a password of exactly 6", async () => {
+  // The floor lives in backend/lib/passwordPolicy.js and is shared by
+  // register, recovery-reset and in-session change. It used to be 6
+  // here and 8 on change-password, which is how members ended up with
+  // passwords they could not subsequently change.
+  it("registerSchema accepts a password of exactly the policy minimum", async () => {
     const res = await request(buildApp()).post("/register").send({
-      email: "x@y.co", password: "abc123",
+      email: "x@y.co", password: "a".repeat(MIN_PASSWORD_LENGTH),
     });
     expect(res.status).toBe(200);
   });

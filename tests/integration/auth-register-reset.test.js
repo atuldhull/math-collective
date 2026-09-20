@@ -30,6 +30,7 @@ const state = {
   resend:      { error: null },
   reset:       { error: null },
   getUser:     { data: { user: null }, error: null },
+  verifyOtp:   { data: { user: null }, error: null },
   adminUpdate: { error: null },
 
   // observables
@@ -45,6 +46,7 @@ beforeEach(() => {
   state.resend         = { error: null };
   state.reset          = { error: null };
   state.getUser        = { data: { user: null }, error: null };
+  state.verifyOtp      = { data: { user: null }, error: null };
   state.adminUpdate    = { error: null };
   state.lastUpsert     = null;
   state.lastInvUpdate  = null;
@@ -82,19 +84,23 @@ vi.mock("../../backend/config/supabase.js", () => {
     return chain;
   };
 
-  return {
-    default: {
-      from: (t) => builder(t),
-      auth: {
-        signInWithPassword:    async () => ({ data: { user: null }, error: null }),
-        signUp:                async () => state.signUp,
-        resend:                async () => state.resend,
-        resetPasswordForEmail: async () => state.reset,
-        getUser:               async () => state.getUser,
-        admin:                 { updateUserById: async () => state.adminUpdate },
-      },
+  const fake = {
+    from: (t) => builder(t),
+    auth: {
+      signInWithPassword:    async () => ({ data: { user: null }, error: null }),
+      signUp:                async () => state.signUp,
+      resend:                async () => state.resend,
+      resetPasswordForEmail: async () => state.reset,
+      getUser:               async () => state.getUser,
+      verifyOtp:             async () => state.verifyOtp,
+      admin:                 { updateUserById: async () => state.adminUpdate },
     },
   };
+
+  // resetPassword resolves the recovery token on a DETACHED client so
+  // a user session is never stored on the shared service-role client.
+  // The mock hands back the same fake for both.
+  return { default: fake, createAuthClient: () => fake };
 });
 
 const authController = (await import("../../backend/controllers/authController.js")).default;
@@ -293,7 +299,7 @@ describe("POST /api/auth/reset-password", () => {
     expect(res.status).toBe(400);
   });
 
-  it("400 when new_password is too short (<6 chars)", async () => {
+  it("400 when new_password is below the shared password floor", async () => {
     const res = await request(buildApp()).post("/api/auth/reset-password")
       .send({ access_token: "tok", new_password: "abc" });
     expect(res.status).toBe(400);
@@ -304,7 +310,7 @@ describe("POST /api/auth/reset-password", () => {
     const res = await request(buildApp()).post("/api/auth/reset-password")
       .send({ access_token: "bad", new_password: "newsecret123" });
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/invalid or expired/i);
+    expect(res.body.error).toMatch(/expired or has already been used/i);
   });
 
   it("500 when admin.updateUserById fails mid-flight", async () => {

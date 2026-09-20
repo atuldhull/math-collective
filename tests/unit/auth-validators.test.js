@@ -156,3 +156,25 @@ describe("resetPasswordSchema", () => {
     expect(r.success).toBe(false);
   });
 });
+
+/* ────────────────────────────────────────────────────────────────
+   resetPasswordSchema — recovery links arrive in two shapes
+   ──────────────────────────────────────────────────────────────── */
+describe("resetPasswordSchema — token shapes", () => {
+  it("accepts token_hash (OTP-hash email template)", () => {
+    const r = resetPasswordSchema.safeParse({ token_hash: "abc", new_password: "longenough" });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects a body carrying BOTH token shapes (ambiguous)", () => {
+    const r = resetPasswordSchema.safeParse({
+      token_hash: "abc", access_token: "def", new_password: "longenough",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects a body carrying neither token shape", () => {
+    const r = resetPasswordSchema.safeParse({ new_password: "longenough" });
+    expect(r.success).toBe(false);
+  });
+});

@@ -135,7 +135,10 @@ vi.mock("../../backend/config/supabase.js", () => {
     };
     return chain;
   }
-  return { default: fakeSupabase };
+  // changePassword verifies the current password on a DETACHED client
+  // (config/supabase.js) so a user session is never left on the shared
+  // service-role client. Both point at the same fake here.
+  return { default: fakeSupabase, createAuthClient: () => fakeSupabase };
 });
 
 const userRoutes = (await import("../../backend/routes/userRoutes.js")).default;
@@ -381,11 +384,16 @@ describe("POST /change-password — changePassword", () => {
     expect(res.body.error).toMatch(/incorrect/i);
   });
 
-  it("500 when the admin update fails", async () => {
+  // A failed updateUserById is nearly always the caller's problem —
+  // Supabase rejecting the new password against the project policy, or
+  // it matching the old one. Answer 400 and pass its reason through;
+  // hiding it behind an opaque 500 was why members saw no explanation.
+  it("400 with the upstream reason when the admin update fails", async () => {
     state.adminUpdateErr = { message: "admin boom" };
     const res = await request(buildApp()).post("/api/user/change-password")
       .send({ currentPassword: "oldsecret1", newPassword: "newsecret123" });
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/admin boom/);
   });
 
   it("200 happy path", async () => {
