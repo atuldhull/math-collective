@@ -7,7 +7,6 @@
  *   - Handles metadata (read receipts, timestamps)
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { sendNotification } from "./notificationController.js";
 import {
   computeRelationshipState,
@@ -15,10 +14,11 @@ import {
 } from "../lib/relationshipState.js";
 import { sendInternalError } from "../lib/errorResponse.js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
+// Was a third private service-role client. Importing the shared one
+// keeps every connection, retry and future policy change in one
+// place — and makes it obvious when a query is deliberately
+// unscoped rather than accidentally so.
+import supabase from "../config/supabase.js";
 
 // Helper: order two user IDs consistently for conversation dedup
 function orderIds(a, b) {

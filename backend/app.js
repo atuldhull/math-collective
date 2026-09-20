@@ -227,8 +227,7 @@ export function createApp() {
       if (role !== "admin" && role !== "super_admin") {
         return res.status(403).json({ error: "Admin role required" });
       }
-      const { createClient } = await import("@supabase/supabase-js");
-      const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+      const { default: sb } = await import("./config/supabase.js");
       const { count: c } = await sb.from("challenges").select("*", { count: "exact", head: true }).eq("is_active", true);
       const { count: s } = await sb.from("students").select("*", { count: "exact", head: true });
       res.json({ session: req.session?.user || null, activeChallenges: c, totalStudents: s });

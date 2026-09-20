@@ -4,7 +4,11 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// ASSET_DIR is two levels up: controllers/certificate/ → controllers/ → project root → public/uploads/cert-assets
+// ASSET_DIR is two levels up from here: controllers/certificate/ →
+// controllers/ → backend/, giving backend/public/uploads/cert-assets.
+// (The old comment said "project root", which is a different
+// directory — the path itself was always correct, and matches the
+// multer destination in routes/certificateRoutes.js.)
 export const ASSET_DIR = path.join(__dirname, "..", "..", "public", "uploads", "cert-assets");
 fs.mkdirSync(ASSET_DIR, { recursive: true });
 
