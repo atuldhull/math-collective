@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, lazy, Suspense } from "react";
+import DeferUntilNear from "@/components/utils/DeferUntilNear";
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useGSAP } from "@gsap/react";
@@ -417,9 +418,16 @@ export default function HomePage() {
             Lazy-loaded; falls through to a slim placeholder while the
             chunk + KaTeX deps fetch. Placeholder height is approximate
             so layout doesn't jump when the real timeline arrives. */}
-        <Suspense fallback={<div style={{ minHeight: "60vh" }} aria-hidden="true" />}>
-          <EvolutionTimeline />
-        </Suspense>
+        {/* DeferUntilNear, not just Suspense: React.lazy fetches when a
+            component RENDERS, not when it becomes visible. Being below
+            the fold defers nothing on its own, so this chunk — and the
+            ~253KB of KaTeX behind it — was downloading on every page
+            load, phones included, for a formula nobody had scrolled to. */}
+        <DeferUntilNear rootMargin="800px" minHeight="60vh">
+          <Suspense fallback={<div style={{ minHeight: "60vh" }} aria-hidden="true" />}>
+            <EvolutionTimeline />
+          </Suspense>
+        </DeferUntilNear>
 
         <section className="relative z-[1] mx-auto max-w-6xl">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.7 }} className="text-center">
