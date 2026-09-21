@@ -141,36 +141,79 @@ const features = [
   },
 ];
 
+/** The hero's scroll length, from --hero-span (styles/theme.css) — the
+ *  same number LibraryScene maps its camera timeline onto. Phones get a
+ *  shorter hero, so hardcoding 5x viewport heights here would fade the
+ *  title over a different distance than the scene actually travels. */
+function heroScrollRange() {
+  const raw = window.getComputedStyle(document.documentElement)
+    .getPropertyValue("--hero-span").trim();
+  const vh = parseFloat(raw);
+  if (Number.isFinite(vh) && vh > 0) return window.innerHeight * (vh / 100);
+  return window.innerHeight * 5;
+}
+
 /**
- * useScrollVideo — scroll progress 0→1 over a given scroll range.
- * Uses rAF for smooth 60fps tracking, no React re-renders on every pixel.
+ * useScrollVideo — scroll progress 0→1 over the hero's scroll range.
+ *
+ * Two things this deliberately avoids:
+ *
+ *   1. Running forever. The old version queued a requestAnimationFrame
+ *      unconditionally, so it read scrollY and re-armed itself every
+ *      frame for as long as the homepage was open — including while
+ *      parked at the bottom, where the value cannot change. It now ticks
+ *      only in response to an actual scroll (or resize) and stops once
+ *      the position settles.
+ *
+ *   2. Re-rendering when nobody can see it. `progress` only drives the
+ *      hero title and scroll cue, which are gone above ~0.18. Past that
+ *      the component is re-rendered for a value nothing reads, so we
+ *      emit one last update on the way out and then go quiet.
  */
-function useScrollVideo(scrollRange) {
+const PROGRESS_MATTERS_BELOW = 0.2;
+
+function useScrollVideo() {
   const progress = useRef(0);
   const [, forceUpdate] = useState(0);
   const frameRef = useRef(null);
-  const rangeRef = useRef(scrollRange || window.innerHeight * 6);
 
   useEffect(() => {
-    rangeRef.current = scrollRange || window.innerHeight * 6;
-  }, [scrollRange]);
+    let range  = heroScrollRange();
+    let lastP  = -1;
+    let queued = false;
 
-  useEffect(() => {
-    let lastP = -1;
-    function tick() {
-      const y = window.scrollY;
-      const p = Math.min(1, Math.max(0, y / rangeRef.current));
+    const measure = () => {
+      queued = false;
+      const p = Math.min(1, Math.max(0, window.scrollY / range));
       progress.current = p;
-      // Only trigger React re-render every ~5% change (for opacity transitions)
+
+      // Quantise to ~5% so a pixel of scroll is not a React render.
       const rounded = Math.round(p * 20) / 20;
-      if (rounded !== lastP) {
-        lastP = rounded;
-        forceUpdate(n => n + 1);
-      }
-      frameRef.current = requestAnimationFrame(tick);
-    }
-    frameRef.current = requestAnimationFrame(tick);
-    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); };
+      if (rounded === lastP) return;
+
+      const wasRelevant = lastP <= PROGRESS_MATTERS_BELOW;
+      lastP = rounded;
+      // Render while the value still drives something, plus the single
+      // transition out of that band so the title lands at opacity 0.
+      if (rounded <= PROGRESS_MATTERS_BELOW || wasRelevant) forceUpdate((n) => n + 1);
+    };
+
+    const schedule = () => {
+      if (queued) return;
+      queued = true;
+      frameRef.current = requestAnimationFrame(measure);
+    };
+
+    const onResize = () => { range = heroScrollRange(); schedule(); };
+
+    measure();   // initial position, e.g. a restored scroll on reload
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", onResize);
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    };
   }, []);
 
   return progress;
@@ -180,8 +223,9 @@ export default function HomePage() {
   useMonument("desert");
   const shouldReduceMotion = useReducedMotion();
 
-  // Single scroll progress for the entire page video
-  const progressRef = useScrollVideo(window.innerHeight * 5);
+  // Single scroll progress for the hero overlay. The range comes from
+  // --hero-span inside the hook, so it tracks the shorter phone hero.
+  const progressRef = useScrollVideo();
 
   // Overlay visibility (title shown at start, fades as you scroll)
   const p = progressRef.current;
