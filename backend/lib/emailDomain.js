@@ -17,7 +17,15 @@
  *
  * An invite token always wins: someone explicitly invited by an admin is
  * let in whatever their address, which is how faculty and alumni come in.
+ *
+ * So does holding a role above student — see isEmailPermitted at the
+ * bottom of this file. Teachers, admins and the super-admin keep access
+ * on whatever address they already use, without anyone maintaining a
+ * list of them.
  */
+
+import supabase from "../config/supabase.js";
+import { logger } from "../config/logger.js";
 
 export function allowedDomains() {
   const raw = process.env.ALLOWED_EMAIL_DOMAINS || "";
@@ -75,4 +83,57 @@ export function allowedDomainsMessage(domains = allowedDomains()) {
   if (domains.length === 0) return "";
   const list = domains.map((d) => `@${d}`).join(" or ");
   return `Sign-ups are limited to ${list} addresses. If you need access with a different address, ask an admin for an invite link.`;
+}
+
+/* Anyone who is not a plain student. These are people the club has
+   already vetted — they were promoted by an admin — so the college-only
+   rule does not apply to them. */
+export const PRIVILEGED_ROLES = Object.freeze(["teacher", "admin", "super_admin"]);
+
+/**
+ * The real gate: may this address sign in / register?
+ *
+ * Allows, in order of cost:
+ *   1. anything, when no domain restriction is configured;
+ *   2. an address on an allowed domain, or one named explicitly in
+ *      ALLOWED_EMAIL_EXCEPTIONS — both decided in memory;
+ *   3. an address belonging to an existing account whose role is above
+ *      student, which costs one indexed lookup.
+ *
+ * Rule 3 is why there is no list of staff addresses to maintain. The
+ * club's admins, super-admin and teachers are on personal addresses and
+ * their accounts are not being changed; hardcoding them would go stale
+ * the first time somebody new is promoted on a gmail.com address. Role
+ * is the thing that actually means "this person is vetted", so that is
+ * what gets checked.
+ *
+ * A failed lookup denies rather than allows: if the database is
+ * unreachable we would rather refuse a staff member (who can still use
+ * a password) than let the restriction silently stop applying.
+ */
+export async function isEmailPermitted(email) {
+  if (isAllowedEmail(email)) return true;
+
+  const address = String(email || "").toLowerCase().trim();
+  if (!address.includes("@")) return false;
+
+  try {
+    const { data, error } = await supabase
+      .from("students")
+      .select("role")
+      // ilike, not eq: rows imported from the CSV were never normalised
+      // to lowercase, so an exact match would miss "Name@Gmail.com".
+      .ilike("email", address)
+      .in("role", PRIVILEGED_ROLES)
+      .maybeSingle();
+
+    if (error) {
+      logger.warn({ err: error, email: address }, "isEmailPermitted: role lookup failed — denying");
+      return false;
+    }
+    return Boolean(data);
+  } catch (err) {
+    logger.warn({ err, email: address }, "isEmailPermitted: role lookup threw — denying");
+    return false;
+  }
 }

@@ -15,7 +15,7 @@ import { isLocked, recordFailure, recordSuccess } from "../lib/loginAttempts.js"
 import { writeAudit, AuditAction } from "../lib/audit.js";
 import { MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT } from "../lib/passwordPolicy.js";
 import { recoveryRedirectUrl } from "../lib/appUrl.js";
-import { isAllowedEmail, allowedDomainsMessage } from "../lib/emailDomain.js";
+import { isAllowedEmail, isEmailPermitted, allowedDomainsMessage } from "../lib/emailDomain.js";
 import { establishUserSession } from "../lib/establishSession.js";
 
 /* Regenerate the session ID before writing user data.
@@ -466,7 +466,7 @@ const requestSignInCode = async (req, res) => {
 
   // Refuse non-college addresses BEFORE mailing anything, so this can
   // never be used to send a code to an arbitrary inbox.
-  if (!isAllowedEmail(email)) {
+  if (!(await isEmailPermitted(email))) {
     logger.info({ email }, "signInCode: refused non-college address");
     return res.status(403).json({
       error: allowedDomainsMessage() || "That email address is not eligible to sign in.",
@@ -502,7 +502,7 @@ const requestSignInCode = async (req, res) => {
 const verifySignInCode = async (req, res) => {
   const { email, token } = req.body;
 
-  if (!isAllowedEmail(email)) {
+  if (!(await isEmailPermitted(email))) {
     return res.status(403).json({
       error: allowedDomainsMessage() || "That email address is not eligible to sign in.",
     });

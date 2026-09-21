@@ -26,6 +26,7 @@ const state = {
   claimUpdates:   [],
   inserted:       [],
   sentTo:         [],
+  privilegedRow:  null,   // what the role lookup finds for a non-college address
 };
 
 beforeEach(() => {
@@ -38,6 +39,7 @@ beforeEach(() => {
   state.claimUpdates   = [];
   state.inserted       = [];
   state.sentTo         = [];
+  state.privilegedRow  = null;
 });
 
 afterEach(() => { process.env = { ...ORIGINAL_ENV }; });
@@ -55,6 +57,9 @@ vi.mock("../../backend/config/supabase.js", () => {
     const chain = {
       select: () => chain,
       eq: (col, val) => { filters[col] = val; return chain; },
+      // isEmailPermitted looks up a role by email with ilike + in.
+      ilike: (col, val) => { filters[col] = val; filters._ilike = true; return chain; },
+      in: (col, vals) => { filters._roleIn = vals; return chain; },
       is: (col, val) => { filters[col] = val === null ? "IS_NULL" : val; return chain; },
       order: () => chain,
       limit: () => chain,
@@ -77,6 +82,7 @@ vi.mock("../../backend/config/supabase.js", () => {
         if (name === "organisations") {
           return { data: filters.id ? state.org : state.defaultOrg, error: null };
         }
+        if (filters._roleIn) return { data: state.privilegedRow, error: null };
         if (filters.user_id === "IS_NULL") return { data: state.studentByEmail, error: null };
         if (filters.user_id)               return { data: state.studentById,    error: null };
         return { data: null, error: null };
@@ -246,5 +252,59 @@ describe("claiming an imported CSV row", () => {
     expect(res.status).toBe(200);
     expect(res.headers["set-cookie"]).toBeTruthy();
     expect(res.body.user.org_id).toBe("org-A");
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────
+   Staff on personal addresses
+   ────────────────────────────────────────────────────────────────
+   The club's admin, super-admin and teachers signed up on gmail.com and
+   iisc.ac.in. Their accounts are not being changed, and a hardcoded list
+   of their addresses would go stale the first time somebody new is
+   promoted — so the gate asks whether the address holds a role above
+   student, which is the thing that actually means "vetted". */
+describe("a role above student overrides the domain rule", () => {
+  beforeEach(() => {
+    state.verifyResult = { data: { user: { id: "auth-9", email: "atulbizdhull@gmail.com", user_metadata: {} } }, error: null };
+    state.org = { id: "org-A", name: "BMSIT", slug: "bmsit", status: "active", plan_name: "free" };
+  });
+
+  it.each(["teacher", "admin", "super_admin"])("lets a %s on gmail request a code", async (role) => {
+    state.privilegedRow = { role };
+    const res = await request(buildApp()).post("/request").send({ email: "atulbizdhull@gmail.com" });
+    expect(res.status).toBe(200);
+    expect(state.sentTo).toEqual(["atulbizdhull@gmail.com"]);
+  });
+
+  it("lets a staff member on gmail actually sign in", async () => {
+    state.privilegedRow = { role: "super_admin" };
+    state.studentById = {
+      name: "atul", email: "atulbizdhull@gmail.com", user_id: "auth-9",
+      role: "super_admin", xp: 0, title: "T", org_id: "org-A", is_active: true,
+    };
+    const res = await request(buildApp()).post("/verify")
+      .send({ email: "atulbizdhull@gmail.com", token: "123456" });
+    expect(res.status).toBe(200);
+    expect(res.body.redirectTo).toBe("/super-admin");
+  });
+
+  it("still refuses a plain student on the same domain", async () => {
+    state.privilegedRow = null;          // no elevated role for this address
+    const res = await request(buildApp()).post("/request").send({ email: "randomstudent@gmail.com" });
+    expect(res.status).toBe(403);
+    expect(state.sentTo).toEqual([]);
+  });
+
+  it("denies rather than allows when the role lookup fails", async () => {
+    // A database blip must not quietly switch the restriction off.
+    state.privilegedRow = null;
+    const res = await request(buildApp()).post("/request").send({ email: "someone@gmail.com" });
+    expect(res.status).toBe(403);
+  });
+
+  it("needs no lookup at all for a college address", async () => {
+    state.privilegedRow = { role: "admin" };   // would allow, but is irrelevant
+    const res = await request(buildApp()).post("/request").send({ email: "24ug1byai190@bmsit.in" });
+    expect(res.status).toBe(200);
   });
 });
