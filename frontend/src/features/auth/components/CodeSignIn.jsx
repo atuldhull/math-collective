@@ -41,7 +41,7 @@ export default function CodeSignIn({ onSignedIn }) {
     try {
       const { data } = await auth.requestSignInCode(email.trim());
       setStep("code");
-      setMsg({ type: "info", text: data.message || "Check your inbox for a 6-digit code." });
+      setMsg({ type: "info", text: data.message || "Check your inbox for your sign-in code." });
       // Focus the code box so a phone keyboard opens on the right field.
       setTimeout(() => codeRef.current?.focus(), 50);
     } catch (err) {
@@ -105,15 +105,19 @@ export default function CodeSignIn({ onSignedIn }) {
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <InputField
             ref={codeRef}
-            label="6-digit code"
+            label="Sign-in code"
             /* `inputMode numeric` opens the number pad on a phone without
-               the spinner arrows a type=number field would add. */
+               the spinner arrows a type=number field would add.
+               Length is deliberately not stated anywhere: Supabase OTP
+               length is a project setting (6-10, this project uses 8),
+               so hardcoding "6-digit" in the UI would go stale the
+               moment somebody changes it. The validator accepts 4-10. */
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]*"
             maxLength={10}
-            placeholder="123456"
+            placeholder="Code from your email"
             helper={`Sent to ${email}`}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}

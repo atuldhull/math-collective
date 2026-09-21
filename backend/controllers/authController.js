@@ -441,7 +441,7 @@ const validateInvite = async (req, res) => {
 };
 
 /* ── SIGN IN WITH A COLLEGE EMAIL + CODE ──────────────────────────────
-   Two steps: requestSignInCode mails a 6-digit code, verifySignInCode
+   Two steps: requestSignInCode mails a one-time code, verifySignInCode
    checks it and signs the person in.
 
    Why this exists alongside the password flow:
@@ -494,7 +494,7 @@ const requestSignInCode = async (req, res) => {
 
   return res.json({
     success: true,
-    message: "If that address is a valid college email, a 6-digit code is on its way. It expires in 1 hour.",
+    message: "If that address is a valid college email, a sign-in code is on its way. It expires in 1 hour.",
   });
 };
 
@@ -509,7 +509,7 @@ const verifySignInCode = async (req, res) => {
   }
 
   // The per-email lockout that guards password login guards this too — a
-  // 6-digit code is only a million guesses, so an unthrottled verify
+  // short numeric code is a small keyspace, so an unthrottled verify
   // endpoint is a brute-force target.
   const lock = isLocked(email);
   if (lock.locked) {
