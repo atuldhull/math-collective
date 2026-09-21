@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { isAllowedEmail, allowedDomainsMessage } from "../../backend/lib/emailDomain.js";
+import { isAllowedEmail, allowedDomainsMessage} from "../../backend/lib/emailDomain.js";
 
 describe("isAllowedEmail", () => {
   it("allows everything when no list is configured (unchanged behaviour)", () => {
@@ -74,5 +74,45 @@ describe("allowedDomainsMessage", () => {
     const msg = allowedDomainsMessage(["bmsit.in"]);
     expect(msg).toContain("@bmsit.in");
     expect(msg).toMatch(/invite/i);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────
+   Named exceptions — staff on personal addresses
+   ────────────────────────────────────────────────────────────────
+   The club's admin, super-admin and teacher accounts are on gmail.com
+   and iisc.ac.in. They are verified people, not students, and their
+   accounts are explicitly not to be changed — so the domain rule has to
+   bend around them rather than the other way round. */
+describe("isAllowedEmail — named exceptions", () => {
+  const domains = ["bmsit.in"];
+  const exceptions = ["atulbizdhull@gmail.com", "satvikaprashanth80@gmail.com"];
+
+  it("lets a listed staff address through on a personal domain", () => {
+    expect(isAllowedEmail("atulbizdhull@gmail.com", domains, exceptions)).toBe(true);
+    expect(isAllowedEmail("satvikaprashanth80@gmail.com", domains, exceptions)).toBe(true);
+  });
+
+  it("still refuses everyone else on that same domain", () => {
+    expect(isAllowedEmail("randomstudent@gmail.com", domains, exceptions)).toBe(false);
+  });
+
+  it("matches the whole address, not a prefix or the domain part", () => {
+    expect(isAllowedEmail("atulbizdhull@gmail.com.evil.com", domains, exceptions)).toBe(false);
+    expect(isAllowedEmail("notatulbizdhull@gmail.com", domains, exceptions)).toBe(false);
+  });
+
+  it("is case-insensitive, because people type their own address oddly", () => {
+    expect(isAllowedEmail("  AtulBizDhull@Gmail.com ", domains, exceptions)).toBe(true);
+  });
+
+  it("college addresses still work without being listed", () => {
+    expect(isAllowedEmail("24ug1byai190@bmsit.in", domains, exceptions)).toBe(true);
+  });
+
+  it("ignores a bare domain accidentally put in the exceptions list", () => {
+    // Entries must contain "@" — a bare domain here would silently widen
+    // the gate to everyone on it, which is what ALLOWED_EMAIL_DOMAINS is for.
+    expect(isAllowedEmail("anyone@gmail.com", domains, ["gmail.com"])).toBe(false);
   });
 });
