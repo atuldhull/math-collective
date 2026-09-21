@@ -234,7 +234,55 @@ export default function TestHistoryPage() {
                 </p>
               </div>
             ) : (
-              <div className="mt-6 overflow-x-auto">
+              <>
+              {/* Phones get cards, not a sideways-scrolling table. Five
+                  columns cannot fit in 390px, so the table scrolled
+                  horizontally — which pushes XP and date off-screen where
+                  they are easy to miss entirely. This is the one table a
+                  student actually sees; the admin ones are used by three
+                  people and can keep scrolling. */}
+              <ul className="mt-6 space-y-3 sm:hidden">
+                {history.map((attempt, i) => (
+                  <li
+                    key={attempt._id || i}
+                    className="border border-line/12 bg-panel/40 p-4"
+                    style={{ clipPath: "var(--clip-notch)" }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-white">
+                        {attempt.challengeTitle || attempt.challengeName || "Challenge"}
+                      </p>
+                      <span
+                        className={`shrink-0 rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+                          attempt.correct
+                            ? "border-success/30 bg-success/10 text-success"
+                            : "border-danger/30 bg-danger/10 text-danger"
+                        }`}
+                      >
+                        {attempt.correct ? "Correct" : "Wrong"}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-4 font-mono text-[11px] text-text-dim">
+                      <span
+                        className={
+                          (attempt.xpEarned || 0) > 0 ? "font-bold text-success" : "text-text-dim"
+                        }
+                      >
+                        {(attempt.xpEarned || 0) > 0 ? `+${attempt.xpEarned} XP` : "0 XP"}
+                      </span>
+                      <span>
+                        {attempt.createdAt
+                          ? new Date(attempt.createdAt).toLocaleDateString("en-IN", {
+                              day: "numeric", month: "short", year: "numeric",
+                            })
+                          : "---"}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-6 hidden overflow-x-auto sm:block">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-line/15">
@@ -306,6 +354,7 @@ export default function TestHistoryPage() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </Card>
         </motion.section>
