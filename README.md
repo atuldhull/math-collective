@@ -54,8 +54,8 @@ I led development — 189 of 194 commits. The Core Team portal was built by
 ## Quick Start
 
 ```bash
-# 1. Install dependencies (legacy-peer-deps needed for the Three.js + zustand overrides)
-npm install --legacy-peer-deps
+# 1. Install dependencies
+npm install
 
 # 2. Configure environment — copy the template and fill in real values
 cp .env.example .env.local
@@ -385,7 +385,7 @@ numbers consistently 10+ points above). Pre-commit hook runs lint + typecheck +
 
 GitHub Actions workflow at `.github/workflows/ci.yml`:
 
-1. `npm ci --legacy-peer-deps`
+1. `npm ci`
 2. `npm run lint`
 3. `npm run typecheck`
 4. `npm run test:coverage` (fails the job if coverage drops below threshold)
@@ -403,7 +403,7 @@ weekly. A separate `security.yml` workflow runs pattern-gates + gitleaks on ever
 ### Render (recommended — free tier)
 
 1. **New Web Service** → connect your GitHub repo.
-2. **Build command:** `npm install --legacy-peer-deps && npm run build`
+2. **Build command:** `npm install && npm run build`
 3. **Start command:** `npm start`
 4. Add env vars from the table above.
 5. First deploy takes 3–4 minutes. Hit `/api/health` to verify.

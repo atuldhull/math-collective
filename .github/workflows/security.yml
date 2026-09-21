@@ -51,7 +51,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies (omit dev where possible)
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Run npm audit (HIGH+ severity)
         continue-on-error: true
@@ -82,7 +82,7 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci
 
       - name: Build (postbuild runs scan-bundle-secrets.mjs)
         env:
