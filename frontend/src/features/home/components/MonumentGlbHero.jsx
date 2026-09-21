@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 /**
  * MonumentGlbHero — the Asymptotes monument, exported from Blender as
@@ -35,7 +39,7 @@ export default function MonumentGlbHero({ src = "/app/hero/monument.glb" }) {
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 0.95;
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -69,6 +73,25 @@ export default function MonumentGlbHero({ src = "/app/hero/monument.glb" }) {
     rimB.position.set(4, 2, -1);
     scene.add(rimB);
 
+    // Bloom is the single biggest contributor to "looks like the
+    // render": emissive materials alone read as flat coloured plastic.
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(
+      new THREE.Vector2(mount.clientWidth, mount.clientHeight),
+      0.45,  // strength — 1.1 blew the loop curve to pure white and
+             // lost both its shape and the pink/cyan gradient
+      0.55,  // radius
+      0.75,  // threshold — only genuinely emissive surfaces bloom;
+             // at 0.15 the lit steel bloomed too and washed the whole
+             // monument out
+    );
+    composer.addPass(bloom);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+
     let raf = 0;
     let disposed = false;
     const loader = new GLTFLoader();
@@ -91,12 +114,14 @@ export default function MonumentGlbHero({ src = "/app/hero/monument.glb" }) {
         const radius = Math.max(size.y, 1);
         camera.position.set(0, radius * 0.35, radius * 2.4);
         camera.lookAt(0, 0, 0);
+        controls.target.set(0, 0, 0);
 
         scene.add(root);
 
         const tick = () => {
           root.rotation.y += 0.0015;   // slow turntable, just to see it
-          renderer.render(scene, camera);
+          controls.update();
+          composer.render();
           raf = requestAnimationFrame(tick);
         };
         tick();
@@ -110,6 +135,7 @@ export default function MonumentGlbHero({ src = "/app/hero/monument.glb" }) {
       camera.aspect = mount.clientWidth / mount.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(mount.clientWidth, mount.clientHeight);
+      composer.setSize(mount.clientWidth, mount.clientHeight);
     };
     window.addEventListener("resize", onResize);
 
@@ -117,6 +143,8 @@ export default function MonumentGlbHero({ src = "/app/hero/monument.glb" }) {
       disposed = true;
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
+      controls.dispose();
+      composer.dispose();
       pmrem.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode) {
