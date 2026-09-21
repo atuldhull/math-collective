@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/auth-store";
 import { auth } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/apiError";
 import { dashboardForRole } from "@/lib/roles";
+import CodeSignIn from "@/features/auth/components/CodeSignIn";
 
 export default function LoginPage() {
   useMonument("city");
@@ -38,6 +39,10 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Code sign-in is the default way in: no password to forget, it
+  // proves the college mailbox is real, and it claims a CSV-imported
+  // members row. Password stays available for anyone who set one.
+  const [mode, setMode] = useState("code");   // code | password
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotMsg, setForgotMsg] = useState(null);
@@ -57,6 +62,17 @@ export default function LoginPage() {
     setForgotLoading(false);
   };
 
+  /* Both sign-in paths land here so they cannot diverge on where a
+     person ends up. Priority: the page they were bounced from, then the
+     backend hint, then their role default. */
+  const goAfterSignIn = (data) => {
+    const target =
+      returnTo
+        || data?.redirectTo
+        || dashboardForRole(data?.user?.role || data?.role);
+    navigate(target, { replace: true });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -64,13 +80,7 @@ export default function LoginPage() {
     clearError();
     try {
       const data = await login(form.email, form.password);
-      // Priority: the path the user was trying to reach > backend hint > role default.
-      // `replace: true` so the back button does not bring the user back to /login.
-      const target =
-        returnTo
-          || data?.redirectTo
-          || dashboardForRole(data?.user?.role || data?.role);
-      navigate(target, { replace: true });
+      goAfterSignIn(data);
     } catch (err) {
       const msg = err.message || "Login failed";
       if (msg === "EMAIL_NOT_VERIFIED" || msg.includes("verify")) {
@@ -147,6 +157,9 @@ export default function LoginPage() {
             </motion.div>
           )}
 
+          {mode === "code" ? (
+            <CodeSignIn onSignedIn={goAfterSignIn} />
+          ) : (
           <motion.form
             onSubmit={handleSubmit}
             className="space-y-5"
@@ -188,9 +201,22 @@ export default function LoginPage() {
               </Button>
             </motion.div>
           </motion.form>
+          )}
+
+          {/* Switch between the two ways in. Code is the default: no
+              password to forget, and it proves the college mailbox. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => { setMode(mode === "code" ? "password" : "code"); setError(null); setShowForgot(false); }}
+            className="mt-4 w-full justify-center"
+          >
+            {mode === "code" ? "Sign in with a password instead" : "Email me a code instead"}
+          </Button>
 
           {/* Forgot Password */}
-          {showForgot && (
+          {mode === "password" && showForgot && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
               className="mt-5 border border-line/15 bg-panel/50 p-5" style={{ clipPath: "var(--clip-notch)" }}>
               <p className="text-sm font-medium text-white">Reset your password</p>

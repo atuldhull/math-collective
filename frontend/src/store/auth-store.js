@@ -51,6 +51,25 @@ export const useAuthStore = create((set, _get) => ({
     }
   },
 
+  /* College-email sign-in. Mirrors login() exactly — same store
+     transitions, same push-permission prompt — so the two paths cannot
+     leave the app in different states. */
+  signInWithCode: async (email, token) => {
+    try {
+      set({ status: "loading", error: null });
+      const { data } = await http.post("/auth/signin-code/verify", { email, token });
+      if (data.user) {
+        set({ user: data.user, status: "authenticated", error: null });
+        tryPushSetup({ promptIfDefault: true });
+      }
+      return data;
+    } catch (err) {
+      const msg = err.response?.data?.error || err.response?.data?.message || "Sign-in failed";
+      set({ status: "error", error: msg });
+      throw new Error(msg, { cause: err });
+    }
+  },
+
   register: async (name, email, password) => {
     try {
       set({ status: "loading", error: null });

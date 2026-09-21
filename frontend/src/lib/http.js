@@ -66,6 +66,8 @@ const IGNORE_401 = [
   "/auth/register",
   "/auth/forgot-password",
   "/auth/reset-password",
+  "/auth/signin-code/request",
+  "/auth/signin-code/verify",
 ];
 
 // Response interceptor:

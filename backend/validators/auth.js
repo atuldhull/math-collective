@@ -72,6 +72,22 @@ export const resetPasswordSchema = z.object({
   { path: ["access_token"], message: "a recovery token is required" },
 );
 
+/* Sign-in by emailed code. The code itself is whatever length the
+   Supabase template emits (6 digits by default); accept 4-10 digits so
+   a template change does not silently break sign-in, and strip spaces
+   because people paste codes with them. */
+export const signInCodeRequestSchema = z.object({
+  email,
+});
+
+export const signInCodeVerifySchema = z.object({
+  email,
+  token: z.string()
+    .trim()
+    .transform((v) => v.replace(/s+/g, ""))
+    .pipe(z.string().regex(/^[0-9]{4,10}$/, "enter the numeric code from your email")),
+});
+
 export const resendVerificationSchema = z.object({
   email,
 });

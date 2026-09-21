@@ -16,6 +16,7 @@ import { writeAudit, AuditAction } from "../lib/audit.js";
 import { MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT } from "../lib/passwordPolicy.js";
 import { recoveryRedirectUrl } from "../lib/appUrl.js";
 import { isAllowedEmail, allowedDomainsMessage } from "../lib/emailDomain.js";
+import { establishUserSession } from "../lib/establishSession.js";
 
 /* Regenerate the session ID before writing user data.
    Defends against session-fixation: an attacker who tricked the victim
@@ -439,6 +440,141 @@ const validateInvite = async (req, res) => {
   });
 };
 
+/* ── SIGN IN WITH A COLLEGE EMAIL + CODE ──────────────────────────────
+   Two steps: requestSignInCode mails a 6-digit code, verifySignInCode
+   checks it and signs the person in.
+
+   Why this exists alongside the password flow:
+     - Members were bulk-imported from a Google Form CSV. That writes a
+       students row with no Supabase Auth account, so an imported member
+       could only ever link up by registering with the byte-identical
+       email — and then still had to survive the verification email.
+       Proving control of the mailbox lets us CLAIM their existing row
+       (see lib/establishSession.js), XP and history intact.
+     - The form collected personal addresses as well as college ones, so
+       a row could never match the address its owner actually signs in
+       with. Restricting to the college domain removes that whole class
+       of mismatch.
+     - A code proves the mailbox is real and belongs to whoever is
+       typing. That is the "is this a real student" check, and it
+       replaces a verification LINK that could break in transit.
+
+   The domain restriction is ALLOWED_EMAIL_DOMAINS (lib/emailDomain.js).
+   With it unset these endpoints still work but accept any address. */
+const requestSignInCode = async (req, res) => {
+  const { email } = req.body;
+
+  // Refuse non-college addresses BEFORE mailing anything, so this can
+  // never be used to send a code to an arbitrary inbox.
+  if (!isAllowedEmail(email)) {
+    logger.info({ email }, "signInCode: refused non-college address");
+    return res.status(403).json({
+      error: allowedDomainsMessage() || "That email address is not eligible to sign in.",
+    });
+  }
+
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        // A member who has never signed in still needs an auth account
+        // creating — that is the whole point for CSV-imported rows.
+        shouldCreateUser: true,
+        emailRedirectTo:  recoveryRedirectUrl(req),
+      },
+    });
+    if (error) {
+      // Masked for the same no-enumeration reason as forgotPassword:
+      // the response must not reveal whether the address is on file.
+      logger.info({ email, reason: error.message }, "signInCode: upstream declined (response masked)");
+    }
+  } catch (err) {
+    logger.error({ err, email }, "signInCode: unexpected error (response masked)");
+  }
+
+  return res.json({
+    success: true,
+    message: "If that address is a valid college email, a 6-digit code is on its way. It expires in 1 hour.",
+  });
+};
+
+/* ── VERIFY THE CODE AND SIGN IN ── */
+const verifySignInCode = async (req, res) => {
+  const { email, token } = req.body;
+
+  if (!isAllowedEmail(email)) {
+    return res.status(403).json({
+      error: allowedDomainsMessage() || "That email address is not eligible to sign in.",
+    });
+  }
+
+  // The per-email lockout that guards password login guards this too — a
+  // 6-digit code is only a million guesses, so an unthrottled verify
+  // endpoint is a brute-force target.
+  const lock = isLocked(email);
+  if (lock.locked) {
+    res.set("Retry-After", String(lock.retryAfterSec));
+    return res.status(429).json({
+      error:   "ACCOUNT_LOCKED",
+      message: "Too many incorrect codes. Try again in a few minutes.",
+    });
+  }
+
+  try {
+    // Detached client: verifyOtp signs ITS client in as the user, and
+    // doing that to the shared service-role singleton would leave every
+    // later admin query in the process carrying a member's JWT.
+    const authClient = createAuthClient();
+    const { data, error } = await authClient.auth.verifyOtp({
+      email,
+      token: String(token).trim(),
+      type:  "email",
+    });
+
+    if (error || !data?.user) {
+      const failState = recordFailure(email);
+      writeAudit({ action: AuditAction.LOGIN_FAILED, metadata: { email, via: "code" }, req });
+      if (failState.locked) {
+        res.set("Retry-After", String(failState.retryAfterSec));
+        return res.status(429).json({
+          error:   "ACCOUNT_LOCKED",
+          message: "Too many incorrect codes. Try again in a few minutes.",
+        });
+      }
+      return res.status(401).json({ error: "That code is wrong or has expired. Request a new one." });
+    }
+
+    recordSuccess(email);
+
+    const result = await establishUserSession(req, data.user);
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+
+    logger.info({ email, claimed: result.claimed, role: result.user.role }, "Code sign-in successful");
+    writeAudit({
+      actorId:    data.user.id,
+      actorRole:  result.user.role,
+      orgId:      result.user.org_id,
+      action:     AuditAction.LOGIN_SUCCESS,
+      targetType: "user",
+      targetId:   data.user.id,
+      metadata:   { email, via: "code", claimedImportedRow: result.claimed },
+      req,
+    });
+
+    return res.json({
+      success:    true,
+      user:       result.user,
+      redirectTo: result.redirectTo,
+      // Lets the UI say "welcome back, we found your existing profile"
+      // rather than treating a long-standing member as brand new.
+      claimed:    result.claimed,
+    });
+  } catch (err) {
+    logger.error({ err, email }, "verifySignInCode");
+    return res.status(500).json({ error: "Sign-in failed — please try again" });
+  }
+};
+
 /* ── FORGOT PASSWORD ──
    No-enumeration: same shape regardless of whether the address is on
    file. Supabase's resetPasswordForEmail is already silent on hit/miss
@@ -536,6 +672,8 @@ export default {
   resendVerification,
   getSession,
   validateInvite,
+  requestSignInCode,
+  verifySignInCode,
   forgotPassword,
   resetPassword,
 };

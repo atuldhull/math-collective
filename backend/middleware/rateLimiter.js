@@ -191,6 +191,31 @@ export const resendVerificationLimiter = rateLimit({
   handler:         limitReached,
 });
 
+/* ── Sign-in code REQUEST: 5 per hour per (IP + email) ──
+   Each one sends a real email, so the abuse vector is using us as a
+   relay to hammer somebody else's inbox. Per-email keying means a
+   whole campus on one NAT is not sharing the budget. */
+export const signInCodeRequestLimiter = rateLimit({
+  windowMs:        60 * 60 * 1000,
+  max:             5,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  keyGenerator:    ipPlusEmailKey,
+  handler:         limitReached,
+});
+
+/* ── Sign-in code VERIFY: 10 per 15 min per (IP + email) ──
+   A 6-digit code is a million guesses. The per-email lockout in
+   lib/loginAttempts.js is the second wall; this is the first. */
+export const signInCodeVerifyLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  keyGenerator:    ipPlusEmailKey,
+  handler:         limitReached,
+});
+
 /* ── Comments: 30 per hour per user ──
    Per-USER (not per-IP) so a CS lab on one NAT doesn't share quota
    but a single hot-loop client can't flood the table. Anonymous

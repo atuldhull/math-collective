@@ -6,6 +6,10 @@ export const auth = {
   login: (email, password) => http.post("/auth/login", { email, password }),
   register: (name, email, password) => http.post("/auth/register", { name, email, password }),
   logout: () => http.post("/auth/logout"),
+  // College-email sign-in: ask for a code, then exchange it for a
+  // session. Verifying also claims a CSV-imported members row.
+  requestSignInCode: (email) => http.post("/auth/signin-code/request", { email }),
+  verifySignInCode: (email, token) => http.post("/auth/signin-code/verify", { email, token }),
   forgotPassword: (email) => http.post("/auth/forgot-password", { email }),
   // The token arg is whichever half of the recovery link the email
   // carried: { access_token } for the implicit flow, { token_hash }

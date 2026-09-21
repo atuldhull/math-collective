@@ -7,6 +7,8 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
+  signInCodeRequestSchema,
+  signInCodeVerifySchema,
 } from "../validators/auth.js";
 import {
   loginLimiter,
@@ -15,6 +17,8 @@ import {
   forgotPasswordLimiter,
   resetPasswordLimiter,
   resendVerificationLimiter,
+  signInCodeRequestLimiter,
+  signInCodeVerifyLimiter,
 } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
@@ -29,6 +33,12 @@ const router = express.Router();
 // limiter" pattern.
 router.post("/register",            registerIpLimiter, registerLimiter, validateBody(registerSchema),  authController.register);
 router.post("/login",               loginLimiter,              validateBody(loginSchema),              authController.login);
+
+/* College-email + code sign-in. Proves the mailbox is real, and claims
+   a CSV-imported students row that has no auth account yet. */
+router.post("/signin-code/request", signInCodeRequestLimiter, validateBody(signInCodeRequestSchema), authController.requestSignInCode);
+router.post("/signin-code/verify",  signInCodeVerifyLimiter,  validateBody(signInCodeVerifySchema),  authController.verifySignInCode);
+
 router.post("/logout",              authController.logout);
 router.get ("/logout",              authController.logoutRedirect);
 router.post("/resend-verification", resendVerificationLimiter, validateBody(resendVerificationSchema), authController.resendVerification);
