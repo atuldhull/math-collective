@@ -14,7 +14,7 @@ import { SESSION_COOKIE_NAME } from "../middleware/sessionConfig.js";
 import { isLocked, recordFailure, recordSuccess } from "../lib/loginAttempts.js";
 import { writeAudit, AuditAction } from "../lib/audit.js";
 import { MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT } from "../lib/passwordPolicy.js";
-import { recoveryRedirectUrl } from "../lib/appUrl.js";
+import { recoveryRedirectUrl, signInRedirectUrl } from "../lib/appUrl.js";
 import { isAllowedEmail, isEmailPermitted, allowedDomainsMessage } from "../lib/emailDomain.js";
 import { establishUserSession } from "../lib/establishSession.js";
 
@@ -480,7 +480,7 @@ const requestSignInCode = async (req, res) => {
         // A member who has never signed in still needs an auth account
         // creating — that is the whole point for CSV-imported rows.
         shouldCreateUser: true,
-        emailRedirectTo:  recoveryRedirectUrl(req),
+        emailRedirectTo:  signInRedirectUrl(req),
       },
     });
     if (error) {

@@ -40,6 +40,15 @@ export function appOrigin(req) {
   return "";
 }
 
+/* Where a SIGN-IN code email should point if the template also carries
+   a link. Not the recovery page — that form asks for a new password,
+   which is nonsense for somebody who just wanted to sign in. */
+export const SIGN_IN_PATH = `${SPA_MOUNT}/login`;
+
+export function signInRedirectUrl(req) {
+  return `${appOrigin(req)}${SIGN_IN_PATH}`;
+}
+
 export function recoveryRedirectUrl(req) {
   return `${appOrigin(req)}${RECOVERY_PATH}`;
 }

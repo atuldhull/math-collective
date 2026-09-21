@@ -48,3 +48,24 @@ describe("recoveryRedirectUrl", () => {
     expect(recoveryRedirectUrl(null)).not.toMatch(/\/login$/);
   });
 });
+
+/* A sign-in code email must not point at the password-reset form. The
+   first version reused recoveryRedirectUrl, so anyone clicking the link
+   in a sign-in email landed on "set a new password" — which is nonsense
+   for somebody who only wanted to sign in. */
+describe("signInRedirectUrl", () => {
+  it("points at the login page, under the SPA mount", async () => {
+    const { signInRedirectUrl, SIGN_IN_PATH, SPA_MOUNT } =
+      await import("../../backend/lib/appUrl.js");
+    process.env.FRONTEND_URL = "https://mathcollective.example";
+    expect(SIGN_IN_PATH.startsWith(`${SPA_MOUNT}/`)).toBe(true);
+    expect(signInRedirectUrl(null)).toBe("https://mathcollective.example/app/login");
+  });
+
+  it("is not the recovery page", async () => {
+    const { signInRedirectUrl, recoveryRedirectUrl } =
+      await import("../../backend/lib/appUrl.js");
+    process.env.FRONTEND_URL = "https://mathcollective.example";
+    expect(signInRedirectUrl(null)).not.toBe(recoveryRedirectUrl(null));
+  });
+});
