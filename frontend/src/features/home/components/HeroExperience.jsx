@@ -31,6 +31,38 @@ import { useEffect, useState, lazy, Suspense } from "react";
 
 const VideoScrubHero = lazy(() => import("./VideoScrubHero"));
 const LibraryScene   = lazy(() => import("./LibraryScene"));
+const StillHero      = lazy(() => import("./StillHero"));
+
+/**
+ * Should this device get the still frame instead of anything animated?
+ *
+ * Three situations, all of which the animated heroes serve badly:
+ *   - the person asked for reduced motion;
+ *   - a phone-sized viewport, where the WebGL scene was shading a dozen
+ *     real-time lights for a hero most visitors scroll straight past;
+ *   - a device reporting few cores, little memory, or Save-Data, which
+ *     is an explicit request not to spend the visitor's bandwidth.
+ *
+ * Everything sits behind optional chaining because these APIs are
+ * patchily supported and this also runs in test environments where
+ * navigator is thin.
+ */
+function prefersStillHero() {
+  if (typeof window === "undefined") return false;
+  try {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return true;
+    if (window.matchMedia?.("(max-width: 767px)").matches) return true;
+
+    const cores = navigator.hardwareConcurrency;
+    if (typeof cores === "number" && cores > 0 && cores <= 4) return true;
+
+    const mem = navigator.deviceMemory;
+    if (typeof mem === "number" && mem > 0 && mem <= 4) return true;
+
+    if (navigator.connection?.saveData) return true;
+  } catch { /* any of these may be missing; fall through to animated */ }
+  return false;
+}
 
 // Dark gradient shown while we're still figuring out which mode to
 // render. Matches the LibraryScene clear color so the transition
@@ -52,7 +84,7 @@ function HeroDetecting() {
 }
 
 export default function HeroExperience() {
-  const [mode, setMode] = useState("detecting");   // detecting | video | webgl
+  const [mode, setMode] = useState("detecting");   // detecting | still | video | webgl
 
   useEffect(() => {
     // sessionStorage cache so subsequent navigations within the same
@@ -66,6 +98,13 @@ export default function HeroExperience() {
     })();
     if (cached === "video" || cached === "webgl") {
       setMode(cached);
+      return;
+    }
+
+    // Decided before the probe: a phone gains nothing from discovering
+    // that a 30MB video exists, and nothing from Three.js either.
+    if (prefersStillHero()) {
+      setMode("still");
       return;
     }
 
@@ -96,6 +135,14 @@ export default function HeroExperience() {
   }, []);
 
   if (mode === "detecting") return <HeroDetecting />;
+
+  if (mode === "still") {
+    return (
+      <Suspense fallback={<HeroDetecting />}>
+        <StillHero />
+      </Suspense>
+    );
+  }
 
   if (mode === "video") {
     return (

@@ -264,7 +264,7 @@ export default function MainLayout() {
                   </>
                 ) : (
                   <>
-                    <Link to="/login" className="rounded-full border border-line/15 bg-white/[0.03] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted transition hover:text-white sm:px-4 sm:text-[11px]">
+                    <Link to="/login" className="whitespace-nowrap rounded-full border border-line/15 bg-white/[0.03] px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-text-muted transition hover:text-white sm:px-4 sm:text-[11px] sm:tracking-[0.2em]">
                       Sign in
                     </Link>
                     {/* Join CTA hidden until md: so the right side of the
