@@ -1,68 +1,78 @@
-import fs   from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+/**
+ * controllers/galleryController.js
+ *
+ * The gallery used to exist twice, and neither copy worked.
+ *
+ *   - This API wrote uploads to `backend/public/images`, a directory the
+ *     server never served. Render also wipes the filesystem on every
+ *     deploy, so anything an admin uploaded was both unreachable AND
+ *     temporary — failing silently in two different ways at once.
+ *   - The gallery PAGE ignored this API completely and rendered a
+ *     hardcoded list of Cloudinary URLs, which meant adding a photo
+ *     required editing source and shipping a release.
+ *
+ * Both now point at Cloudinary, which is where the club's images already
+ * lived. Uploads survive deploys, the listing is real, and an admin can
+ * add a photo without a developer.
+ *
+ * Error handling: every handler is wrapped in catchAsync so an
+ * unexpected throw reaches the global error handler in app.js
+ * (structured pino log + a 500 carrying a request id), rather than
+ * echoing a raw provider message back to the client.
+ */
+
+import fs from "node:fs/promises";
 import { catchAsync } from "../lib/asyncHandler.js";
+import { logger } from "../config/logger.js";
+import {
+  isConfigured,
+  uploadImage as cloudUpload,
+  listImages,
+  destroyImage,
+} from "../lib/cloudinary.js";
 
-// Error handling: every handler is wrapped in catchAsync so any
-// fs.* throw / unexpected error propagates to the global error
-// handler in app.js (structured pino log + 500 with requestId).
-// Previous shape (return res.status(500).json({error: err.message}))
-// echoed raw filesystem errors back to clients — fine for dev,
-// noisy + leaky in production. catchAsync gives us a generic
-// "Internal server error" with a request id the operator can grep.
-
-const __dirname  = path.dirname(fileURLToPath(import.meta.url));
-const IMAGES_DIR = path.join(__dirname, "..", "public", "images");
+/** Turn a folder slug into something presentable: "tech-fest" → "Tech Fest". */
+function titleise(slug) {
+  return String(slug || "general")
+    .replace(/[-_]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 /* ══════════════════════════════════════════
    GET ALL GALLERY IMAGES
    GET /api/gallery
-   Returns all images grouped by category (subfolder)
+   Returns images grouped by category (the Cloudinary folder).
 ══════════════════════════════════════════ */
 export const getGallery = catchAsync(async (req, res) => {
-  if (!fs.existsSync(IMAGES_DIR)) {
-    return res.json({ categories: [] });
+  if (!isConfigured()) {
+    // Not an error: a deployment without Cloudinary keys simply has no
+    // managed gallery yet, and the page falls back to its curated list.
+    logger.info("gallery: Cloudinary not configured — returning empty");
+    return res.json({ categories: [], configured: false });
   }
 
-  const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+  const images = await listImages({ max: 500 });
 
-  // Each subfolder = one category
-  const entries = fs.readdirSync(IMAGES_DIR, { withFileTypes: true });
-  const categories = [];
-
-  // Also pick up loose images in /public/images/ root
-  const rootImages = entries
-    .filter(e => e.isFile() && IMAGE_EXTS.includes(path.extname(e.name).toLowerCase()))
-    .map(e => `/images/${e.name}`);
-
-  if (rootImages.length) {
-    categories.push({ name: "General", slug: "general", images: rootImages });
+  const byCategory = new Map();
+  for (const img of images) {
+    if (!byCategory.has(img.category)) byCategory.set(img.category, []);
+    byCategory.get(img.category).push(img);
   }
 
-  // Subfolders
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const folderPath = path.join(IMAGES_DIR, entry.name);
-    const files = fs.readdirSync(folderPath)
-      .filter(f => IMAGE_EXTS.includes(path.extname(f).toLowerCase()))
-      .sort((a, b) => {
-        // Sort numerically if filenames have numbers
-        const na = parseInt(a.match(/\d+/)?.[0] || "0");
-        const nb = parseInt(b.match(/\d+/)?.[0] || "0");
-        return na - nb;
-      })
-      .map(f => `/images/${entry.name}/${f}`);
+  const categories = [...byCategory.entries()]
+    .map(([slug, imgs]) => ({
+      slug,
+      name: titleise(slug),
+      // Newest first within a category — an admin who has just uploaded
+      // expects to see it at the top rather than hunting for it.
+      images: imgs
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .map((i) => ({ url: i.url, publicId: i.publicId, width: i.width, height: i.height })),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-    if (files.length) {
-      // Pretty-print the folder name
-      const name = entry.name
-        .replace(/[-_]/g, " ")
-        .replace(/\b\w/g, c => c.toUpperCase());
-      categories.push({ name, slug: entry.name, images: files });
-    }
-  }
-
-  return res.json({ categories });
+  return res.json({ categories, configured: true });
 });
 
 /* ══════════════════════════════════════════
@@ -72,56 +82,88 @@ export const getGallery = catchAsync(async (req, res) => {
 ══════════════════════════════════════════ */
 export const uploadImage = catchAsync(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+  if (!isConfigured()) {
+    return res.status(503).json({
+      error: "Image hosting is not configured. Set the CLOUDINARY_* environment variables.",
+    });
+  }
 
-  const category = (req.query.category || "general")
-    .toLowerCase().replace(/[^a-z0-9-_]/g, "");
+  // multer hands back a buffer with memoryStorage or a path with
+  // diskStorage. Support both, so changing the route's storage choice
+  // cannot silently break uploads.
+  const buffer = req.file.buffer || (req.file.path ? await fs.readFile(req.file.path) : null);
+  if (!buffer) return res.status(400).json({ error: "Could not read the uploaded file" });
 
-  const destDir = path.join(IMAGES_DIR, category);
-  fs.mkdirSync(destDir, { recursive: true });
-
-  const destPath = path.join(destDir, req.file.filename);
-  fs.renameSync(req.file.path, destPath);
-
-  return res.json({
-    success: true,
-    url:     `/images/${category}/${req.file.filename}`,
+  const result = await cloudUpload(buffer, {
+    category: req.query.category,
+    filename: req.file.originalname,
   });
+
+  // Best-effort cleanup of the temp file when multer used disk storage.
+  if (req.file.path) {
+    try {
+      await fs.unlink(req.file.path);
+    } catch { /* the OS reaps the temp dir; not worth failing the upload */ }
+  }
+
+  logger.info({ publicId: result.publicId, bytes: result.bytes }, "gallery: image uploaded");
+
+  return res.json({ success: true, url: result.url, publicId: result.publicId });
 });
 
 /* ══════════════════════════════════════════
    DELETE IMAGE (admin only)
    DELETE /api/gallery
-   Body: { imagePath: "/images/category/file.jpg" }
+   Body: { publicId: "math-collective/inauguration/abc123" }
 ══════════════════════════════════════════ */
 export const deleteImage = catchAsync(async (req, res) => {
-  const { imagePath } = req.body;
-  if (!imagePath) return res.status(400).json({ error: "imagePath required" });
+  // `imagePath` is the old disk-era field name; accept it too so an
+  // older client build does not break mid-deploy.
+  const publicId = req.body?.publicId || req.body?.imagePath;
+  if (!publicId) return res.status(400).json({ error: "publicId required" });
 
-  // Security: only allow paths inside /public/images/. The canonical
-  // resolved-prefix check on the next 3 lines is the defense — any
-  // `..` segments or absolute paths in `imagePath` resolve OUTSIDE the
-  // allowed root and get 403'd before any fs operation runs. This is
-  // the standard prefix-check containment pattern.
-  // nosemgrep: javascript.express.security.audit.express-path-join-resolve-traversal — user input is contained by the resolved-prefix check below; admin-only route
-  const resolved = path.resolve(path.join(__dirname, "..", "public", imagePath));
-  const allowed  = path.resolve(IMAGES_DIR);
-  if (!resolved.startsWith(allowed)) {
-    return res.status(403).json({ error: "Invalid path" });
+  if (!isConfigured()) {
+    return res.status(503).json({ error: "Image hosting is not configured." });
   }
 
-  if (fs.existsSync(resolved)) fs.unlinkSync(resolved);
-  return res.json({ success: true });
+  // Containment: only ever delete inside our own namespace. Without this
+  // an admin could pass any public id in the account and destroy the
+  // club's other assets — including the curated photos the gallery page
+  // still links to directly. Same role as the old resolved-path prefix
+  // check, which guarded a directory rather than a namespace.
+  if (!String(publicId).startsWith("math-collective/")) {
+    return res.status(403).json({ error: "That image is not managed by the gallery" });
+  }
+
+  const result = await destroyImage(publicId);
+  logger.info({ publicId, result }, "gallery: image deleted");
+  return res.json({ success: true, result });
 });
 
 /* ══════════════════════════════════════════
    CREATE CATEGORY (admin only)
    POST /api/gallery/category
-   Body: { name: "my-event" }
+
+   Cloudinary folders exist once something is uploaded into them, so
+   there is nothing to create up front. This validates the name and
+   returns the slug the uploader should use, which keeps the admin UI's
+   flow intact without pretending to have made a directory.
 ══════════════════════════════════════════ */
 export const createCategory = catchAsync(async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: "name required" });
-  const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-  fs.mkdirSync(path.join(IMAGES_DIR, slug), { recursive: true });
-  return res.json({ success: true, slug });
+
+  const slug = String(name)
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .slice(0, 40);
+
+  if (!slug) return res.status(400).json({ error: "name must contain letters or numbers" });
+
+  return res.json({
+    success: true,
+    slug,
+    note: `Upload an image with ?category=${slug} to create this album.`,
+  });
 });

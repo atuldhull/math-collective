@@ -194,6 +194,7 @@ SPA served by Express.
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET` | feature | Razorpay (for org subscriptions) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_CONTACT` | feature | Web push notifications. Generate with `node backend/scripts/generateVapidKeys.js` |
 | `SENTRY_DSN` | feature | Sentry error reporting (any free-tier DSN works) |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | feature | Gallery image hosting. Without all three the gallery API returns an empty list rather than failing — uploads are refused with a clear 503. Required in production: Render wipes the disk on every deploy, so local-disk uploads do not survive. |
 | `PORT` | no | Server port (default 3000) |
 | `ALLOWED_EMAIL_DOMAINS` | no | Comma-separated domains allowed to self-register, e.g. `bmsit.in`. Unset = any domain (current behaviour). An invite token always overrides it. |
 | `ALLOWED_EMAIL_EXCEPTIONS` | no | Rarely needed. Comma-separated EXACT addresses that bypass the domain rule. Anyone holding a role above student is already exempt automatically, so this is only for a non-staff address that must be let in. |

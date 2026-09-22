@@ -124,6 +124,17 @@ export default [
         Promise: "readonly",
         Math: "readonly",
         URL: "readonly",
+        // Standard since Node 18 and available in the Node 22 this repo
+        // pins (.nvmrc + engines). Declared so backend code can use the
+        // platform fetch instead of importing the legacy node-fetch.
+        fetch: "readonly",
+        FormData: "readonly",
+        Blob: "readonly",
+        Headers: "readonly",
+        Request: "readonly",
+        Response: "readonly",
+        AbortController: "readonly",
+        URLSearchParams: "readonly",
       },
     },
     rules: {
