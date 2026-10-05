@@ -1,56 +1,44 @@
 /**
- * HeroExperience — dispatcher that picks the best hero implementation
- * for the current build.
+ * HeroExperience — chooses how much of the hero this device should render.
  *
- * Two paths:
+ * History, because the reasoning matters more than the code here:
  *
- *   1. Pre-rendered video (VideoScrubHero) — when /app/videos/hero-
- *      night.mp4 is present in the build output. Cinema-quality
- *      Blender / Unreal renders, scroll-driven scrubbing, day/night
- *      cross-fade tied to the theme toggle. This is the target.
+ *   rev 1     180-frame Cloudinary image scrub. Laggy and blurry.
+ *   rev 2-4   Three.js WebGL Earth with a monument on the surface.
+ *   rev 5     "The Infinite Library" — a full Three.js environment.
+ *   rev 11    A dispatcher between a pre-rendered video, that Three.js
+ *             scene, and a still image, picked by probing for the video.
+ *   rev 12    This. All three of those were the same bet — that the way to
+ *             look impressive is to render something expensive — and all
+ *             three charged the visitor their scroll performance for it.
  *
- *   2. Real-time WebGL (LibraryScene) — the Three.js fallback that
- *      ships as long as no video file is present. Keeps working
- *      forever; we don't need the video to be done before launch.
+ * What replaced them is MathFieldHero: parametric curves in SVG, a lattice
+ * in CSS gradients, and nothing animating except transform and opacity. It
+ * is cheaper than the still image was, because the still image was a 26KB
+ * decode and this is a few hundred bytes of path data.
  *
- * Detection strategy:
- *   HEAD-request /app/videos/hero-night.mp4. If it returns 200, we
- *   switch to video. Anything else (404 default, network error,
- *   CSP block) → fall through to LibraryScene. Detection happens
- *   asynchronously so the page doesn't block on the check; during
- *   detection we show a slim dark gradient placeholder.
- *
- * Adding the video later:
- *   Drop the rendered MP4s into `frontend/public/videos/` (see the
- *   README in that folder for filename + spec). Vite copies them
- *   to `public/app/videos/` at build time. Next deploy lights up
- *   the video path automatically. No code change needed.
+ * The device detection below is kept from rev 11 — it was the good part.
+ * It no longer chooses between technologies, only between how much of one
+ * composition to draw.
  */
 
-import { useEffect, useState, lazy, Suspense } from "react";
-
-const VideoScrubHero = lazy(() => import("./VideoScrubHero"));
-const LibraryScene   = lazy(() => import("./LibraryScene"));
-const StillHero      = lazy(() => import("./StillHero"));
+import MathFieldHero from "./MathFieldHero";
 
 /**
- * Should this device get the still frame instead of anything animated?
+ * Should this device get the reduced composition?
  *
- * Three situations, all of which the animated heroes serve badly:
- *   - the person asked for reduced motion;
- *   - a phone-sized viewport, where the WebGL scene was shading a dozen
- *     real-time lights for a hero most visitors scroll straight past;
- *   - a device reporting few cores, little memory, or Save-Data, which
- *     is an explicit request not to spend the visitor's bandwidth.
+ * Reduced means two curves instead of four, no glyph scatter, no cursor
+ * tracking. Still the same design — a visitor on a phone should not be able
+ * to tell they were served a cheaper version, only that it is smooth.
  *
- * Everything sits behind optional chaining because these APIs are
- * patchily supported and this also runs in test environments where
- * navigator is thin.
+ * Everything sits behind optional chaining because these APIs are patchily
+ * supported and this also runs in tests where navigator is thin.
  */
-function prefersStillHero() {
+export function prefersReducedHero() {
   if (typeof window === "undefined") return false;
   try {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return true;
+    // A phone is composited by a weaker GPU and is the likeliest device to
+    // be scrolling past this within the first two seconds.
     if (window.matchMedia?.("(max-width: 767px)").matches) return true;
 
     const cores = navigator.hardwareConcurrency;
@@ -59,102 +47,24 @@ function prefersStillHero() {
     const mem = navigator.deviceMemory;
     if (typeof mem === "number" && mem > 0 && mem <= 4) return true;
 
+    // Save-Data is an explicit request not to spend the visitor's resources.
     if (navigator.connection?.saveData) return true;
-  } catch { /* any of these may be missing; fall through to animated */ }
+  } catch {
+    /* any of these may be missing; fall through to the full composition */
+  }
   return false;
 }
 
-// Dark gradient shown while we're still figuring out which mode to
-// render. Matches the LibraryScene clear color so the transition
-// into either branch is seamless. Visible for ~50-200ms typically.
-function HeroDetecting() {
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: "fixed", inset: 0, zIndex: 0,
-        pointerEvents: "none",
-        background:
-          "radial-gradient(ellipse at center bottom, rgba(255,177,92,0.10), transparent 50%), " +
-          "radial-gradient(ellipse at center, rgba(124,58,237,0.05), transparent 60%), " +
-          "#05030a",
-      }}
-    />
-  );
-}
-
 export default function HeroExperience() {
-  const [mode, setMode] = useState("detecting");   // detecting | still | video | webgl
+  /* Deliberately computed during render rather than in an effect. The old
+     dispatcher started in a "detecting" state, painted a placeholder, then
+     swapped — a guaranteed extra paint and a visible flash on a slow device.
+     These media queries are synchronous and cheap, so the first paint can be
+     the right one.
 
-  useEffect(() => {
-    // sessionStorage cache so subsequent navigations within the same
-    // tab skip the HEAD probe. Key version bumped to invalidate the
-    // first-shipped cache entries (the v1 probe was fooled by Render's
-    // SPA fallback returning 200 with text/html for unknown paths and
-    // sometimes cached "video" when no video existed — black hero).
-    const CACHE_KEY = "hero-mode-v2";
-    const cached = (() => {
-      try { return sessionStorage.getItem(CACHE_KEY); } catch { return null; }
-    })();
-    if (cached === "video" || cached === "webgl") {
-      setMode(cached);
-      return;
-    }
-
-    // Decided before the probe: a phone gains nothing from discovering
-    // that a 30MB video exists, and nothing from Three.js either.
-    if (prefersStillHero()) {
-      setMode("still");
-      return;
-    }
-
-    let cancelled = false;
-    fetch("/app/videos/hero-night.mp4", { method: "HEAD" })
-      .then((res) => {
-        if (cancelled) return;
-        // res.ok alone is NOT enough — Render's SPA fallback serves
-        // index.html (200 OK, Content-Type: text/html) for any unknown
-        // path under /app/. If we trusted res.ok we'd think a video
-        // exists when it doesn't, mount VideoScrubHero, try to play
-        // HTML as MP4, and render a black screen. The Content-Type
-        // check is what catches this — we only switch to video mode
-        // when the server actually returns a video/* MIME type.
-        const ct = (res.headers.get("content-type") || "").toLowerCase();
-        const isVideo = res.ok && ct.startsWith("video/");
-        const next = isVideo ? "video" : "webgl";
-        setMode(next);
-        try { sessionStorage.setItem(CACHE_KEY, next); } catch { /* incognito */ }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setMode("webgl");
-        try { sessionStorage.setItem(CACHE_KEY, "webgl"); } catch { /* incognito */ }
-      });
-
-    return () => { cancelled = true; };
-  }, []);
-
-  if (mode === "detecting") return <HeroDetecting />;
-
-  if (mode === "still") {
-    return (
-      <Suspense fallback={<HeroDetecting />}>
-        <StillHero />
-      </Suspense>
-    );
-  }
-
-  if (mode === "video") {
-    return (
-      <Suspense fallback={<HeroDetecting />}>
-        <VideoScrubHero />
-      </Suspense>
-    );
-  }
-
-  return (
-    <Suspense fallback={<HeroDetecting />}>
-      <LibraryScene />
-    </Suspense>
-  );
+     There is no lazy() here either. Both variants are the same component,
+     and it is small enough that a separate chunk would cost more in request
+     overhead than it saves in bytes. */
+  const variant = prefersReducedHero() ? "reduced" : "full";
+  return <MathFieldHero variant={variant} />;
 }

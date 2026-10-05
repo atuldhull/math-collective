@@ -69,11 +69,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "frontend/src"),
     },
     // dedupe ensures every import of these specifiers — including from
-    // deeply nested deps (leva ships zustand@3, @react-three pulls in
-    // tunnel-rat which ships zustand@4) — resolves to the project's
-    // top-level copy. Without this, multiple React/zustand pairs end up
-    // in the bundle and the React dispatcher null-error crashes every
-    // form on first interaction.
+    // deeply nested deps — resolves to the project's top-level copy.
+    // Without this, multiple React/zustand pairs end up in the bundle and
+    // the React dispatcher null-error crashes every form on first
+    // interaction. The original offenders (leva's zustand@3, and zustand@4
+    // via @react-three's tunnel-rat) left with the WebGL hero, but keeping
+    // a single React copy pinned is worth it regardless.
     dedupe: ["react", "react-dom", "react/jsx-runtime", "scheduler", "zustand"],
   },
   server: {
@@ -129,16 +130,16 @@ export default defineConfig({
         // Phase 29 — split the heavy vendor libraries into their own
         // chunks so they cache independently of app code. Before this:
         // the 850KB `app` chunk + 685KB HomePage bundled three.js,
-        // framer-motion, gsap and katex inline. Every deploy busted
-        // both. Now Three.js + postprocessing live in a `three-vendor`
-        // chunk that only changes when those libs bump, framer in
-        // `motion-vendor`, katex in `math-vendor`, etc. Repeat visits
-        // become near-instant since these chunks don't churn.
+        // framer-motion, gsap and katex inline. Every deploy busted both.
+        // Now framer lives in `motion-vendor`, katex in `math-vendor`, and
+        // so on. Repeat visits become near-instant since these chunks
+        // don't churn.
+        //
+        // The `three-vendor` rule that used to head this list is gone with
+        // the WebGL hero. It was the largest chunk on the site and it was
+        // downloaded by everyone who landed on the homepage.
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
-          if (id.includes("/three/") || id.includes("/postprocessing/")) {
-            return "three-vendor";
-          }
           if (id.includes("/framer-motion/")) {
             return "motion-vendor";
           }

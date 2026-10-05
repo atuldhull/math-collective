@@ -318,8 +318,14 @@ h1, h2, h3, h4 {
    LibraryScene reads it back to map scroll position onto the camera
    timeline — if the two ever disagree, the camera desyncs from the
    content, so they must read the same number. */
-:root { --hero-span: 500vh; }
-@media (max-width: 767px) { :root { --hero-span: 200vh; } }
+/* The hero's scroll length. Was 500vh - five screen-heights of empty
+   spacer whose only job was driving a Three.js camera timeline that no
+   longer exists. The narrative overlay still maps its four beats onto
+   this span proportionally, so 260vh gives each beat about two-thirds
+   of a screen: enough to read, without making the visitor scroll past
+   four screens of nothing to reach the page. */
+:root { --hero-span: 340vh; }
+@media (max-width: 767px) { :root { --hero-span: 190vh; } }
 
 /* Crop overflow WITHOUT creating a scroll container.
 

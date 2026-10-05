@@ -8,6 +8,8 @@ import Button from "@/components/ui/Button";
 import MonumentBackground from "@/components/backgrounds/MonumentBackground";
 import { useMonument } from "@/hooks/useMonument";
 import { usePublicStats } from "@/hooks/usePublicStats";
+import { useIdlePrefetch } from "@/hooks/useIdlePrefetch";
+import { heroSpanPx } from "@/lib/heroSpan";
 import AnimatedNumber from "@/components/ui/AnimatedNumber";
 // Hero scene history:
 //   rev 1: 180-frame Cloudinary scrub (laggy, blurry)
@@ -27,16 +29,28 @@ import AnimatedNumber from "@/components/ui/AnimatedNumber";
 // only resolve after detection picks a branch.
 const MonumentVideo = lazy(() => import("@/features/home/components/HeroExperience"));
 // Scroll-pinned narrative band overlays on top of the hero — fade in/out
-// at four scroll positions to tell the Math Collective story while the
+// at four scroll positions to tell the Asymptotes story while the
 // camera dives through the scene. Lazy so the framer-motion + scroll-
 // listener code doesn't add to the initial bundle.
 const HeroNarrativeOverlay = lazy(() => import("@/features/home/components/HeroNarrativeOverlay"));
-// Phase 32 — EvolutionTimeline is also lazy-loaded. It pulls in
-// MathRender + KaTeX (~260KB) for formula rendering. The timeline
-// sits below the scroll-spacer so users scroll past the hero span
-// before it enters the viewport — plenty of time to fetch the chunk
-// invisibly. Saves ~76KB gzipped from the initial HomePage payload.
-const EvolutionTimeline = lazy(() => import("@/features/home/components/EvolutionTimeline"));
+// EvolutionTimeline pulls in MathRender + KaTeX (~260KB) for formula
+// rendering, so it stays out of the initial payload (~76KB gzipped saved).
+//
+// The importer is hoisted to a named constant because two things need to be
+// the SAME module request: React.lazy below, which decides when the
+// component mounts, and useIdlePrefetch in the component, which decides
+// when the module is parsed. Passing two separate arrow functions would
+// still hit the same chunk over the network, but the point is to share one
+// module record so the lazy import resolves instantly from an already-
+// evaluated module rather than re-entering the graph.
+//
+// Why the prefetch exists at all: measured on this page, scrolling produced
+// 19 main-thread long tasks (~1.3s, worst 109ms) and sitting still produced
+// zero. The tasks were this chunk being parsed, triggered by the first
+// scroll. Parsing it in idle time instead moves that work off the moment
+// the visitor is actually scrolling.
+const importEvolutionTimeline = () => import("@/features/home/components/EvolutionTimeline");
+const EvolutionTimeline = lazy(importEvolutionTimeline);
 
 // Suspense fallback while the WebGL hero chunk loads. Same fixed-fullscreen
 // dimensions + a dark gradient that mimics the cathedral library's amber-on-
@@ -142,17 +156,9 @@ const features = [
   },
 ];
 
-/** The hero's scroll length, from --hero-span (styles/theme.css) — the
- *  same number LibraryScene maps its camera timeline onto. Phones get a
- *  shorter hero, so hardcoding 5x viewport heights here would fade the
- *  title over a different distance than the scene actually travels. */
-function heroScrollRange() {
-  const raw = window.getComputedStyle(document.documentElement)
-    .getPropertyValue("--hero-span").trim();
-  const vh = parseFloat(raw);
-  if (Number.isFinite(vh) && vh > 0) return window.innerHeight * (vh / 100);
-  return window.innerHeight * 5;
-}
+/** The hero's scroll length. Shared with the hero backdrop and the
+ *  narrative overlay so all three fade against the same distance. */
+const heroScrollRange = heroSpanPx;
 
 /**
  * useScrollVideo — scroll progress 0→1 over the hero's scroll range.
@@ -223,6 +229,11 @@ function useScrollVideo() {
 export default function HomePage() {
   useMonument("desert");
   const shouldReduceMotion = useReducedMotion();
+
+  // Parse the timeline's KaTeX chunk while the thread is idle, so the
+  // visitor's first scroll does not have to. DeferUntilNear still controls
+  // when the component mounts; this only controls when it is compiled.
+  useIdlePrefetch(importEvolutionTimeline);
 
   // Single scroll progress for the hero overlay. The range comes from
   // --hero-span inside the hook, so it tracks the shorter phone hero.
@@ -351,7 +362,7 @@ export default function HomePage() {
             textAlign: "center",
             textWrap: "balance",
           }}>
-            The Infinite Library of Mathematics — Math Collective at BMSIT.
+            Asymptotes — the mathematics club at BMSIT.
           </p>
         </div>
       )}
@@ -405,7 +416,7 @@ export default function HomePage() {
               <span className="bg-gradient-to-r from-primary via-secondary to-glow bg-clip-text text-transparent">Becomes Epic</span>
             </motion.h2>
             <motion.p custom={2} variants={fadeUp} className="mx-auto mt-8 max-w-2xl text-lg leading-8 text-text-muted">
-              Math Collective is a competitive mathematics platform where university students solve challenges, compete in live events, and push each other to think harder, faster, and deeper.
+              Asymptotes is a competitive mathematics platform where university students solve challenges, compete in live events, and push each other to think harder, faster, and deeper.
             </motion.p>
             <motion.div custom={3} variants={fadeUp} className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link to="/register"><Button size="lg">Join the Collective</Button></Link>

@@ -23,11 +23,14 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import Button from "@/components/ui/Button";
+import { heroSpanPx } from "@/lib/heroSpan";
 
-// Matches the LibraryScene + VideoScrubHero scroll spacer. Kept in
-// sync by convention; if the spacer changes in HomePage this needs
-// to match. Could refactor to a shared constant later.
-function scrollSpan() { return window.innerHeight * 5; }
+// Reads --hero-span, the same token that sizes the spacer element in
+// HomePage. This used to hard-code innerHeight * 5 with a comment saying
+// it was "kept in sync by convention" — it was not. When the token
+// dropped to 260vh the bands kept mapping onto a five-screen hero and
+// beat two rendered on top of the content section below it.
+const scrollSpan = heroSpanPx;
 
 // Four narrative bands shown sequentially as the user scrolls. The
 // first 18% of scroll is reserved for the existing poetic title
