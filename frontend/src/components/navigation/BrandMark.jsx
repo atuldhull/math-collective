@@ -14,31 +14,32 @@ export default function BrandMark({ to = "/", compact = false, className }) {
         className,
       )}
     >
+      {/* The club logo, given the whole box.
+
+          It used to sit at 40px inside a 48px plate with a border, and at that
+          size the sculpture was an unreadable smear — the ribbons, the lit
+          edges and the perspective all collapse into noise. Rendered at
+          increasing sizes it starts to resolve around 56px and reads properly
+          by 72px, so the badge was the problem rather than the image.
+
+          The plate and border are gone because the asset's background is
+          already cut to transparency, so there was nothing for them to do
+          except eat eight pixels the logo needed. */}
       <span
         className={cn(
-          "relative flex items-center justify-center rounded-[1.15rem] border border-line/25 bg-white/[0.04] shadow-panel",
-          compact ? "h-11 w-11" : "h-12 w-12",
+          "relative flex shrink-0 items-center justify-center",
+          compact ? "h-14 w-14" : "h-16 w-16",
         )}
-        style={{ borderColor: "color-mix(in srgb, var(--org-primary) 25%, transparent)" }}
       >
-        {/* Dark plate rather than the old violet gradient: the club logo is
-            gold on steel and had nothing to sit against on a bright fill. */}
-        <span
-          className="absolute inset-[5px] rounded-[0.9rem]"
-          style={{ background: "linear-gradient(145deg, #11141f, #05070e)" }}
-        />
-        {/* The club logo. Its black ground is cut to transparency in the
-            asset itself (alpha built from luminance), so it sits on the
-            plate instead of showing as a square inside it. */}
         <img
           src="/app/brand/club-logo-256.webp"
           srcSet="/app/brand/club-logo-128.webp 128w, /app/brand/club-logo-256.webp 256w, /app/brand/club-logo-512.webp 512w"
-          sizes="48px"
+          sizes="(max-width: 767px) 56px, 64px"
           alt=""
           width="256"
           height="256"
           decoding="async"
-          className={cn("relative object-contain", compact ? "h-9 w-9" : "h-10 w-10")}
+          className="h-full w-full object-contain"
         />
       </span>
 
