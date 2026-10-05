@@ -45,7 +45,7 @@ export default function ContactPage() {
             Contact Us
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-text-muted">
-            Have a question, suggestion, or want to collaborate? Reach out to the Math Collective team.
+            Have a question, suggestion, or want to collaborate? Reach out to the Asymptotes team.
           </p>
         </motion.section>
 

@@ -47,7 +47,7 @@ let sitemapCache = { body: null, expiresAt: 0 };
 function resolveBase() {
   const raw = process.env.FRONTEND_URL
            || process.env.PUBLIC_URL
-           || "https://math-collective.onrender.com";
+           || "https://asymptotes.onrender.com";
   return raw.replace(/\/$/, "");
 }
 
@@ -177,7 +177,7 @@ function renderSitemap(base, rows) {
 /** Build robots.txt. */
 function renderRobots(base) {
   return [
-    "# Math Collective — competitive mathematics platform for BMSIT.",
+    "# Asymptotes — competitive mathematics platform for BMSIT.",
     "# Public marketing + share targets are crawl-friendly so search",
     "# engines can index them. Authenticated app routes are intentionally",
     "# blocked — crawlers only see the loading shell or get redirected to",

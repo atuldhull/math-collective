@@ -50,7 +50,7 @@ export default function AdminDataPage() {
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
-              a.download = `math-collective-export-${new Date().toISOString().slice(0,10)}.zip`;
+              a.download = `asymptotes-export-${new Date().toISOString().slice(0,10)}.zip`;
               a.click();
               URL.revokeObjectURL(url);
               showMsg("Export downloaded!");

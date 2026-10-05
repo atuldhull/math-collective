@@ -41,7 +41,7 @@ export default function InstallPwaButton({ className = "" }) {
         type="button"
         onClick={handleClick}
         className="rounded-full border border-primary/30 bg-primary/12 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white transition hover:bg-primary/20 sm:text-[11px]"
-        aria-label="Install Math Collective"
+        aria-label="Install Asymptotes"
       >
         {"\u2B07"} Install
       </button>

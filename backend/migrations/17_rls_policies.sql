@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — RLS DEFAULT-DENY ON TENANT TABLES
+--  ASYMPTOTES — RLS DEFAULT-DENY ON TENANT TABLES
 --  Run this in Supabase SQL Editor.
 --
 --  WHY THIS EXISTS

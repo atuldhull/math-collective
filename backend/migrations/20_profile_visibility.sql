@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — PROFILE VISIBILITY + SOCIAL PRIVACY (Phase 15)
+--  ASYMPTOTES — PROFILE VISIBILITY + SOCIAL PRIVACY (Phase 15)
 --
 --  Run in Supabase SQL editor. Idempotent — safe to run twice.
 --

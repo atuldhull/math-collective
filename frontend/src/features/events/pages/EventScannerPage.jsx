@@ -67,7 +67,7 @@ export default function EventScannerPage() {
     // Parse QR: "mc-event:{eventId}:{qr_token}"
     const parts = qrData.split(":");
     if (parts.length !== 3 || parts[0] !== "mc-event") {
-      setScanResult({ type: "error", message: "Invalid QR — not a Math Collective event QR" });
+      setScanResult({ type: "error", message: "Invalid QR — not a Asymptotes event QR" });
       autoReset();
       return;
     }

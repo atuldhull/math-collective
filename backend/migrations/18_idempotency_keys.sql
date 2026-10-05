@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — IDEMPOTENCY KEYS
+--  ASYMPTOTES — IDEMPOTENCY KEYS
 --  Run this in Supabase SQL Editor before deploying Phase 10.2.
 --
 --  WHY THIS EXISTS

@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — PAID EVENTS (manual UPI/QR reconciliation)
+--  ASYMPTOTES — PAID EVENTS (manual UPI/QR reconciliation)
 --
 --  Run in Supabase SQL editor. Idempotent — safe to run twice.
 --

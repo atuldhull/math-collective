@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — EVENTS + SITE SETTINGS MIGRATION (v1)
+--  ASYMPTOTES — EVENTS + SITE SETTINGS MIGRATION (v1)
 --  Run this in Supabase SQL Editor
 --
 --  NOTE: After running this, also run:

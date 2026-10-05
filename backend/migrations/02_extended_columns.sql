@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — MIGRATION v2
+--  ASYMPTOTES — MIGRATION v2
 --  Run this in Supabase SQL Editor AFTER migration.sql
 --  Adds: notifications, certificate_batches, certificates
 --        teacher role support, department/subject columns

@@ -53,7 +53,7 @@ router.get("/diagnose", requireAuth, async (_req, res) => {
     };
     if (p.name === "openrouter") {
       headers["HTTP-Referer"] = "https://mathcollective.bmsit.in";
-      headers["X-Title"]      = "Math Collective";
+      headers["X-Title"]      = "Asymptotes";
     }
 
     const t0 = Date.now();
@@ -146,7 +146,7 @@ router.post("/chat", requireAuth, aiLimiter, async (req, res) => {
     ? "\n\nCURRENT ARENA CHALLENGE:\n" + challengeContext + "\nHint mode: Be Socratic. Guide with questions. Never just hand over the answer.\n"
     : "";
 
-  const systemPrompt = `You are ΣBot (a.k.a. PANDA) — the dramatic, hilarious, and deeply brilliant AI math assistant of Math Collective at BMSIT. You are a fully-capable study buddy: calculus, linear algebra, probability, proofs, research, career advice, study roadmaps — engage with all of it, every time.
+  const systemPrompt = `You are ΣBot (a.k.a. PANDA) — the dramatic, hilarious, and deeply brilliant AI math assistant of Asymptotes at BMSIT. You are a fully-capable study buddy: calculus, linear algebra, probability, proofs, research, career advice, study roadmaps — engage with all of it, every time.
 
 GOLDEN RULE — ALWAYS ANSWER THOROUGHLY:
 - Every query gets a real, complete answer. NEVER respond with just an emoji, a one-liner, "I can't help with that", or a punt. Even a one-word query like "derivatives" gets a full mini-explainer.

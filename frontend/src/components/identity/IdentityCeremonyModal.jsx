@@ -118,7 +118,7 @@ export default function IdentityCeremonyModal({ onRestoreRequest }) {
               <p className="mt-3 text-sm leading-6 text-text-muted">
                 Your chat is end-to-end encrypted. To do that, we need an
                 identity key — a piece of math only you hold. We&apos;ll
-                generate it from 12 words drawn from the Math Collective&apos;s
+                generate it from 12 words drawn from the Asymptotes&apos;s
                 vocabulary.
               </p>
               <p className="mt-2 text-sm leading-6 text-text-muted">
@@ -233,7 +233,7 @@ export default function IdentityCeremonyModal({ onRestoreRequest }) {
                 <span>
                   I have saved my 12 words somewhere safe. I understand that
                   <strong className="text-white"> no one can recover them for me</strong>{" "}
-                  — not even the Math Collective.
+                  — not even the Asymptotes.
                 </span>
               </label>
 

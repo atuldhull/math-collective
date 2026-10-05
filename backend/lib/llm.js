@@ -148,7 +148,7 @@ export async function callLLM(opts) {
     // OpenRouter requires these for referrer-based rate tiering.
     if (p.name === "openrouter") {
       headers["HTTP-Referer"] = "https://mathcollective.bmsit.in";
-      headers["X-Title"]      = "Math Collective";
+      headers["X-Title"]      = "Asymptotes";
     }
 
     // One retry on transient errors on the SAME provider, then fall

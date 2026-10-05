@@ -71,7 +71,7 @@ Return ONLY this JSON (no markdown, no extra text):
           "Authorization":  `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type":   "application/json",
           "HTTP-Referer":   "https://mathcollective.bmsit.in",
-          "X-Title":        "Math Collective",
+          "X-Title":        "Asymptotes",
         },
         timeout: 35000,
       }

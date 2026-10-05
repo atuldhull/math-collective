@@ -14,7 +14,7 @@
  *
  * Caveat: on a multi-instance deploy this is per-process, so a 25-attempt
  * burst spread across 5 backends would each see 5 attempts and none
- * would trip. Acceptable for now — Math Collective runs a single Render
+ * would trip. Acceptable for now — Asymptotes runs a single Render
  * web instance. If we ever scale horizontally, replace the Map with a
  * Redis SET / INCR pattern.
  *

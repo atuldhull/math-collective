@@ -130,7 +130,7 @@ export default function RoadmapsListPage() {
 
       {/* Featured (admin-curated) */}
       {featured.length > 0 && (
-        <Section title="Featured" subtitle="Hand-picked by Math Collective">
+        <Section title="Featured" subtitle="Hand-picked by Asymptotes">
           <CardGrid items={featured} savedMap={savedMap} />
         </Section>
       )}

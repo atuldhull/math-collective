@@ -84,7 +84,7 @@ export default function GalleryPage() {
         {/* Inauguration — Canva-style collage */}
         <GallerySection
           title="Inauguration"
-          subtitle="Where it all began — the first chapter of Math Collective"
+          subtitle="Where it all began — the first chapter of Asymptotes"
           label="The Beginning"
           files={inaugFiles}
           variant="purple"

@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — TEAM-EVENT SUPPORT
+--  ASYMPTOTES — TEAM-EVENT SUPPORT
 --  Run this in Supabase SQL Editor.
 --
 --  WHAT THIS DOES

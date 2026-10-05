@@ -1,5 +1,5 @@
 -- ============================================================
--- MATH COLLECTIVE — Event Management Schema Upgrade
+-- ASYMPTOTES — Event Management Schema Upgrade
 -- ============================================================
 -- Date: April 4, 2026
 -- Purpose: Add in-app event registration, attendance tracking,

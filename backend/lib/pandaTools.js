@@ -175,7 +175,7 @@ async function searchArxiv(query, maxResults) {
 
   const { data } = await axios.get(url, {
     timeout: 15000,
-    headers: { "User-Agent": "MathCollective/1.0" },
+    headers: { "User-Agent": "Asymptotes/1.0" },
   });
 
   const papers = [];
@@ -227,7 +227,7 @@ async function searchSemanticScholar(query, limit) {
 
   const { data } = await axios.get(url, {
     timeout: 15000,
-    headers: { "User-Agent": "MathCollective/1.0" },
+    headers: { "User-Agent": "Asymptotes/1.0" },
   });
 
   const papers = (data.data || []).map((p) => ({
@@ -253,7 +253,7 @@ async function getWikipediaSummary(title) {
 
   const { data } = await axios.get(url, {
     timeout: 10000,
-    headers: { "User-Agent": "MathCollective/1.0 (contact: atuldhull777@gmail.com)" },
+    headers: { "User-Agent": "Asymptotes/1.0 (contact: atuldhull777@gmail.com)" },
   });
 
   return JSON.stringify(
@@ -279,7 +279,7 @@ async function searchOeis(query) {
 
   const { data } = await axios.get(url, {
     timeout: 10000,
-    headers: { "User-Agent": "MathCollective/1.0" },
+    headers: { "User-Agent": "Asymptotes/1.0" },
   });
 
   const results = (data.results || []).slice(0, 3).map((r) => {

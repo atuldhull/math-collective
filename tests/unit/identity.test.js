@@ -89,7 +89,7 @@ describe("mnemonic ↔ entropy", () => {
     const words = phrase.split(" ");
     words[3] = "zzzzzzzznotinlist";
     await expect(phraseToEntropy(words.join(" ")))
-      .rejects.toThrow(/not in the Math Collective wordlist/);
+      .rejects.toThrow(/not in the Asymptotes wordlist/);
   });
 
   it("rejects phrases that fail the checksum (subtle typo)", async () => {

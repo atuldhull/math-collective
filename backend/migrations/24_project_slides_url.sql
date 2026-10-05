@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — SLIDES URL FOR PROJECTS
+--  ASYMPTOTES — SLIDES URL FOR PROJECTS
 --  Run this in Supabase SQL Editor.
 --
 --  WHAT THIS DOES

@@ -1,5 +1,5 @@
 /**
- * Math Collective custom wordlist — 2048 math/science-themed words
+ * Asymptotes custom wordlist — 2048 math/science-themed words
  * used to render a 12-word recovery phrase that deterministically
  * seeds a user's E2EE keypair.
  *
@@ -7,7 +7,7 @@
  * ────────────────
  * BIP-39 ships a 2048-word common-English list. We use our own
  * vocabulary because:
- *   1. The platform is "Math Collective" — a math-theme wordlist is
+ *   1. The platform is "Asymptotes" — a math-theme wordlist is
  *      brand-coherent and memorable. Users seeing "euler lemma pi
  *      infinity..." immediately feel the identity.
  *   2. Any word outside the list fails validation on restore,

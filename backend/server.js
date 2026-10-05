@@ -123,7 +123,7 @@ server.listen(env.port, () => {
   // exited otherwise — so the line below is informational, not a check.
   console.log(`
 ┌─────────────────────────────────────────┐
-│   \u2726  MATH COLLECTIVE \u2014 SERVER LIVE  \u2726   │
+│   \u2726  ASYMPTOTES \u2014 SERVER LIVE  \u2726   │
 ├─────────────────────────────────────────┤
 │  \u{1F310}  http://localhost:${env.port}               │
 │  \u{1F511}  Service Role: \u2705 Set           │

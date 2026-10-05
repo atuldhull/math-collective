@@ -1,5 +1,5 @@
 /**
- * OG image generation — Math Collective
+ * OG image generation — Asymptotes
  *
  * Three PNG endpoints (1200x630) for social-card unfurls:
  *   GET /og/portfolio/:handle.png
@@ -29,7 +29,7 @@
  *
  * 404 strategy: NEVER 404. Crawlers retry 404s and we lose the
  * unfurl. Every error path renders fallbackPng() — a generic
- * 'Math Collective' card — with status 200.
+ * 'Asymptotes' card — with status 200.
  */
 
 import path from "path";
@@ -160,7 +160,7 @@ function headerBand() {
   return `
     ${logoMark(72, 60)}
     <text x="152" y="100" font-family="JetBrains Mono" font-size="28" font-weight="700"
-          fill="${COL_TEXT}">Math Collective</text>
+          fill="${COL_TEXT}">Asymptotes</text>
     <text x="152" y="128" font-family="JetBrains Mono" font-size="16" font-weight="700"
           fill="${COL_DIM}">mathcollective.dev</text>`;
 }
@@ -202,7 +202,7 @@ function renderPortfolioPng({ name, handle, headline, emoji, accentColor }) {
   const accent = (typeof accentColor === "string" && /^#[0-9a-f]{3,8}$/i.test(accentColor)) ? accentColor : COL_ACCENT;
   const nameLine    = truncate(name || "Anonymous mathlete", 32);
   const handleLine  = `@${truncate(handle || "unknown", 30)}`;
-  const headlineLs  = wrapLines(headline || "Building things at Math Collective.", 50, 2);
+  const headlineLs  = wrapLines(headline || "Building things at Asymptotes.", 50, 2);
   const safeEmoji   = (typeof emoji === "string" && emoji.trim()) ? emoji.trim().slice(0, 4) : "🧑‍🚀";
 
   const body = `
@@ -272,7 +272,7 @@ function fallbackPng() {
   const body = `
     ${backgroundBand()}
     ${headerBand()}
-    <text x="600" y="360" font-family="JetBrains Mono" font-size="64" font-weight="700" fill="${COL_TEXT}" text-anchor="middle">Math Collective</text>
+    <text x="600" y="360" font-family="JetBrains Mono" font-size="64" font-weight="700" fill="${COL_TEXT}" text-anchor="middle">Asymptotes</text>
     <text x="600" y="420" font-family="JetBrains Mono" font-size="26" font-weight="700" fill="${COL_MUTED}" text-anchor="middle">Competitive math for university students</text>`;
   return renderSvg(body);
 }

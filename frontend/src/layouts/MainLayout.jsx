@@ -464,7 +464,7 @@ export default function MainLayout() {
               <Link to="/gallery" className="transition hover:text-white">Gallery</Link>
               <Link to="/contact" className="transition hover:text-white">Contact</Link>
             </div>
-            <p className="font-mono text-[10px] text-text-muted">&copy; 2026 Math Collective</p>
+            <p className="font-mono text-[10px] text-text-muted">&copy; 2026 Asymptotes</p>
           </div>
         </footer>
       </div>

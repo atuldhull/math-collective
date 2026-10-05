@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — RAZORPAY AUTO-VERIFY FOR EVENT PAYMENTS
+--  ASYMPTOTES — RAZORPAY AUTO-VERIFY FOR EVENT PAYMENTS
 --  Run this in Supabase SQL Editor.
 --
 --  WHAT THIS DOES

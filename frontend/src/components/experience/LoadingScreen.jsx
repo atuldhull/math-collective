@@ -28,7 +28,7 @@ export default function LoadingScreen({ visible }) {
               transition={{ delay: 0.08, duration: 0.7 }}
               className="mt-5 font-display text-4xl font-extrabold tracking-[-0.08em] text-white sm:text-6xl"
             >
-              Math Collective
+              Asymptotes
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 18 }}

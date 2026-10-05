@@ -1,6 +1,6 @@
 {
-  "name": "Math Collective",
-  "short_name": "MathCol",
+  "name": "Asymptotes",
+  "short_name": "Asymptotes",
   "description": "Competitive mathematics platform — solve challenges, compete in live quizzes, earn XP.",
   "start_url": "/app/",
   "scope": "/app/",

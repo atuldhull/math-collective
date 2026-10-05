@@ -92,7 +92,7 @@ export const exportAllData = async (req, res) => {
 
     // Stream ZIP response
     res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", `attachment; filename="math-collective-export-${new Date().toISOString().slice(0,10)}.zip"`);
+    res.setHeader("Content-Disposition", `attachment; filename="asymptotes-export-${new Date().toISOString().slice(0,10)}.zip"`);
 
     const archive = archiver("zip", { zlib: { level: 9 } });
     // By the time this fires the zip stream is mid-flight (Content-Type
@@ -104,7 +104,7 @@ export const exportAllData = async (req, res) => {
 
     // Add summary
     const summary = [
-      `Math Collective — Data Export`,
+      `Asymptotes — Data Export`,
       `Date: ${new Date().toISOString()}`,
       `Exported by: ${req.session?.user?.name || "admin"}`,
       ``,

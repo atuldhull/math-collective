@@ -348,7 +348,7 @@ function mountSwaggerDocs(app) {
   // /api/docs/openapi.json — and returns its own (non-JSON) response.
   app.get("/api/docs/openapi.json", (_req, res) => res.json(spec));
   app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(spec, {
-    customSiteTitle: "Math Collective API — docs",
+    customSiteTitle: "Asymptotes API — docs",
     swaggerOptions: { docExpansion: "list" },
   }));
 }

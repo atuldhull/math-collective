@@ -55,9 +55,9 @@ describe("getTitleForXP", () => {
     expect(getTitleForXP(500)).toBe("Theorem Hunter");
   });
 
-  it("returns 'Math Collective Legend' at 10_000+ XP", () => {
-    expect(getTitleForXP(10_000)).toBe("Math Collective Legend");
-    expect(getTitleForXP(100_000)).toBe("Math Collective Legend");
+  it("returns 'Asymptotes Legend' at 10_000+ XP", () => {
+    expect(getTitleForXP(10_000)).toBe("Asymptotes Legend");
+    expect(getTitleForXP(100_000)).toBe("Asymptotes Legend");
   });
 
   it("is monotonic — title of N+1 XP is the same as title of N or a later one", () => {

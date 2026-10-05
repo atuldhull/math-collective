@@ -3,7 +3,7 @@
  *
  * Lives at /verify?token=UUID and talks to /api/certificates/verify/:token.
  * Anyone (no login) can hit this — it's the target a QR code on a
- * Math Collective certificate points to. A potential employer or
+ * Asymptotes certificate points to. A potential employer or
  * admissions officer scans the QR, lands here, and immediately sees
  * whether the cert is legitimate + who it was issued to.
  *
@@ -45,7 +45,7 @@ export default function VerifyCertificatePage() {
           Certificate Verification
         </p>
         <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          Math Collective
+          Asymptotes
         </h1>
         <p className="mt-2 text-sm text-text-muted">
           Anyone with this page can confirm a certificate is genuine. We never
@@ -105,14 +105,14 @@ function VerifiedCard({ data }) {
         <Row label="Recipient"      value={data.recipientName} strong />
         <Row label="Event"          value={data.eventName} />
         {dateStr  && <Row label="Event date"  value={dateStr} />}
-        <Row label="Issued by"      value={data.issuedBy || "Math Collective"} />
+        <Row label="Issued by"      value={data.issuedBy || "Asymptotes"} />
         {issuedStr && <Row label="Issued on"   value={issuedStr} />}
         {data.signatory && <Row label="Signed by" value={`${data.signatory.name}${data.signatory.title ? ` · ${data.signatory.title}` : ""}`} />}
         <Row label="Certificate ID" value={data.certificateId} mono />
       </dl>
 
       <p className="mt-6 rounded-lg border border-success/20 bg-success/5 px-3 py-2 font-mono text-[10px] text-success">
-        Verified against the Math Collective certificate ledger · {new Date().toLocaleString()}
+        Verified against the Asymptotes certificate ledger · {new Date().toLocaleString()}
       </p>
     </>
   );
@@ -139,7 +139,7 @@ function InvalidCard({ reason }) {
       <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-text-muted">
         <li>The link was mistyped or truncated.</li>
         <li>The certificate was revoked by its issuer.</li>
-        <li>The certificate was never issued by Math Collective.</li>
+        <li>The certificate was never issued by Asymptotes.</li>
       </ul>
       <p className="mt-4 font-mono text-[10px] uppercase tracking-wider text-text-dim">
         Server response: {reason}

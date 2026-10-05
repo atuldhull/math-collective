@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════
---  MATH COLLECTIVE — PAYMENT HISTORY MIGRATION
+--  ASYMPTOTES — PAYMENT HISTORY MIGRATION
 --  Run this in Supabase SQL Editor
 -- ═══════════════════════════════════════════════════════
 

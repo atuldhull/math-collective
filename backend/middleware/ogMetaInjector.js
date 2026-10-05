@@ -101,7 +101,7 @@ function originFor(req) {
 function buildMetaBlock({ title, description, image, url, type = "website" }) {
   return [
     `<meta property="og:type"          content="${esc(type)}" />`,
-    `<meta property="og:site_name"     content="Math Collective" />`,
+    `<meta property="og:site_name"     content="Asymptotes" />`,
     `<meta property="og:title"         content="${esc(title)}" />`,
     `<meta property="og:description"   content="${esc(description)}" />`,
     `<meta property="og:url"           content="${esc(url)}" />`,
@@ -160,12 +160,12 @@ async function handlePortfolio(req, res) {
 
     const origin = originFor(req);
     const title = data.name
-      ? `${data.name} — Math Collective`
-      : `@${data.handle} — Math Collective`;
+      ? `${data.name} — Asymptotes`
+      : `@${data.handle} — Asymptotes`;
     const description = clamp(
       data.portfolio_headline ||
       data.bio ||
-      `${data.name || data.handle}'s portfolio on Math Collective.`,
+      `${data.name || data.handle}'s portfolio on Asymptotes.`,
     );
     const html = renderWithMeta(buildMetaBlock({
       title,
@@ -203,7 +203,7 @@ async function handleProblem(req, res) {
     if (!data) return res.type("html").send(cachedHtml);
 
     const origin = originFor(req);
-    const title = `${data.title} — Math Collective`;
+    const title = `${data.title} — Asymptotes`;
     const descParts = [
       data.source,
       data.source_event,
@@ -212,8 +212,8 @@ async function handleProblem(req, res) {
     ].filter(Boolean);
     const description = clamp(
       descParts.length
-        ? `${descParts.join(" · ")}. Solve it on Math Collective.`
-        : "Problem statement on Math Collective.",
+        ? `${descParts.join(" · ")}. Solve it on Asymptotes.`
+        : "Problem statement on Asymptotes.",
     );
     const html = renderWithMeta(buildMetaBlock({
       title,
@@ -251,7 +251,7 @@ async function handleRoadmap(req, res) {
     if (!data) return res.type("html").send(cachedHtml);
 
     const origin = originFor(req);
-    const title = `${data.title} — Math Collective`;
+    const title = `${data.title} — Asymptotes`;
     const descParts = [
       data.topic,
       data.difficulty ? `${data.difficulty} difficulty` : null,
@@ -259,8 +259,8 @@ async function handleRoadmap(req, res) {
     const description = clamp(
       data.summary ||
       (descParts.length
-        ? `${descParts.join(" · ")}. Learning roadmap on Math Collective.`
-        : "Learning roadmap on Math Collective."),
+        ? `${descParts.join(" · ")}. Learning roadmap on Asymptotes.`
+        : "Learning roadmap on Asymptotes."),
     );
     const html = renderWithMeta(buildMetaBlock({
       title,

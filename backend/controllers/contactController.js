@@ -67,10 +67,10 @@ export const sendContactMessage = async (req, res) => {
 
   try {
     await transporter.sendMail({
-      from:    `"Math Collective Contact" <${process.env.CONTACT_EMAIL}>`,
+      from:    `"Asymptotes Contact" <${process.env.CONTACT_EMAIL}>`,
       to:      process.env.CONTACT_EMAIL,
       replyTo: email,
-      subject: `[Math Collective] ${headerSubject}`,
+      subject: `[Asymptotes] ${headerSubject}`,
       // nosemgrep: javascript.express.security.injection.raw-html-format — every interpolated
       // value in this template literal (safeName, safeEmail, safeSubject, safeMessage, etc.)
       // is the output of the local escapeHtml() helper defined at the top of this file,
@@ -81,7 +81,7 @@ export const sendContactMessage = async (req, res) => {
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;color:#f1f5f9;padding:32px;border-radius:12px;">
           <div style="text-align:center;margin-bottom:24px;">
             <h2 style="margin:0;font-size:1.3rem;color:#a78bfa;">\u{1F4EC} New Contact Form Submission</h2>
-            <p style="color:#64748b;font-size:0.85rem;margin:4px 0 0;">Math Collective &middot; BMSIT</p>
+            <p style="color:#64748b;font-size:0.85rem;margin:4px 0 0;">Asymptotes &middot; BMSIT</p>
           </div>
           <table style="width:100%;border-collapse:collapse;">
             <tr>
@@ -112,7 +112,7 @@ export const sendContactMessage = async (req, res) => {
             </a>
           </div>
           <p style="text-align:center;color:#334155;font-size:0.75rem;margin-top:24px;">
-            Sent via Math Collective contact form &middot; ${new Date().toLocaleString("en-IN")}
+            Sent via Asymptotes contact form &middot; ${new Date().toLocaleString("en-IN")}
           </p>
         </div>
       `,
@@ -120,9 +120,9 @@ export const sendContactMessage = async (req, res) => {
 
     // Auto-reply to the sender
     await transporter.sendMail({
-      from:    `"Math Collective" <${process.env.CONTACT_EMAIL}>`,
+      from:    `"Asymptotes" <${process.env.CONTACT_EMAIL}>`,
       to:      email,
-      subject: `We got your message \u2014 Math Collective`,
+      subject: `We got your message \u2014 Asymptotes`,
       // nosemgrep: javascript.express.security.injection.raw-html-format \u2014 same
       // rationale as the operator email above: ${safeGreeting} and ${safeMessage}
       // are escapeHtml() outputs; the \n\u2192<br> swap on message runs AFTER escape,
@@ -150,7 +150,7 @@ export const sendContactMessage = async (req, res) => {
             </a>
           </div>
           <p style="text-align:center;color:#334155;font-size:0.75rem;margin-top:24px;">
-            Math Collective &middot; BMSIT &middot; This is an automated reply.
+            Asymptotes &middot; BMSIT &middot; This is an automated reply.
           </p>
         </div>
       `,

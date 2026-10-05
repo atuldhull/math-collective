@@ -85,7 +85,7 @@ async function safeFetchUrl(url) {
     maxContentLength: 1_500_000,   // 1.5 MB hard cap
     responseType: "text",
     headers: {
-      "User-Agent":      "MathCollective/1.0 (problem-statement assistant)",
+      "User-Agent":      "Asymptotes/1.0 (problem-statement assistant)",
       "Accept":          "text/html,application/xhtml+xml,*/*;q=0.5",
       "Accept-Language": "en",
     },
@@ -201,7 +201,7 @@ export const draftFromUrl = async (req, res) => {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
             "HTTP-Referer": "https://mathcollective.bmsit.in",
-            "X-Title":      "Math Collective — Problem Drafter",
+            "X-Title":      "Asymptotes — Problem Drafter",
           },
           timeout: 45_000,
         },

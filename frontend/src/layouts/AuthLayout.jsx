@@ -6,7 +6,7 @@ import BrandMark from "@/components/navigation/BrandMark";
 import { usePublicStats, formatStat } from "@/hooks/usePublicStats";
 
 const faqs = [
-  { q: "What is Math Collective?", a: "A competitive mathematics platform where university students solve challenges, compete in live quizzes, and climb leaderboards." },
+  { q: "What is Asymptotes?", a: "A competitive mathematics platform where university students solve challenges, compete in live quizzes, and climb leaderboards." },
   { q: "Is it free to join?", a: "Yes! Students can register for free. Organisations choose a plan based on their needs." },
   { q: "How do live quizzes work?", a: "Teachers host real-time quizzes using Socket.IO. Students join with a code and answer questions under time pressure." },
   { q: "Can my university join?", a: "Absolutely. Contact us and we'll set up your organisation with a custom dashboard, branding, and student management." },
@@ -64,7 +64,7 @@ export default function AuthLayout() {
           <section className="flex flex-col justify-between">
             <div>
               <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7 }} className="mt-8 lg:mt-16">
-                <p className="font-mono text-xs uppercase tracking-[0.4em] text-secondary">Math Collective</p>
+                <p className="font-mono text-xs uppercase tracking-[0.4em] text-secondary">Asymptotes</p>
                 <h1 className="mt-5 max-w-lg font-display text-5xl font-extrabold leading-[0.94] tracking-[-0.06em] text-white sm:text-6xl">
                   Enter the
                   <br />

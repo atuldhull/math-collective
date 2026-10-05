@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — SESSION STORE TABLE
+--  ASYMPTOTES — SESSION STORE TABLE
 --  Run this in Supabase SQL Editor before deploying Phase 6.1.
 --
 --  WHY THIS EXISTS

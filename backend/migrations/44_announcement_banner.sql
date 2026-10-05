@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — ANNOUNCEMENT BANNER SETTINGS (migration 44)
+--  ASYMPTOTES — ANNOUNCEMENT BANNER SETTINGS (migration 44)
 --  Run this in Supabase SQL Editor
 --
 --  The site_notice text has existed since migration 03 but was never

@@ -21,7 +21,7 @@ function invoiceHtml({ userName, orgName, planName, amount, orderId, paymentId, 
   return `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;color:#f1f5f9;padding:0;border-radius:12px;overflow:hidden;">
       <div style="background:linear-gradient(135deg,#7c3aed,#3b82f6);padding:32px;text-align:center;">
-        <h1 style="margin:0;font-size:1.4rem;color:#fff;">\u2726 Math Collective</h1>
+        <h1 style="margin:0;font-size:1.4rem;color:#fff;">\u2726 Asymptotes</h1>
         <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:0.85rem;">Payment Invoice</p>
       </div>
       <div style="padding:32px;">
@@ -66,7 +66,7 @@ function invoiceHtml({ userName, orgName, planName, amount, orderId, paymentId, 
       </div>
       <div style="padding:20px 32px;border-top:1px solid #1e293b;text-align:center;">
         <p style="color:#334155;font-size:0.75rem;margin:0;">
-          Math Collective &middot; BMSIT &middot; ${new Date().getFullYear()}<br>
+          Asymptotes &middot; BMSIT &middot; ${new Date().getFullYear()}<br>
           This is an automated payment confirmation.
         </p>
       </div>
@@ -81,9 +81,9 @@ export async function sendInvoiceEmail({ to, userName, orgName, planName, amount
 
   try {
     await transporter.sendMail({
-      from:    `"Math Collective Billing" <${process.env.CONTACT_EMAIL}>`,
+      from:    `"Asymptotes Billing" <${process.env.CONTACT_EMAIL}>`,
       to,
-      subject: `Payment Confirmed \u2014 ${planName} Plan | Math Collective`,
+      subject: `Payment Confirmed \u2014 ${planName} Plan | Asymptotes`,
       html: invoiceHtml({ userName, orgName, planName, amount, orderId, paymentId, invoiceDate, expiryDate }),
     });
     logger.info({ to }, "Payment invoice email sent");

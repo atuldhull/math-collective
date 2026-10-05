@@ -116,7 +116,7 @@ export default function NotFoundPage() {
           transition={{ delay: 0.32, duration: 0.7 }}
           className="mt-3 max-w-md text-sm leading-7 text-text-muted sm:text-base"
         >
-          This route doesn&rsquo;t exist on the Math Collective.
+          This route doesn&rsquo;t exist on the Asymptotes.
           <span className="block opacity-70">Even Euler couldn&rsquo;t find a function for it.</span>
         </motion.p>
 

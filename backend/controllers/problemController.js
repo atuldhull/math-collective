@@ -637,7 +637,7 @@ export const askProblemAi = async (req, res) => {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer":  "https://mathcollective.bmsit.in",
-          "X-Title":       "Math Collective — Problem Companion",
+          "X-Title":       "Asymptotes — Problem Companion",
         },
         timeout: 30000,
       },

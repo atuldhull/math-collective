@@ -41,7 +41,7 @@ try {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "https://mathcollective.bmsit.in",
-        "X-Title":      "Math Collective SigmaBot",
+        "X-Title":      "Asymptotes SigmaBot",
       },
       timeout: 30000,
     },

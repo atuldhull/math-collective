@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — DISABLE RLS ON DATA-PLANE TABLES
+--  ASYMPTOTES — DISABLE RLS ON DATA-PLANE TABLES
 --  Run this in Supabase SQL Editor.
 --
 --  BACKGROUND

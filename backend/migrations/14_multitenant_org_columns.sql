@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---  MATH COLLECTIVE — MULTI-TENANT ORG_ID LOCKDOWN
+--  ASYMPTOTES — MULTI-TENANT ORG_ID LOCKDOWN
 --  Run this in Supabase SQL Editor.
 --
 --  WHY THIS EXISTS

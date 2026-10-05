@@ -21,13 +21,25 @@ export default function BrandMark({ to = "/", compact = false, className }) {
         )}
         style={{ borderColor: "color-mix(in srgb, var(--org-primary) 25%, transparent)" }}
       >
+        {/* Dark plate rather than the old violet gradient: the club logo is
+            gold on steel and had nothing to sit against on a bright fill. */}
         <span
-          className="absolute inset-[5px] rounded-[0.9rem] opacity-85"
-          style={{ background: `linear-gradient(135deg, var(--org-primary), var(--org-secondary))` }}
+          className="absolute inset-[5px] rounded-[0.9rem]"
+          style={{ background: "linear-gradient(145deg, #11141f, #05070e)" }}
         />
-        <span className="relative font-display text-lg font-bold tracking-[-0.08em] text-white">
-          MC
-        </span>
+        {/* The club logo. Its black ground is cut to transparency in the
+            asset itself (alpha built from luminance), so it sits on the
+            plate instead of showing as a square inside it. */}
+        <img
+          src="/app/brand/club-logo-256.webp"
+          srcSet="/app/brand/club-logo-128.webp 128w, /app/brand/club-logo-256.webp 256w, /app/brand/club-logo-512.webp 512w"
+          sizes="48px"
+          alt=""
+          width="256"
+          height="256"
+          decoding="async"
+          className={cn("relative object-contain", compact ? "h-9 w-9" : "h-10 w-10")}
+        />
       </span>
 
       {/* Title block — on mobile the subtitle is hidden so the title
@@ -36,7 +48,7 @@ export default function BrandMark({ to = "/", compact = false, className }) {
           only shows from md: (768px) up, where there's actual room. */}
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-display text-base font-bold tracking-[-0.06em] text-white sm:text-lg">
-          Math Collective
+          Asymptotes
         </span>
         <span className="hidden whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.28em] text-text-muted md:inline">
           {orgName || "BMSIT Chapter"}

@@ -65,7 +65,7 @@ export default function PublicPortfolioPage() {
           to="/"
           className="mt-6 inline-block rounded-lg border border-line/20 bg-white/[0.05] px-4 py-2 font-mono text-xs uppercase tracking-wider text-white hover:border-primary/40"
         >
-          ← Math Collective
+          ← Asymptotes
         </Link>
       </div>
     );
@@ -268,7 +268,7 @@ export default function PublicPortfolioPage() {
 
       {/* Footer attribution */}
       <p className="mt-16 text-center font-mono text-[10px] uppercase tracking-[0.25em] text-text-dim">
-        portfolio · math collective
+        portfolio · asymptotes
       </p>
     </article>
   );

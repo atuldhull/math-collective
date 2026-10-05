@@ -1,5 +1,5 @@
 /**
- * Mnemonic ↔ seed conversion for the Math Collective identity
+ * Mnemonic ↔ seed conversion for the Asymptotes identity
  * ceremony. 12-word phrase drawn from a 2048-word math-themed
  * wordlist, deterministically derivable from (and reversible to)
  * a 128-bit entropy seed.
@@ -138,7 +138,7 @@ export async function phraseToEntropy(phrase) {
   }
   const unknown = words.find((w) => !(w in WORD_TO_INDEX));
   if (unknown) {
-    throw new Error(`"${unknown}" is not in the Math Collective wordlist — check for typos`);
+    throw new Error(`"${unknown}" is not in the Asymptotes wordlist — check for typos`);
   }
 
   let bits = "";

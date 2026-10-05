@@ -62,7 +62,7 @@ export async function openRazorpayCheckout(opts) {
       order_id: opts.orderId,
       amount:   opts.amountPaise,
       currency: "INR",
-      name:     "Math Collective",
+      name:     "Asymptotes",
       description: opts.eventTitle || "Event registration",
       prefill: {
         name:  opts.prefill?.name  || "",

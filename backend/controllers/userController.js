@@ -29,7 +29,7 @@ export const XP_TITLES = [
   { min: 3500, title: "Conjecture Master" },
   { min: 5000, title: "Prime Theorist"    },
   { min: 7500, title: "Euler's Heir"      },
-  { min: 10000,title: "Math Collective Legend" },
+  { min: 10000,title: "Asymptotes Legend" },
 ];
 
 export function getTitleForXP(xp) {

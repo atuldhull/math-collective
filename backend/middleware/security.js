@@ -1,6 +1,6 @@
 /**
  * SECURITY MIDDLEWARE
- * Math Collective — full protection layer
+ * Asymptotes — full protection layer
  *
  * What each piece does (plain English):
  *

@@ -11,7 +11,7 @@
  * Supabase directly (not req.db) because:
  *   1. The caller has no session and therefore no org context.
  *   2. A cert's verify URL is meant to work across tenants — a
- *      Coursera employer looking up a Math Collective cert cares
+ *      Coursera employer looking up a Asymptotes cert cares
  *      that the cert exists, not which org issued it.
  *
  * Service-role RLS bypass is appropriate here; we explicitly scope
@@ -64,7 +64,7 @@ export const verifyCertificate = async (req, res) => {
       eventName:      data.event_name,
       eventDate:      batch.event_date || null,
       issuedAt:       data.issued_at,
-      issuedBy:       batch.issued_by || "Math Collective",
+      issuedBy:       batch.issued_by || "Asymptotes",
       signatory:      batch.signatory_name
         ? { name: batch.signatory_name, title: batch.signatory_title || null }
         : null,

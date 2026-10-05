@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MATH COLLECTIVE — RUN THIS IN SUPABASE SQL EDITOR
+--  ASYMPTOTES — RUN THIS IN SUPABASE SQL EDITOR
 --  Paste entire file → Run
 -- ═══════════════════════════════════════════════════════════
 

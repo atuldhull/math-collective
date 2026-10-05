@@ -197,7 +197,7 @@ export const createCertificateBatch = async (req, res) => {
             downloadToken: tokenByEmail[r.email.toLowerCase()],
           });
           await transporter.sendMail({
-            from: `"Math Collective" <${process.env.CONTACT_EMAIL}>`,
+            from: `"Asymptotes" <${process.env.CONTACT_EMAIL}>`,
             to: r.email,
             subject: `Your Certificate — ${eventName}`,
             // nosemgrep: javascript.express.security.injection.raw-html-format —
@@ -212,7 +212,7 @@ export const createCertificateBatch = async (req, res) => {
               <h2 style="color:#a78bfa;">🎓 Your Certificate is Here!</h2>
               <p style="color:#94a3b8;">Congratulations <strong style="color:#f1f5f9;">${r.name}</strong>!</p>
               <p style="color:#94a3b8;">Your certificate for <strong style="color:#f1f5f9;">${eventName}</strong> is attached.</p>
-              <p style="color:#64748b;font-size:.85rem;margin-top:1.5rem;">— ${issuedBy || "Math Collective"}</p>
+              <p style="color:#64748b;font-size:.85rem;margin-top:1.5rem;">— ${issuedBy || "Asymptotes"}</p>
             </div>`,
             attachments: [{
               filename:    `Certificate_${r.name.replace(/\s+/g,"_")}.pdf`,

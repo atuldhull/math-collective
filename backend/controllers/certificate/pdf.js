@@ -35,7 +35,7 @@ const PAGE = { W: 842, H: 595 };
 // Public verify URL base. Falls back to FRONTEND_URL env var or a
 // sensible production default if unset.
 function verifyUrlFor(token) {
-  const base = (process.env.FRONTEND_URL || "https://math-collective.onrender.com").replace(/\/$/, "");
+  const base = (process.env.FRONTEND_URL || "https://asymptotes.onrender.com").replace(/\/$/, "");
   return `${base}/verify?token=${token}`;
 }
 
@@ -119,7 +119,7 @@ export async function buildCertificate(opts) {
     organiserLine   = "",
     bodyText        = "",
     eventDate       = "",
-    issuedBy        = "Math Collective",
+    issuedBy        = "Asymptotes",
     logoPaths       = [],
     signatories     = [],
     template: templateKey,
@@ -167,10 +167,10 @@ export async function buildCertificate(opts) {
     margins: { top: 0, left: 0, right: 0, bottom: 0 },
     info: {
       Title:    `Certificate — ${eventName}`,
-      Author:   issuedBy || "Math Collective",
+      Author:   issuedBy || "Asymptotes",
       Subject:  `Certificate of ${certType} awarded to ${recipientName}`,
-      Keywords: `certificate, ${certType}, ${eventName}, Math Collective, ${certId}`,
-      Producer: "Math Collective PDF Engine",
+      Keywords: `certificate, ${certType}, ${eventName}, Asymptotes, ${certId}`,
+      Producer: "Asymptotes PDF Engine",
     },
   });
 
@@ -218,7 +218,7 @@ export async function buildCertificate(opts) {
   doc.fillColor(T.muted)
      .font(T.fontBody)
      .fontSize(11)
-     .text("MATH COLLECTIVE · BMSIT", 0, validLogos.length ? 130 : 80, { align: "center", characterSpacing: 3 });
+     .text("ASYMPTOTES · BMSIT", 0, validLogos.length ? 130 : 80, { align: "center", characterSpacing: 3 });
 
   doc.fillColor(T.heading)
      .font(T.fontTitle)

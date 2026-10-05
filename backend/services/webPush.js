@@ -59,7 +59,7 @@ export async function sendWebPush(userId, payload) {
     if (error || !subs?.length) return;
 
     const notification = JSON.stringify({
-      title: payload.title || "Math Collective",
+      title: payload.title || "Asymptotes",
       body:  payload.body || payload.message || "",
       icon:  payload.icon || "/app/icons/icon-192.png",
       badge: "/app/icons/icon-192.png",
