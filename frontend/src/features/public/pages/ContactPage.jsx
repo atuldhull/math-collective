@@ -130,7 +130,8 @@ export default function ContactPage() {
               <h3 className="font-display text-lg font-bold text-white">Quick Info</h3>
               <div className="mt-4 space-y-4">
                 {[
-                  { label: "Email", value: "mathcollective@bmsit.in", icon: "📧" },
+                  // Must match where contactController actually delivers.
+                  { label: "Email", value: "asymptotesbmsit@gmail.com", icon: "📧" },
                   { label: "Location", value: "BMSIT Campus, Bangalore", icon: "📍" },
                   { label: "Hours", value: "Mon-Fri, 9 AM - 5 PM IST", icon: "🕐" },
                 ].map((item) => (
