@@ -161,19 +161,54 @@ export function applyCors(app) {
     process.env.FRONTEND_URL,              // set this in .env.local = https://yourdomain.com
   ].filter(Boolean);
 
-  app.use(cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (Postman, server-to-server)
-      if (!origin) return callback(null, true);
-      const allowed = allowedOrigins.some(o =>
-        typeof o === "string" ? o === origin : o.test(origin)
-      );
-      if (allowed) callback(null, true);
-      else callback(new Error(`CORS: origin ${origin} not allowed`));
-    },
-    credentials:      true,   // allow cookies
-    methods:          ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders:   ["Content-Type", "Authorization"],
+  /**
+   * A request whose Origin is this very server is same-origin, and a site
+   * must never be able to refuse itself.
+   *
+   * It could, and did. The allowlist was localhost plus FRONTEND_URL, so if
+   * FRONTEND_URL was unset or pointed anywhere other than the host actually
+   * being served, the site's own origin was not on its own allowlist. That
+   * sounds harmless — CORS is for other people's sites — but Vite emits the
+   * app as ES modules with `crossorigin`, and module scripts are fetched in
+   * CORS mode. So every chunk of the application carried an Origin header,
+   * every one of them was rejected, the error handler answered with the SPA
+   * index instead, and the browser refused four `text/html` responses it had
+   * asked for as JavaScript. The page rendered completely blank, with the
+   * only clue a MIME type error — nothing that names CORS or FRONTEND_URL.
+   *
+   * It took one wrong env var to do it, which is far too little.
+   */
+  const isSameOrigin = (origin, req) => {
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    if (!host) return false;
+    try {
+      return new URL(origin).host === host;
+    } catch {
+      return false;
+    }
+  };
+
+  // The (req, callback) form, so the check can see the host being served.
+  app.use(cors((req, callback) => {
+    const origin = req.headers.origin;
+
+    const options = {
+      credentials:    true,   // allow cookies
+      methods:        ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    };
+
+    // No Origin at all: Postman, curl, server-to-server.
+    if (!origin) return callback(null, { ...options, origin: true });
+
+    if (isSameOrigin(origin, req)) return callback(null, { ...options, origin: true });
+
+    const allowed = allowedOrigins.some(o =>
+      typeof o === "string" ? o === origin : o.test(origin)
+    );
+    if (allowed) return callback(null, { ...options, origin: true });
+
+    return callback(new Error(`CORS: origin ${origin} not allowed`));
   }));
 }
 
