@@ -453,6 +453,18 @@ export default function MainLayout() {
           </div>
         </main>
 
+        {/* The Panda button floats at bottom-right and nothing reserved room
+            for it, so on a phone it sat on top of whatever the page ended
+            with — the message textarea on Contact, the rankings card on the
+            Leaderboard. Reserving its height here keeps the last element of
+            every page reachable. Also accounts for the iOS home indicator.
+            Desktop has room to spare, so the reservation drops away at sm. */}
+        <div
+          aria-hidden="true"
+          className="h-24 shrink-0 sm:h-0"
+          style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+        />
+
         <footer className="mt-16 w-full border-t border-line/10 px-4 pb-10 pt-8 sm:px-8 lg:px-10">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <BrandMark />

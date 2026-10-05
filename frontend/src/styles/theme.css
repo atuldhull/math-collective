@@ -288,10 +288,20 @@ h1, h2, h3, h4 {
   }
   /* Larger tap targets for small interactive elements — scoped to
      interactive tags only, so plain spans/paragraphs/badges keep
-     their block/truncate layout */
-  button.font-mono.text-\[10px\], a.font-mono.text-\[10px\], [role="button"].font-mono.text-\[10px\], label.font-mono.text-\[10px\], summary.font-mono.text-\[10px\],
-  button.font-mono.text-\[9px\], a.font-mono.text-\[9px\], [role="button"].font-mono.text-\[9px\], label.font-mono.text-\[9px\], summary.font-mono.text-\[9px\],
-  button.font-mono.text-\[11px\], a.font-mono.text-\[11px\], [role="button"].font-mono.text-\[11px\], label.font-mono.text-\[11px\], summary.font-mono.text-\[11px\] {
+     their block/truncate layout.
+
+     :not(.hidden) is load-bearing. Three class selectors score 0-3-0,
+     which outranks Tailwind's .hidden at 0-1-0, so without it the
+     `display: inline-flex` below overrode `display: none` and every
+     control meant to appear only from md: up forced itself back into
+     the layout — but ONLY on real touch hardware, since that is what
+     opens this block. A desktop browser narrowed to 390px looked fine
+     while an actual phone put two extra controls in the header and
+     pushed the menu button out to x=458, off-screen and untappable.
+     14 elements across 10 files matched, every layout included. */
+  button.font-mono.text-\[10px\]:not(.hidden), a.font-mono.text-\[10px\]:not(.hidden), [role="button"].font-mono.text-\[10px\]:not(.hidden), label.font-mono.text-\[10px\]:not(.hidden), summary.font-mono.text-\[10px\]:not(.hidden),
+  button.font-mono.text-\[9px\]:not(.hidden), a.font-mono.text-\[9px\]:not(.hidden), [role="button"].font-mono.text-\[9px\]:not(.hidden), label.font-mono.text-\[9px\]:not(.hidden), summary.font-mono.text-\[9px\]:not(.hidden),
+  button.font-mono.text-\[11px\]:not(.hidden), a.font-mono.text-\[11px\]:not(.hidden), [role="button"].font-mono.text-\[11px\]:not(.hidden), label.font-mono.text-\[11px\]:not(.hidden), summary.font-mono.text-\[11px\]:not(.hidden) {
     min-height: 36px;
     display: inline-flex;
     align-items: center;

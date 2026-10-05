@@ -6,9 +6,21 @@
  *
  *   1. The header's controls were said to be pushed past the right edge
  *      at 375px, leaving a logged-out visitor unable to open the
- *      navigation. That did NOT reproduce on this build — every header
- *      control measured inside the viewport at 360/375/390/412. The
- *      checks stay as guards so it cannot start being true.
+ *      navigation. This WAS real. These tests cleared it anyway, for two
+ *      reasons that are both fixed here:
+ *
+ *        - The contexts had no `hasTouch`, so `(hover: none) and
+ *          (pointer: coarse)` never matched and what was under test was
+ *          a render no phone ever produces. A rule inside that block
+ *          out-specified Tailwind's `.hidden` and forced md:-only
+ *          controls back into the header, putting the menu button at
+ *          x=458 of a 390px viewport.
+ *        - The menu check only read `boundingBox()`. A box is geometry,
+ *          not reachability — it is reported for an element that has
+ *          been clipped away and cannot be touched. Nothing ever tapped.
+ *
+ *      The phones below now emulate touch, and the menu test taps the
+ *      control and asserts navigation actually opens.
  *
  *   2. `position: sticky` WAS disabled site-wide, and this reproduced
  *      exactly. MainLayout's root carried `overflow-hidden`, which makes
@@ -38,7 +50,15 @@ const PHONES = [
 
 for (const phone of PHONES) {
   test.describe(`${phone.name} (${phone.width}px)`, () => {
-    test.use({ viewport: { width: phone.width, height: phone.height } });
+    /* hasTouch/isMobile are load-bearing, not decoration: they are what
+       makes `(hover: none) and (pointer: coarse)` match. Without them
+       this whole file tests a desktop render at a narrow width, which is
+       a different stylesheet from the one a phone gets. */
+    test.use({
+      viewport: { width: phone.width, height: phone.height },
+      hasTouch: true,
+      isMobile: true,
+    });
 
     test("no horizontal overflow on the homepage", async ({ page }) => {
       await page.goto("/app/");
@@ -98,6 +118,32 @@ for (const phone of PHONES) {
       expect(box.x + box.width).toBeLessThanOrEqual(phone.width + 1);
       // Comfortable tap target.
       expect(box.height).toBeGreaterThanOrEqual(36);
+
+      // A box inside the viewport is not the same as a control a thumb
+      // can reach, so ask the page what is actually painted at that point
+      // before trusting the geometry.
+      const atCentre = await page.evaluate(
+        ([x, y]) => {
+          const el = document.elementFromPoint(x, y);
+          if (!el) return "nothing painted at the button's centre";
+          return el.closest(
+            'button[aria-label*="menu" i], button[aria-expanded], [data-testid="menu-toggle"]',
+          )
+            ? "toggle"
+            : `covered by <${el.tagName.toLowerCase()}>`;
+        },
+        [box.x + box.width / 2, box.y + box.height / 2],
+      );
+      expect(atCentre).toBe("toggle");
+
+      // And then actually use it. This is the check that would have
+      // caught the off-screen header: tap() refuses an element outside
+      // the viewport, where boundingBox() reports one happily.
+      const linksBefore = await page.locator("a[href]:visible").count();
+      await toggle.tap();
+      await expect
+        .poll(() => page.locator("a[href]:visible").count(), { timeout: 5000 })
+        .toBeGreaterThan(linksBefore);
     });
   });
 }

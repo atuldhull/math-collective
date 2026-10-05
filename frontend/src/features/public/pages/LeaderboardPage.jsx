@@ -130,7 +130,15 @@ export default function LeaderboardPage() {
             // Guard against bad/missing dates so we never render "Invalid Date".
             (() => {
               if (!weekInfo) return undefined;
-              if (weekInfo.timeLeftStr) return `Week resets in ${weekInfo.timeLeftStr}`;
+              // timeLeftStr is only a fragment ("3d 4h left") while the week
+              // is running; once it expires the backend sends a finished
+              // sentence ("Ended 33d ago — reset needed"). Prefixing both
+              // rendered "Week resets in Ended 33d ago — reset needed".
+              if (weekInfo.timeLeftStr) {
+                return weekInfo.expired
+                  ? weekInfo.timeLeftStr
+                  : `Week resets in ${weekInfo.timeLeftStr}`;
+              }
               const end = weekInfo.weekEnd ? new Date(weekInfo.weekEnd) : null;
               if (end && !Number.isNaN(end.getTime())) {
                 return `Week resets: ${end.toLocaleDateString()}`;
@@ -140,7 +148,12 @@ export default function LeaderboardPage() {
           }
         />
 
-        <div className="flex flex-wrap justify-center gap-3">
+        {/* Two columns on a phone rather than a centred wrap. These
+           buttons are skewed parallelograms, so a wrap that centres the
+           short second row staggered them against the first and read as
+           broken layout. A grid lines them up, and full-width cells give
+           a bigger tap target than the content-width chips did. */}
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-center">
           {[
             { key: "weekly", label: "This Week" },
             { key: "alltime", label: "All Time" },
