@@ -35,7 +35,12 @@ const PAGE = { W: 842, H: 595 };
 // Public verify URL base. Falls back to FRONTEND_URL env var or a
 // sensible production default if unset.
 function verifyUrlFor(token) {
-  const base = (process.env.FRONTEND_URL || "https://asymptotes.onrender.com").replace(/\/$/, "");
+  // The literal is the CURRENT live origin, not the club name. Render
+  // fixes a service's .onrender.com subdomain at creation: renaming the
+  // service (it is "asymptotes-2026" now) does not move the URL, so this
+  // host outlives the rename. Set FRONTEND_URL and this is never used —
+  // which is the right way to handle a custom domain when one is added.
+  const base = (process.env.FRONTEND_URL || "https://math-collective.onrender.com").replace(/\/$/, "");
   return `${base}/verify?token=${token}`;
 }
 

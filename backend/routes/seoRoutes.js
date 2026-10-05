@@ -47,7 +47,7 @@ let sitemapCache = { body: null, expiresAt: 0 };
 function resolveBase() {
   const raw = process.env.FRONTEND_URL
            || process.env.PUBLIC_URL
-           || "https://asymptotes.onrender.com";
+           || "https://math-collective.onrender.com";
   return raw.replace(/\/$/, "");
 }
 
