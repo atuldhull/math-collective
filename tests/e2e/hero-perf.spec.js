@@ -45,9 +45,20 @@ async function warmed(page) {
     });
 }
 
+/* The field hero below is the one signed-in members are served. Signed-out
+   visitors now get the Mobius sculpture instead, whose equivalents — static
+   under reduced motion, no drawing while offscreen, interaction under a
+   throttled CPU — are covered in public-redesign.spec.js. Each test states
+   which hero it measures rather than failing against the other one. */
+async function fieldHeroServed(page) {
+  return (await page.locator(".mf-root").count()) > 0;
+}
+
 test.describe("homepage hero", () => {
   test("costs the main thread nothing while it animates", async ({ page }) => {
     await page.goto("/app/", { waitUntil: "networkidle" });
+
+    test.skip(!(await fieldHeroServed(page)), "field hero is served to members; see public-redesign.spec.js");
 
     await expect(page.locator(".mf-root")).toHaveCount(1);
     expect(await page.locator(".mf-fig").count()).toBeGreaterThan(0);
@@ -159,6 +170,8 @@ test.describe("homepage hero", () => {
     // finest detail and the glyph ring, so a weaker GPU composites far fewer
     // layers. It is not a different design; a visitor should only notice
     // that it is smooth.
+    test.skip(!(await fieldHeroServed(page)), "field hero is served to members; see public-redesign.spec.js");
+
     const figs = await page.locator(".mf-fig").count();
     expect(figs).toBeGreaterThan(0);
     expect(await page.locator(".mf-glyph").count()).toBe(0);
@@ -174,6 +187,8 @@ test.describe("homepage hero", () => {
     // Not "slower" — none. Someone who asked for reduced motion gets a static
     // plate, which is why the composition is designed to read without any of
     // the animation.
+    test.skip(!(await fieldHeroServed(page)), "field hero is served to members; see public-redesign.spec.js");
+
     const animName = await page
       .locator(".mf-rot")
       .first()

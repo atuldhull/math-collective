@@ -6,19 +6,14 @@
 import { lazy } from "react";
 import { Route, Navigate, useParams } from "react-router-dom";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import MainLayout from "@/layouts/MainLayout";
+import { SessionMainLayout, SessionHome, SessionGallery, SessionContact, SessionEvents, SessionLeaderboard } from "@/features/guest/SessionPresentation";
 
 // Public pages
-const HomePage        = lazy(() => import("@/features/home/pages/HomePage"));
-const LeaderboardPage = lazy(() => import("@/features/public/pages/LeaderboardPage"));
-const GalleryPage     = lazy(() => import("@/features/public/pages/GalleryPage"));
-const ContactPage     = lazy(() => import("@/features/public/pages/ContactPage"));
 const VerifyCertificatePage = lazy(() => import("@/features/public/pages/VerifyCertificatePage"));
 
 // Student pages (MainLayout, auth required)
 const ArenaPage          = lazy(() => import("@/features/arena/pages/ArenaPage"));
 const DashboardPage      = lazy(() => import("@/features/dashboard/pages/DashboardPage"));
-const EventsPage         = lazy(() => import("@/features/events/pages/EventsPage"));
 const ProfilePage        = lazy(() => import("@/features/student/pages/ProfilePage"));
 const CertificatesPage   = lazy(() => import("@/features/student/pages/CertificatesPage"));
 const ProjectsPage       = lazy(() => import("@/features/student/pages/ProjectsPage"));
@@ -64,12 +59,12 @@ function StudentUserIdRedirect() {
 }
 
 export const publicRoutes = (
-  <Route element={<MainLayout />}>
-    <Route index element={<HomePage />} />
-    <Route path="leaderboard" element={<LeaderboardPage />} />
-    <Route path="events" element={<EventsPage />} />
-    <Route path="gallery" element={<GalleryPage />} />
-    <Route path="contact" element={<ContactPage />} />
+  <Route element={<SessionMainLayout />}>
+    <Route index element={<SessionHome />} />
+    <Route path="leaderboard" element={<SessionLeaderboard />} />
+    <Route path="events" element={<SessionEvents />} />
+    <Route path="gallery" element={<SessionGallery />} />
+    <Route path="contact" element={<SessionContact />} />
     {/* Public certificate verification — no auth, anyone with the
         token (scanned from QR on a printed cert) can confirm it's
         genuine. The token is in ?token=... query param. */}
