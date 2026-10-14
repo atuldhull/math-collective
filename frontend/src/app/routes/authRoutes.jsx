@@ -9,7 +9,7 @@
 
 import { lazy } from "react";
 import { Route } from "react-router-dom";
-import AuthLayout from "@/layouts/AuthLayout";
+import { SessionAuthLayout } from "@/features/guest/SessionPresentation";
 import GuestOnlyRoute from "@/components/auth/GuestOnlyRoute";
 
 const LoginPage         = lazy(() => import("@/features/auth/pages/LoginPage"));
@@ -17,7 +17,7 @@ const RegisterPage      = lazy(() => import("@/features/auth/pages/RegisterPage"
 const ResetPasswordPage = lazy(() => import("@/features/auth/pages/ResetPasswordPage"));
 
 export const authRoutes = (
-  <Route element={<AuthLayout />}>
+  <Route element={<SessionAuthLayout />}>
     <Route path="login"          element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
     <Route path="register"       element={<GuestOnlyRoute><RegisterPage /></GuestOnlyRoute>} />
     <Route path="reset-password" element={<ResetPasswordPage />} />

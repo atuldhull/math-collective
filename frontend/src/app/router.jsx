@@ -7,7 +7,7 @@
  */
 
 import { AnimatePresence } from "framer-motion";
-import { Suspense, useEffect, useRef } from "react";
+import { Fragment, Suspense, useEffect, useRef } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -15,7 +15,8 @@ import {
   useNavigationType,
 } from "react-router-dom";
 
-import ExperienceShell   from "@/components/experience/ExperienceShell";
+import { SessionExperience, useMemberPresentation } from "@/features/guest/SessionPresentation";
+import PublicNavigationMotion from "@/features/guest/PublicNavigationMotion";
 import PageTransition    from "@/components/experience/PageTransition";
 import MonumentTransition from "@/components/experience/MonumentTransition";
 import MonumentRouter    from "@/components/monument/MonumentRouter";
@@ -80,13 +81,31 @@ function RouteFallback() {
 
 function AnimatedRoutes() {
   const location = useLocation();
+  const member = useMemberPresentation();
+  const Transition = member ? PageTransition : Fragment;
+  const Monument = member ? MonumentRouter : Fragment;
+
+  if (!member) return (
+    <PublicNavigationMotion location={location}>
+      {(displayed) => (
+        <Suspense fallback={<RouteFallback />}>
+          <RouteErrorBoundary key={displayed.pathname}>
+            <Routes location={displayed}>
+              {publicRoutes}{authRoutes}{teacherRoutes}{adminRoutes}
+              {superAdminRoutes}{coreTeamRoutes}{errorRoutes}
+            </Routes>
+          </RouteErrorBoundary>
+        </Suspense>
+      )}
+    </PublicNavigationMotion>
+  );
 
   return (
-    <MonumentRouter>
+    <Monument>
       <ScrollManager />
-      <MonumentTransition />
+      {member && <MonumentTransition />}
       <AnimatePresence mode="wait" initial={false}>
-        <PageTransition key={location.pathname}>
+        <Transition key={location.pathname}>
           <Suspense fallback={<RouteFallback />}>
             {/* Key the RouteErrorBoundary to the pathname so it resets
                 automatically when the user navigates away — otherwise a
@@ -105,9 +124,9 @@ function AnimatedRoutes() {
               </Routes>
             </RouteErrorBoundary>
           </Suspense>
-        </PageTransition>
+        </Transition>
       </AnimatePresence>
-    </MonumentRouter>
+    </Monument>
   );
 }
 
@@ -123,9 +142,9 @@ export default function AppRouter() {
   return (
     <BrowserRouter basename={ROUTER_BASENAME}>
       <SessionLoader>
-        <ExperienceShell>
+        <SessionExperience>
           <AnimatedRoutes />
-        </ExperienceShell>
+        </SessionExperience>
       </SessionLoader>
     </BrowserRouter>
   );

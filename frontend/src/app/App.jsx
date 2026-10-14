@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import AppRouter from "@/app/router";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OrgThemeProvider from "@/components/OrgThemeProvider";
-import { AudioProvider } from "@/systems/AudioManager";
 import { useUiStore } from "@/store/ui-store";
 
 export default function App() {
@@ -20,11 +19,9 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <AudioProvider>
         <OrgThemeProvider>
           <AppRouter />
         </OrgThemeProvider>
-      </AudioProvider>
     </ErrorBoundary>
   );
 }

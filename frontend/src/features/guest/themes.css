@@ -1,0 +1,285 @@
+/* Guest-only tokens. Never write to html, body, or the member theme store. */
+.mc-public-theme {
+  --mc-paper: #101114;
+  --mc-surface: #191b21;
+  --mc-field: #20222b;
+  --mc-ink: #f2f1f7;
+  --mc-muted: #a7aab8;
+  --mc-line: #343742;
+  --mc-accent: #b6a0ff;
+  --mc-accent-2: #8bd7ed;
+  --mc-accent-soft: #8980a9;
+  --mc-tint: #302841;
+  --mc-button-text: #111219;
+  --mc-shadow: #00000050;
+  --mc-backdrop: #080912ed;
+  --mc-art-1: #20212e;
+  --mc-art-2: #292238;
+  --mc-art-3: #1b2b35;
+  --mc-deep: #090a0e;
+  --mc-deep-ink: #f2f1f7;
+  --mc-deep-muted: #a7aab8;
+  --mc-deep-line: #33333f;
+  --mc-deep-accent: #c7b6ff;
+  --mc-ambient: #8d65ed20;
+  --mc-ambient-2: #6eceef0d;
+  --color-obsidian: 16 17 20;
+  --color-surface: 25 27 33;
+  --color-panel: 32 34 43;
+  --color-text-primary: 242 241 247;
+  --color-text-muted: 167 170 184;
+  --color-text-dim: 157 161 174;
+  --color-line: 80 83 100;
+  --color-primary: 182 160 255;
+  --color-secondary: 139 215 237;
+  --color-success: 126 222 174;
+  --color-danger: 255 151 166;
+  --color-warning: 236 201 130;
+  --page-accent: var(--mc-accent);
+  --page-glow: var(--mc-ambient);
+  --monument-city: var(--mc-accent);
+  --monument-abyss: var(--mc-accent-2);
+  --clip-notch: none;
+  --clip-hex: none;
+  --clip-para: none;
+  --shadow-panel: none;
+  --shadow-orbit: none;
+  color-scheme: dark;
+  background: var(--mc-paper);
+  color: var(--mc-ink);
+  min-height: 100svh;
+}
+.mc-public-theme[data-public-theme="arctic"] {
+  --mc-paper: #f7f8f5;
+  --mc-surface: #edf0f2;
+  --mc-field: #ffffff;
+  --mc-ink: #1b2530;
+  --mc-muted: #5c6975;
+  --mc-line: #d3d9dd;
+  --mc-accent: #245fb5;
+  --mc-accent-2: #2f718d;
+  --mc-accent-soft: #8398b6;
+  --mc-tint: #e0e9f6;
+  --mc-button-text: #ffffff;
+  --mc-shadow: #253e5a12;
+  --mc-art-1: #e3eaf0;
+  --mc-art-2: #dee7f1;
+  --mc-art-3: #dce9ea;
+  --mc-deep: #152538;
+  --mc-deep-ink: #edf4ff;
+  --mc-deep-muted: #b5c4d5;
+  --mc-deep-line: #405368;
+  --mc-deep-accent: #a5d7ff;
+  --mc-ambient: #8cb6df25;
+  --mc-ambient-2: #d8e6f828;
+  --color-obsidian: 247 248 245;
+  --color-surface: 255 255 255;
+  --color-panel: 236 238 239;
+  --color-text-primary: 27 37 48;
+  --color-text-muted: 92 105 117;
+  --color-text-dim: 92 105 117;
+  --color-line: 150 162 175;
+  --color-primary: 36 95 181;
+  --color-secondary: 47 113 141;
+  --color-success: 22 116 82;
+  --color-danger: 186 46 59;
+  --color-warning: 145 89 22;
+  color-scheme: light;
+}
+.mc-public-theme[data-public-theme="emerald"] {
+  --mc-paper: #071713;
+  --mc-surface: #10261f;
+  --mc-field: #163027;
+  --mc-ink: #e6f7ed;
+  --mc-muted: #a0bcb0;
+  --mc-line: #2c4a3e;
+  --mc-accent: #a6ed75;
+  --mc-accent-2: #66e0b5;
+  --mc-accent-soft: #6baf92;
+  --mc-tint: #214033;
+  --mc-button-text: #102315;
+  --mc-art-1: #143426;
+  --mc-art-2: #263722;
+  --mc-art-3: #113531;
+  --mc-deep: #03100c;
+  --mc-deep-ink: #e6f7ed;
+  --mc-deep-muted: #a0bcb0;
+  --mc-deep-line: #29473a;
+  --mc-deep-accent: #b4f48c;
+  --mc-ambient: #57d28920;
+  --mc-ambient-2: #b2f36710;
+  --color-obsidian: 7 23 19;
+  --color-surface: 16 38 31;
+  --color-panel: 22 48 39;
+  --color-text-primary: 230 247 237;
+  --color-text-muted: 160 188 176;
+  --color-text-dim: 160 188 176;
+  --color-line: 70 108 89;
+  --color-primary: 166 237 117;
+  --color-secondary: 102 224 181;
+}
+.mc-public-theme[data-public-theme="nebula"] {
+  --mc-paper: #151022;
+  --mc-surface: #241934;
+  --mc-field: #30203f;
+  --mc-ink: #f6edff;
+  --mc-muted: #bfb0cf;
+  --mc-line: #4c355f;
+  --mc-accent: #efa1e8;
+  --mc-accent-2: #7edde7;
+  --mc-accent-soft: #b086ce;
+  --mc-tint: #412447;
+  --mc-button-text: #26102d;
+  --mc-art-1: #302046;
+  --mc-art-2: #402344;
+  --mc-art-3: #203440;
+  --mc-deep: #0d0819;
+  --mc-deep-ink: #f6edff;
+  --mc-deep-muted: #bfb0cf;
+  --mc-deep-line: #49315f;
+  --mc-deep-accent: #e6b1ff;
+  --mc-ambient: #d95dea24;
+  --mc-ambient-2: #4cbbd21a;
+  --color-obsidian: 21 16 34;
+  --color-surface: 36 25 52;
+  --color-panel: 48 32 63;
+  --color-text-primary: 246 237 255;
+  --color-text-muted: 191 176 207;
+  --color-text-dim: 191 176 207;
+  --color-line: 108 75 132;
+  --color-primary: 239 161 232;
+  --color-secondary: 126 221 231;
+}
+.mc-public .mc-theme-control {
+  position: relative;
+  flex-shrink: 0;
+}
+.mc-public .mc-theme-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid var(--mc-line);
+  border-radius: 24px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--mc-ink);
+  background: var(--mc-surface);
+}
+.mc-public .mc-theme-orb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--mc-accent), var(--mc-paper) 60%, var(--mc-accent-2));
+  border: 1px solid var(--mc-accent-soft);
+}
+.mc-public .mc-theme-options {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  width: 284px;
+  max-width: 90vw;
+  padding: 16px;
+  border: 1px solid var(--mc-line);
+  background: var(--mc-surface);
+  color: var(--mc-ink);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px var(--mc-shadow);
+  z-index: 70;
+}
+.mc-public .mc-theme-options legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 12px;
+  font:
+    10px "IBM Plex Mono",
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--mc-muted);
+}
+.mc-public .mc-theme-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  position: relative;
+  clear: both;
+}
+.mc-public .mc-theme-options label.is-selected {
+  border-color: var(--mc-accent);
+  background: var(--mc-tint);
+}
+.mc-public .mc-theme-options input {
+  position: absolute;
+  /* Keep the native radio as the whole row's hit target. A label-text
+     pointerdown otherwise blurs the trigger before label activation,
+     causing the focus-out handler to unmount the menu before change. */
+  inset: 0;
+  margin: 0;
+  z-index: 1;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.mc-public .mc-theme-options label:has(:focus-visible) {
+  outline: 2px solid var(--mc-accent);
+  outline-offset: 3px;
+}
+.mc-public .mc-theme-options small {
+  display: block;
+  font-size: 10px;
+  color: var(--mc-muted);
+  margin-top: 4px;
+}
+.mc-public .mc-theme-check {
+  margin-left: auto;
+  color: var(--mc-accent);
+}
+.mc-public .mc-theme-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--mc-line);
+  flex-shrink: 0;
+  background: linear-gradient(140deg, #14141d 40%, #b6a0ff);
+}
+.mc-public [data-swatch="arctic"] .mc-theme-swatch {
+  background: linear-gradient(140deg, #f7f8f5 40%, #245fb5);
+}
+.mc-public [data-swatch="emerald"] .mc-theme-swatch {
+  background: linear-gradient(140deg, #071713 40%, #a6ed75);
+}
+.mc-public [data-swatch="nebula"] .mc-theme-swatch {
+  background: linear-gradient(140deg, #151022 40%, #efa1e8, #7edde7);
+}
+@media (max-width: 1280px) {
+  .mc-public .mc-theme-label,
+  .mc-public .mc-theme-chevron {
+    display: none;
+  }
+  .mc-public .mc-theme-trigger {
+    width: 44px;
+    justify-content: center;
+    padding: 8px;
+  }
+}
+@media (max-width: 600px) {
+  .mc-public .mc-header-inner {
+    gap: 8px;
+  }
+  .mc-public .mc-header-actions {
+    gap: 8px;
+  }
+  .mc-public .mc-header .mc-signin {
+    display: none;
+  }
+  .mc-public .mc-theme-options {
+    right: -52px;
+  }
+}
