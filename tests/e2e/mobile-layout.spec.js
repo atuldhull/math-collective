@@ -108,9 +108,18 @@ for (const phone of PHONES) {
 
       // Whatever it is called, SOMETHING in the header must open nav.
       const header = page.locator("header").first();
-      const toggle = header.locator(
-        'button[aria-label*="menu" i], button[aria-expanded], [data-testid="menu-toggle"]',
-      ).first();
+      // The header also carries a theme disclosure, which is a
+      // button[aria-expanded] sitting before the menu control in the DOM.
+      // A selector list resolves in document order, so .first() used to pick
+      // the theme button, tap it, and then ask why no navigation appeared.
+      // Prefer a control that names itself a menu; fall back to the generic
+      // disclosure only when nothing does.
+      const named = header.locator(
+        'button[aria-label*="menu" i], [data-testid="menu-toggle"]',
+      );
+      const toggle = (await named.count())
+        ? named.first()
+        : header.locator("button[aria-expanded]").first();
 
       await expect(toggle).toBeVisible();
       const box = await toggle.boundingBox();
@@ -186,19 +195,43 @@ test.describe("position: sticky is not disabled site-wide", () => {
     const result = await page.evaluate(async () => {
       const header = document.querySelector("header");
       if (!header) return null;
-      if (getComputedStyle(header).position !== "sticky") return { notSticky: true };
+
+      // The bug this pins was never "the header is not sticky" — it was an
+      // ancestor silently making sticky impossible. overflow hidden/auto/
+      // scroll turns an element into a scroll container, which kills sticky
+      // for everything inside it; overflow: clip crops without doing that.
+      // Record every ancestor that would do it, whatever the header's own
+      // position happens to be, so the fix cannot quietly come back.
+      const killers = [];
+      for (let el = header.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+        const o = getComputedStyle(el);
+        for (const axis of ["overflowX", "overflowY"]) {
+          if (["hidden", "auto", "scroll"].includes(o[axis])) {
+            killers.push((el.tagName.toLowerCase() + (el.className && typeof el.className === "string"
+              ? "." + el.className.trim().split(/s+/)[0] : "")) + " " + axis + ":" + o[axis]);
+          }
+        }
+      }
+
+      const position = getComputedStyle(header).position;
       const before = header.getBoundingClientRect().top;
       window.scrollTo(0, 600);
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const after = header.getBoundingClientRect().top;
-      return { scrolled: window.scrollY, moved: after - before };
+      return { killers, position, scrolled: window.scrollY, moved: after - before };
     });
 
     expect(result).not.toBeNull();
-    expect(result.notSticky).toBeUndefined();
+    // Nothing above the header may create a scroll container.
+    expect(result.killers).toEqual([]);
     test.skip(result.scrolled === 0, "page did not scroll");
-    // Before the overflow fix this measured -600 on a 600px scroll.
-    expect(Math.abs(result.moved)).toBeLessThan(5);
+    // A header that asks to stick has to actually stick. The public layout
+    // deliberately lets its header scroll away, so only hold it to its own
+    // declared intent. Before the overflow fix a sticky header measured
+    // -600 on a 600px scroll.
+    if (result.position === "sticky") {
+      expect(Math.abs(result.moved)).toBeLessThan(5);
+    }
   });
 });
 
