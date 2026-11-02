@@ -1,13 +1,13 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { ArrowLeft, Check, KeyRound, Link2Off, RefreshCw } from "lucide-react";
 import Button from "@/components/ui/Button";
 import InputField from "@/components/ui/InputField";
 import { auth } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/apiError";
 import { MIN_PASSWORD_LENGTH, PASSWORD_HELPER, PASSWORD_TOO_SHORT } from "@/lib/passwordPolicy";
+import { AuthHeading, AuthNotice, PasswordMeter } from "@/features/auth/components/AuthChrome";
 
 /**
  * /reset-password — the page a Supabase recovery email lands on.
@@ -43,8 +43,8 @@ export function readRecoveryParams(hash, search) {
 }
 
 export default function ResetPasswordPage() {
-  useMonument("city");
   const navigate = useNavigate();
+  const reduced = useReducedMotion();
 
   const [token, setToken] = useState(null);
   const [linkError, setLinkError] = useState(null);
@@ -90,83 +90,107 @@ export default function ResetPasswordPage() {
     }
   }
 
+  const icon = (Icon) => <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />;
+
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="city" intensity={0.35} />
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full">
-        <div
-          className="relative overflow-hidden border border-line/20 bg-surface/60 p-8 shadow-panel backdrop-blur-2xl sm:p-10"
-          style={{ clipPath: "var(--clip-notch)", borderTop: "2px solid var(--monument-city)" }}
-        >
-          <span
-            className="math-text pointer-events-none absolute right-4 top-4 select-none"
-            style={{ fontSize: "6rem", opacity: 0.04, lineHeight: 1 }}
+    <div>
+      <AuthHeading
+        icon={linkError ? Link2Off : KeyRound}
+        tone={linkError ? "bad" : "good"}
+        kicker="Password recovery"
+        title="Set a new password"
+      >
+        {linkError ? "We couldn't read your reset link." : `Choose a new password for your account. ${PASSWORD_HELPER}.`}
+      </AuthHeading>
+
+      <AnimatePresence initial={false}>
+        {linkError && (
+          <AuthNotice key="link" tone="error" icon={Link2Off} className="mb-5">{linkError}</AuthNotice>
+        )}
+        {msg && !done && (
+          <AuthNotice key={msg.text} tone={msg.type === "success" ? "success" : "error"} className="mb-5">{msg.text}</AuthNotice>
+        )}
+      </AnimatePresence>
+
+      {/* Success: a check stamps in while the redirect timer runs. */}
+      <AnimatePresence>
+        {done && (
+          <motion.div
+            key="done"
+            initial={reduced ? false : { opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center py-4 text-center"
+            role="status"
           >
-            λ
-          </span>
-
-          <p className="font-mono text-xs uppercase tracking-[0.3em] text-success">Password Recovery</p>
-          <h1 className="mt-3 font-display text-[2rem] font-extrabold tracking-[-0.05em] text-white">
-            Set a new password
-          </h1>
-          <p className="mt-3 text-sm text-text-muted">
-            {linkError ? "We couldn't read your reset link." : `Choose a new password for your account. ${PASSWORD_HELPER}.`}
-          </p>
-
-          {linkError && (
-            <div
-              className="mt-5 border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-              style={{ clipPath: "var(--clip-notch)" }}
+            <motion.span
+              initial={reduced ? false : { scale: 0, rotate: -45 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 14, delay: 0.1 }}
+              className="flex h-16 w-16 items-center justify-center rounded-2xl border border-success/40 bg-success/10 text-success shadow-[0_0_40px_-8px_rgb(var(--color-success)/0.6)]"
             >
-              {linkError}
-            </div>
-          )}
-
-          {msg && (
-            <div
-              className={`mt-5 border px-4 py-3 text-sm ${msg.type === "success" ? "border-success/30 bg-success/10 text-success" : "border-danger/30 bg-danger/10 text-danger"}`}
-              style={{ clipPath: "var(--clip-notch)" }}
-            >
-              {msg.text}
-            </div>
-          )}
-
-          {token && !done && (
-            <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-              <InputField
-                label="New Password"
-                type="password"
-                placeholder={PASSWORD_HELPER}
-                helper={PASSWORD_HELPER}
-                error={tooShort ? PASSWORD_TOO_SHORT : undefined}
-                value={newPw}
-                onChange={(e) => setNewPw(e.target.value)}
-                autoComplete="new-password"
-                required
+              <Check className="h-8 w-8" strokeWidth={2} aria-hidden="true" />
+            </motion.span>
+            <p className="mt-4 text-sm text-success">{msg?.text}</p>
+            <span className="relative mt-4 h-1 w-40 overflow-hidden rounded-full bg-[rgb(var(--rule))]" aria-hidden="true">
+              <motion.span
+                className="absolute inset-0 origin-left rounded-full bg-success"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: reduced ? 0 : 1.8, ease: "linear" }}
               />
-              <InputField
-                label="Confirm Password"
-                type="password"
-                placeholder="Repeat password"
-                error={mismatch ? "Passwords do not match" : undefined}
-                value={confirmPw}
-                onChange={(e) => setConfirmPw(e.target.value)}
-                autoComplete="new-password"
-                required
-              />
-              <Button type="submit" loading={loading} disabled={!canSubmit} className="w-full justify-center" size="lg">
-                Update Password
-              </Button>
-            </form>
-          )}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          <div className="mt-6 text-center text-sm text-text-muted">
-            <Link to="/login" className="font-medium text-primary transition hover:text-secondary">
-              {linkError ? "Request a new reset link" : "Back to sign in"}
-            </Link>
-          </div>
-        </div>
-      </motion.div>
+      {token && !done && (
+        <motion.form
+          onSubmit={handleSubmit}
+          className="space-y-5"
+          initial="hidden"
+          animate="visible"
+          variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.45 } } }}
+        >
+          <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="space-y-2">
+            <InputField
+              label="New password"
+              type="password"
+              placeholder={PASSWORD_HELPER}
+              helper={PASSWORD_HELPER}
+              error={tooShort ? PASSWORD_TOO_SHORT : undefined}
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+            <PasswordMeter value={newPw} minLength={MIN_PASSWORD_LENGTH} />
+          </motion.div>
+          <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}>
+            <InputField
+              label="Confirm password"
+              type="password"
+              placeholder="Repeat password"
+              error={mismatch ? "Passwords do not match" : undefined}
+              value={confirmPw}
+              onChange={(e) => setConfirmPw(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+          </motion.div>
+          <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}>
+            <Button type="submit" loading={loading} disabled={!canSubmit} className="w-full justify-center" size="lg" leading={icon(KeyRound)}>
+              Update password
+            </Button>
+          </motion.div>
+        </motion.form>
+      )}
+
+      <p className="mt-7 text-center text-sm">
+        <Link to="/login" className="inline-flex min-h-10 items-center gap-2 font-medium text-primary underline-offset-4 transition hover:underline">
+          {linkError ? icon(RefreshCw) : icon(ArrowLeft)}
+          {linkError ? "Request a new reset link" : "Back to sign in"}
+        </Link>
+      </p>
     </div>
   );
 }

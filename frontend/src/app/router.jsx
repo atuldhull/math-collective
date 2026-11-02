@@ -7,7 +7,7 @@
  */
 
 import { AnimatePresence } from "framer-motion";
-import { Fragment, Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -22,6 +22,10 @@ import MonumentTransition from "@/components/experience/MonumentTransition";
 import MonumentRouter    from "@/components/monument/MonumentRouter";
 import Loader            from "@/components/ui/Loader";
 import RouteErrorBoundary from "@/components/RouteErrorBoundary";
+import SkinProvider, { skinForPath } from "@/components/lamp/SkinProvider";
+import LampRouteTransition from "@/components/lamp/LampRouteTransition";
+import WarpOverlay from "@/components/lamp/WarpOverlay";
+import SeasonAmbience from "@/components/lamp/SeasonAmbience";
 import { useAuthStore }  from "@/store/auth-store";
 
 import { publicRoutes }     from "./routes/publicRoutes";
@@ -79,13 +83,32 @@ function RouteFallback() {
   );
 }
 
+/**
+ * Which layout a path renders inside. Top-level transitions are keyed
+ * by this rather than by the full path, so a layout (and its rail and
+ * dock) stays mounted while its own pages swap. Page-level transitions
+ * and error boundaries live inside AppShell, keyed by the full path.
+ * The public home page keeps its original path-keyed transition.
+ */
+function layoutKey(pathname) {
+  if (skinForPath(pathname, true) === "legacy") return pathname;
+  const seg = pathname.split("/")[1];
+  if (["teacher", "admin", "super-admin", "core"].includes(seg)) return seg;
+  if (["login", "register", "reset-password"].includes(seg)) return "auth";
+  return "main";
+}
+
 function AnimatedRoutes() {
   const location = useLocation();
   const member = useMemberPresentation();
-  const Transition = member ? PageTransition : Fragment;
-  const Monument = member ? MonumentRouter : Fragment;
 
+  // Signed-out visitors get the public tree as it ships upstream, plus
+  // the Halloween layer where it applies (useHaunted decides: every page
+  // but the home during the season, or anywhere with the Haunted theme).
   if (!member) return (
+    <>
+    <SeasonAmbience front />
+    <WarpOverlay tree="public" />
     <PublicNavigationMotion location={location}>
       {(displayed) => (
         <Suspense fallback={<RouteFallback />}>
@@ -98,21 +121,26 @@ function AnimatedRoutes() {
         </Suspense>
       )}
     </PublicNavigationMotion>
+    </>
   );
 
+  const key = layoutKey(location.pathname);
+  const legacy = skinForPath(location.pathname, true) === "legacy";
+  const Transition = legacy ? PageTransition : LampRouteTransition;
+
   return (
-    <Monument>
+    <MonumentRouter>
       <ScrollManager />
-      {member && <MonumentTransition />}
+      {legacy ? <MonumentTransition /> : null}
+      <WarpOverlay />
       <AnimatePresence mode="wait" initial={false}>
-        <Transition key={location.pathname}>
+        <Transition key={key} variant="fade" className="relative flex min-h-screen flex-1 flex-col">
           <Suspense fallback={<RouteFallback />}>
-            {/* Key the RouteErrorBoundary to the pathname so it resets
-                automatically when the user navigates away — otherwise a
-                crashed /arena page stays "crashed" in state forever,
-                and clicking a nav link to /dashboard shows the error
-                boundary's fallback instead of /dashboard's content. */}
-            <RouteErrorBoundary key={location.pathname}>
+            {/* Keyed to the layout so it resets when the user moves to
+                another layout. Within a layout, AppShell wraps each page
+                in its own boundary keyed by pathname, so a crashed
+                /arena still clears when the user clicks /dashboard. */}
+            <RouteErrorBoundary key={key}>
               <Routes location={location}>
                 {publicRoutes}
                 {authRoutes}
@@ -126,7 +154,7 @@ function AnimatedRoutes() {
           </Suspense>
         </Transition>
       </AnimatePresence>
-    </Monument>
+    </MonumentRouter>
   );
 }
 
@@ -142,9 +170,11 @@ export default function AppRouter() {
   return (
     <BrowserRouter basename={ROUTER_BASENAME}>
       <SessionLoader>
-        <SessionExperience>
-          <AnimatedRoutes />
-        </SessionExperience>
+        <SkinProvider>
+          <SessionExperience>
+            <AnimatedRoutes />
+          </SessionExperience>
+        </SkinProvider>
       </SessionLoader>
     </BrowserRouter>
   );

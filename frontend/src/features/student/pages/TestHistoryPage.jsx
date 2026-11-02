@@ -1,27 +1,30 @@
-import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
-import Card from "@/components/ui/Card";
+import { useState, useEffect, useRef } from "react";
+import { useGSAP } from "@gsap/react";
+import { Check, X, Zap, ListChecks } from "lucide-react";
+import { Link } from "react-router-dom";
+import gsap from "@/lib/gsap-setup";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { cn } from "@/lib/cn";
+import { PageHeader, TiltPanel, StatTile, EmptyState } from "@/components/lamp";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { arena } from "@/lib/api";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-  }),
-};
+const RING = 2 * Math.PI * 42;
+
+function formatDate(value) {
+  return value
+    ? new Date(value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : "---";
+}
 
 export default function TestHistoryPage() {
-  useMonument("pyramid");
   const [history, setHistory] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const root = useRef(null);
 
   useEffect(() => {
     fetchData();
@@ -44,321 +47,195 @@ export default function TestHistoryPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="pyramid" intensity={0.12} />
-        <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
-          <Loader variant="orbit" size="lg" label="Loading history..." />
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="pyramid" intensity={0.12} />
-        <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center gap-4">
-          <p className="text-danger">{error}</p>
-          <Button variant="secondary" size="sm" onClick={fetchData}>
-            Retry
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   const totalAttempts = stats?.totalAttempts ?? history.length;
   const correctCount = stats?.correct ?? history.filter((h) => h.correct).length;
   const incorrectCount = stats?.incorrect ?? totalAttempts - correctCount;
   const accuracy =
     totalAttempts > 0 ? Math.round((correctCount / totalAttempts) * 100) : 0;
   const totalXP = stats?.totalXp ?? history.reduce((sum, h) => sum + (h.xpEarned || 0), 0);
+  const maxXP = Math.max(1, ...history.map((h) => h.xpEarned || 0));
+
+  // Bespoke moments: the accuracy ring draws itself and its two bars
+  // fill when the panel scrolls in; every history row's XP bar fills
+  // as its batch of rows arrives on screen.
+  useGSAP(() => {
+    if (!root.current) return undefined;
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const q = gsap.utils.selector(root);
+      const ring = q("[data-ring]");
+      if (ring.length) {
+        gsap.timeline({ scrollTrigger: { trigger: q("[data-accuracy]")[0], start: "top 85%", once: true } })
+          .from(ring, { strokeDashoffset: RING, duration: 1.6, ease: "expo.out" })
+          .from(q("[data-split-bar]"), { scaleX: 0, transformOrigin: "left center", duration: 1.1, ease: "expo.out", stagger: 0.12 }, 0.2);
+      }
+      const bars = q("[data-bar]");
+      if (bars.length) {
+        gsap.set(bars, { scaleX: 0, transformOrigin: "left center" });
+        ScrollTrigger.batch(bars, {
+          start: "top 92%",
+          once: true,
+          onEnter: (batch) => gsap.to(batch, { scaleX: 1, duration: 1, ease: "expo.out", stagger: 0.05 }),
+        });
+      }
+    });
+    return () => mm.revert();
+  }, { scope: root, dependencies: [loading, history.length], revertOnUpdate: true });
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader variant="orbit" size="lg" label="Loading history..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <p className="text-danger">{error}</p>
+        <Button variant="secondary" size="sm" onClick={fetchData}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="pyramid" intensity={0.12} />
+    <div ref={root} className="space-y-8 pb-16">
+      <PageHeader
+        context="Arena record"
+        title="Test history"
+        description="Your complete record of arena challenges and quiz attempts."
+        progress={accuracy / 100}
+      />
 
-      <div className="relative z-10 space-y-8 pb-16">
-        {/* Header */}
-        <motion.section initial="hidden" animate="visible">
-          <motion.div custom={0} variants={fadeUp}>
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-secondary">
-              Mission Log
-            </p>
-            <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.05em] text-white sm:text-5xl">
-              Test History
-            </h1>
-            <p className="mt-2 text-text-muted">
-              Your complete record of arena challenges and quiz attempts.
-            </p>
-          </motion.div>
-        </motion.section>
+      <section data-stagger="up" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <StatTile label="Total attempts" value={totalAttempts} icon={ListChecks} />
+        <StatTile label="Correct" value={correctCount} icon={Check} tone="good" sub={`${accuracy}% of attempts`} />
+        <StatTile label="Incorrect" value={incorrectCount} icon={X} tone="bad" />
+        <StatTile label="Total XP" value={totalXP} icon={Zap} tone="lamp" />
+      </section>
 
-        {/* Stats Grid */}
-        <motion.section
-          initial="hidden"
-          animate="visible"
-          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"
-        >
-          {[
-            { label: "Total Attempts", value: totalAttempts, color: "text-primary" },
-            { label: "Correct", value: correctCount, color: "text-success" },
-            { label: "Incorrect", value: incorrectCount, color: "text-danger" },
-            { label: "Accuracy", value: `${accuracy}%`, color: "text-warning" },
-            { label: "Total XP", value: totalXP.toLocaleString(), color: "text-glow" },
-          ].map((stat, i) => (
-            <motion.div key={stat.label} custom={i + 1} variants={fadeUp}>
-              <Card variant="glass" className="text-center">
-                <p className={`math-text text-3xl font-bold ${stat.color}`}>
-                  {stat.value}
-                </p>
-                <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-                  {stat.label}
-                </p>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.section>
-
-        {/* Accuracy Visual */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Card variant="glow">
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-glow">
-              Performance
-            </p>
-            <h2 className="mt-2 font-display text-2xl font-bold text-white">
-              Accuracy Overview
-            </h2>
-            <div className="mt-6 flex items-center gap-6">
-              <div className="relative flex h-28 w-28 flex-shrink-0 items-center justify-center">
-                <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="42"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.05)"
-                    strokeWidth="8"
-                  />
-                  <motion.circle
-                    cx="50"
-                    cy="50"
-                    r="42"
-                    fill="none"
-                    stroke="url(#accuracyGradient)"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 42}
-                    initial={{ strokeDashoffset: 2 * Math.PI * 42 }}
-                    animate={{
-                      strokeDashoffset:
-                        2 * Math.PI * 42 * (1 - accuracy / 100),
-                    }}
-                    transition={{ delay: 0.6, duration: 1.2, ease: "easeOut" }}
-                  />
-                  <defs>
-                    <linearGradient id="accuracyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="var(--color-primary, #6366f1)" />
-                      <stop offset="50%" stopColor="var(--color-secondary, #a78bfa)" />
-                      <stop offset="100%" stopColor="var(--color-glow, #f0abfc)" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <span className="math-text absolute text-2xl font-bold text-white">
-                  {accuracy}%
-                </span>
-              </div>
-              <div className="flex-1 space-y-3">
-                <div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-text-muted">Correct</span>
-                    <span className="math-text text-xs text-success">{correctCount}</span>
-                  </div>
-                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/5">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: totalAttempts > 0 ? `${(correctCount / totalAttempts) * 100}%` : "0%",
-                      }}
-                      transition={{ delay: 0.8, duration: 1, ease: "easeOut" }}
-                      className="h-full rounded-full bg-success"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-text-muted">Incorrect</span>
-                    <span className="math-text text-xs text-danger">{incorrectCount}</span>
-                  </div>
-                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/5">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: totalAttempts > 0 ? `${(incorrectCount / totalAttempts) * 100}%` : "0%",
-                      }}
-                      transition={{ delay: 0.9, duration: 1, ease: "easeOut" }}
-                      className="h-full rounded-full bg-danger"
-                    />
-                  </div>
-                </div>
-              </div>
+      <TiltPanel lit tilt={false} data-reveal="up" data-accuracy className="p-6 sm:p-8">
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10">
+          <div className="relative mx-auto flex h-36 w-36 flex-shrink-0 items-center justify-center sm:mx-0">
+            <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="rgb(var(--rule))" strokeWidth="7" />
+              <circle
+                data-ring
+                cx="50"
+                cy="50"
+                r="42"
+                fill="none"
+                stroke="rgb(var(--lamp))"
+                strokeWidth="7"
+                strokeLinecap="round"
+                strokeDasharray={RING}
+                strokeDashoffset={RING * (1 - accuracy / 100)}
+                style={{ filter: "drop-shadow(0 0 6px rgb(var(--lamp)/0.55))" }}
+              />
+            </svg>
+            <span className="lamp-numerals absolute text-3xl text-text-primary">
+              <AnimatedNumber value={accuracy} suffix="%" duration={1.6} />
+            </span>
+          </div>
+          <div className="flex-1 space-y-5">
+            <div>
+              <h2 className="text-2xl text-text-primary">Accuracy overview</h2>
+              <p className="mt-1 text-sm text-text-muted">How your answers have landed across every attempt.</p>
             </div>
-          </Card>
-        </motion.section>
-
-        {/* History Table */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Card variant="solid">
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-warning">
-              Attempt Log
-            </p>
-            <h2 className="mt-2 font-display text-2xl font-bold text-white">
-              All Attempts
-            </h2>
-
-            {history.length === 0 ? (
-              <div className="mt-8 text-center">
-                <p className="text-4xl">📖</p>
-                <p className="mt-4 text-sm text-text-muted">
-                  No attempts recorded yet. Head to the Arena to start solving!
-                </p>
+            {[
+              { label: "Correct", value: correctCount, bar: "bg-success", text: "text-success" },
+              { label: "Incorrect", value: incorrectCount, bar: "bg-danger", text: "text-danger" },
+            ].map((row) => (
+              <div key={row.label}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-text-muted">{row.label}</span>
+                  <span className={cn("lamp-numerals", row.text)}>{row.value}</span>
+                </div>
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[rgb(var(--rule))]">
+                  <div
+                    data-split-bar
+                    className={cn("h-full rounded-full", row.bar)}
+                    style={{ width: totalAttempts > 0 ? `${(row.value / totalAttempts) * 100}%` : "0%" }}
+                  />
+                </div>
               </div>
-            ) : (
-              <>
-              {/* Phones get cards, not a sideways-scrolling table. Five
-                  columns cannot fit in 390px, so the table scrolled
-                  horizontally — which pushes XP and date off-screen where
-                  they are easy to miss entirely. This is the one table a
-                  student actually sees; the admin ones are used by three
-                  people and can keep scrolling. */}
-              <ul className="mt-6 space-y-3 sm:hidden">
-                {history.map((attempt, i) => (
+            ))}
+          </div>
+        </div>
+      </TiltPanel>
+
+      <section className="space-y-4">
+        <div data-reveal="fade" className="flex items-end justify-between gap-4">
+          <h2 className="text-2xl text-text-primary">All attempts</h2>
+          {history.length > 0 ? <p className="text-sm text-text-dim">{history.length} recorded</p> : null}
+        </div>
+
+        {history.length === 0 ? (
+          <EmptyState
+            title="No attempts recorded yet"
+            body="Head to the arena and solve your first challenge. Every attempt is logged here."
+            action={<Link to="/arena"><Button>Open the arena</Button></Link>}
+          />
+        ) : (
+          <div className="lamp-panel overflow-hidden">
+            {/* Column labels, desktop only. Phones get stacked rows. */}
+            <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_7rem_minmax(0,1.3fr)_7rem] gap-4 border-b border-[rgb(var(--rule))] px-5 py-3 text-[13px] font-medium text-text-dim sm:grid">
+              <span>Challenge</span>
+              <span>Your answer</span>
+              <span>Result</span>
+              <span>XP</span>
+              <span>Date</span>
+            </div>
+            <ul data-stagger="fade" className="divide-y divide-[rgb(var(--rule))]">
+              {history.map((attempt, i) => {
+                const xp = attempt.xpEarned || 0;
+                return (
                   <li
                     key={attempt._id || i}
-                    className="border border-line/12 bg-panel/40 p-4"
-                    style={{ clipPath: "var(--clip-notch)" }}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3 px-4 py-4 transition-colors duration-300 hover:bg-[rgb(var(--lamp)/0.04)] sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_7rem_minmax(0,1.3fr)_7rem] sm:items-center sm:px-5"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-medium text-white">
-                        {attempt.challengeTitle || attempt.challengeName || "Challenge"}
-                      </p>
-                      <span
-                        className={`shrink-0 rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
-                          attempt.correct
-                            ? "border-success/30 bg-success/10 text-success"
-                            : "border-danger/30 bg-danger/10 text-danger"
-                        }`}
-                      >
-                        {attempt.correct ? "Correct" : "Wrong"}
+                    <p className="min-w-0 text-sm font-medium text-text-primary">
+                      {attempt.challengeTitle || attempt.challengeName || "Challenge"}
+                    </p>
+                    <p className="hidden truncate font-mono text-xs text-text-muted sm:block">
+                      {attempt.selectedAnswer ?? attempt.selectedIndex ?? "---"}
+                    </p>
+                    <span
+                      className={cn(
+                        "inline-flex w-fit items-center gap-1 justify-self-end rounded-full border px-2.5 py-0.5 text-[12px] font-medium sm:justify-self-start",
+                        attempt.correct
+                          ? "border-success/30 bg-success/10 text-success"
+                          : "border-danger/30 bg-danger/10 text-danger",
+                      )}
+                    >
+                      {attempt.correct ? <Check className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" /> : <X className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" />}
+                      {attempt.correct ? "Correct" : "Wrong"}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[rgb(var(--rule))]">
+                        <div
+                          data-bar
+                          className={cn("h-full rounded-full", xp > 0 ? "bg-primary" : "bg-transparent")}
+                          style={{ width: `${(xp / maxXP) * 100}%` }}
+                        />
+                      </div>
+                      <span className={cn("lamp-numerals w-12 shrink-0 text-right text-sm", xp > 0 ? "text-primary" : "text-text-dim")}>
+                        {xp > 0 ? `+${xp}` : "0"}
                       </span>
                     </div>
-                    <div className="mt-3 flex items-center gap-4 font-mono text-[11px] text-text-dim">
-                      <span
-                        className={
-                          (attempt.xpEarned || 0) > 0 ? "font-bold text-success" : "text-text-dim"
-                        }
-                      >
-                        {(attempt.xpEarned || 0) > 0 ? `+${attempt.xpEarned} XP` : "0 XP"}
-                      </span>
-                      <span>
-                        {attempt.createdAt
-                          ? new Date(attempt.createdAt).toLocaleDateString("en-IN", {
-                              day: "numeric", month: "short", year: "numeric",
-                            })
-                          : "---"}
-                      </span>
-                    </div>
+                    <span className="justify-self-end text-xs text-text-dim sm:justify-self-start">
+                      {formatDate(attempt.createdAt)}
+                    </span>
                   </li>
-                ))}
-              </ul>
-
-              <div className="mt-6 hidden overflow-x-auto sm:block">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-line/15">
-                      <th className="pb-3 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-                        Challenge
-                      </th>
-                      <th className="pb-3 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-                        Your Answer
-                      </th>
-                      <th className="pb-3 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-                        Result
-                      </th>
-                      <th className="pb-3 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-                        XP
-                      </th>
-                      <th className="pb-3 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-                        Date
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((attempt, i) => (
-                      <motion.tr
-                        key={attempt._id || i}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.6 + i * 0.03 }}
-                        className="border-b border-line/8"
-                      >
-                        <td className="py-3 text-white">
-                          {attempt.challengeTitle || attempt.challengeName || "Challenge"}
-                        </td>
-                        <td className="py-3 font-mono text-xs text-text-muted">
-                          {attempt.selectedAnswer ?? attempt.selectedIndex ?? "---"}
-                        </td>
-                        <td className="py-3">
-                          <span
-                            className={`inline-block rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
-                              attempt.correct
-                                ? "border-success/30 bg-success/10 text-success"
-                                : "border-danger/30 bg-danger/10 text-danger"
-                            }`}
-                          >
-                            {attempt.correct ? "Correct" : "Wrong"}
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <span
-                            className={`font-mono text-sm font-bold ${
-                              (attempt.xpEarned || 0) > 0 ? "text-success" : "text-text-dim"
-                            }`}
-                          >
-                            {(attempt.xpEarned || 0) > 0
-                              ? `+${attempt.xpEarned}`
-                              : "0"}
-                          </span>
-                        </td>
-                        <td className="py-3 font-mono text-[11px] text-text-dim">
-                          {attempt.createdAt
-                            ? new Date(attempt.createdAt).toLocaleDateString("en-IN", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "---"}
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              </>
-            )}
-          </Card>
-        </motion.section>
-      </div>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

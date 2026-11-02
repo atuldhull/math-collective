@@ -8,6 +8,10 @@
  */
 
 import { memo } from "react";
+import { BookOpen, CalendarDays, Flame, Trophy, Wrench } from "lucide-react";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
+
+const LAMP_ICON = { hackathon: Flame, workshop: Wrench, competition: Trophy, seminar: BookOpen, general: CalendarDays };
 
 const TYPE_CONFIG = {
   hackathon:   { label: "Hackathon",   cssVar: "--monument-magma",   icon: "🔥" },
@@ -20,6 +24,25 @@ const TYPE_CONFIG = {
 function EventTypeBadge({ type, showIcon = true, className = "" }) {
   const config = TYPE_CONFIG[(type || "general").toLowerCase()] || TYPE_CONFIG.general;
   const accentColor = `var(${config.cssVar})`;
+  const lamp = useIsLamplight();
+
+  if (lamp) {
+    const key = (type || "general").toLowerCase();
+    const Icon = LAMP_ICON[key] || LAMP_ICON.general;
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-medium ${className}`}
+        style={{
+          color: accentColor,
+          background: `color-mix(in srgb, ${accentColor} 10%, transparent)`,
+          border: `1px solid color-mix(in srgb, ${accentColor} 28%, transparent)`,
+        }}
+      >
+        {showIcon && <Icon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />}
+        {config.label}
+      </span>
+    );
+  }
 
   return (
     <span

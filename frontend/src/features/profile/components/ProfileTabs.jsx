@@ -1,3 +1,5 @@
+import { useId } from "react";
+import { motion } from "framer-motion";
 /**
  * ProfileTabs — horizontal tab switcher for the rich profile page.
  *
@@ -28,34 +30,46 @@ const TAB_DEFS = [
  * }} props
  */
 export default function ProfileTabs({ active, onChange, access }) {
+  // Same lamp slider as the kit SegmentedTabs, but this switcher needs
+  // disabled tabs (privacy-gated) and bare labels, so it keeps its own
+  // markup.
+  const layoutId = useId();
   return (
-    <div role="tablist" aria-label="Profile sections" className="flex gap-1 overflow-x-auto border-b border-line/10">
+    <div
+      role="tablist"
+      aria-label="Profile sections"
+      className="scrollbar-none inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-[rgb(var(--rule))] bg-surface/70 p-1 backdrop-blur-xl"
+    >
       {TAB_DEFS.map((tab) => {
         const allowed = access?.[tab.requires] !== false;
         const isActive = active === tab.id;
         return (
           <button
             key={tab.id}
+            id={`tab-${tab.id}`}
+            type="button"
             role="tab"
             aria-selected={isActive}
             aria-disabled={!allowed}
             onClick={() => allowed && onChange(tab.id)}
             className={[
-              "relative shrink-0 px-4 py-3 font-mono text-[11px] uppercase tracking-wider transition",
+              "relative shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-colors duration-300",
               isActive
-                ? "text-white"
+                ? "text-[rgb(var(--color-obsidian))]"
                 : allowed
-                  ? "text-text-dim hover:text-text-muted"
+                  ? "text-text-muted hover:text-text-primary"
                   : "cursor-not-allowed text-text-dim/40",
             ].join(" ")}
           >
-            {tab.label}
             {isActive && (
-              <span
+              <motion.span
                 aria-hidden
-                className="absolute inset-x-3 -bottom-px h-[2px] rounded-full bg-primary"
+                layoutId={layoutId}
+                className="absolute inset-0 rounded-xl bg-primary shadow-[0_6px_24px_-6px_rgb(var(--lamp)/0.6)]"
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
               />
             )}
+            <span className="relative z-[1]">{tab.label}</span>
           </button>
         );
       })}

@@ -46,7 +46,7 @@ function renderMath(latex, displayMode) {
     });
   } catch {
     // Fall through — return escaped raw so it's visible but inert.
-    return `<span style="color:#ef4444">${escapeHtml(latex)}</span>`;
+    return `<span style="color:rgb(var(--color-danger))">${escapeHtml(latex)}</span>`;
   }
 }
 

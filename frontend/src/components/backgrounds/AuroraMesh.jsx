@@ -1,3 +1,4 @@
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 /**
  * AuroraMesh — animated mesh-gradient backdrop, 100 % CSS.
  *
@@ -23,7 +24,7 @@ const PALETTES = {
   danger:     ["239 68 68", "245 158 11", "124 58 237"],
 };
 
-export default function AuroraMesh({ palette = "primary", intensity = 0.4 }) {
+function AuroraMeshScene({ palette = "primary", intensity = 0.4 }) {
   const cols = PALETTES[palette] || PALETTES.primary;
 
   return (
@@ -92,4 +93,10 @@ export default function AuroraMesh({ palette = "primary", intensity = 0.4 }) {
       `}</style>
     </div>
   );
+}
+
+// Off the home page the Lamplight shell paints one shared backdrop
+// (LampBackdrop), so the per-page scenes step aside there.
+export default function AuroraMesh(props) {
+  return useIsLamplight() ? null : <AuroraMeshScene {...props} />;
 }

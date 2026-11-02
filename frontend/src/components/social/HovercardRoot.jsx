@@ -44,6 +44,9 @@ import FriendButton from "@/components/social/FriendButton";
 import MessageButton from "@/components/social/MessageButton";
 import MutualFriendsStrip from "@/components/social/MutualFriendsStrip";
 import IdentityGlyph from "@/components/identity/IdentityGlyph";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { ArrowUpRight, Lock, UserRound } from "lucide-react";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 const CARD_WIDTH  = 280;
 const VIEWPORT_PAD = 8;
@@ -82,6 +85,7 @@ export default function HovercardRoot() {
   const unpin       = useHovercardStore((s) => s.unpin);
 
   const cardRef = useRef(null);
+  const lamp = useIsLamplight();
   const [profile, setProfile] = useState(null);
   const [mutual,  setMutual]  = useState({ mutual: [], count: 0 });
   const [loading, setLoading] = useState(false);
@@ -145,6 +149,9 @@ export default function HovercardRoot() {
   // 180px fallback is close enough for clip detection in practice.
   const cardHeight = cardRef.current?.offsetHeight || 200;
   const pos = placeCard(anchorRect, cardHeight);
+  // Lamplight: the card swings open on its hinge edge (the side facing
+  // the trigger), so it reads as unfolding out of the name.
+  const below = anchorRect ? pos.top >= anchorRect.top : true;
 
   return createPortal(
     <AnimatePresence>
@@ -153,14 +160,17 @@ export default function HovercardRoot() {
           ref={cardRef}
           role="dialog"
           aria-label="User info"
-          initial={{ opacity: 0, y: 4, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 4, scale: 0.98 }}
-          transition={{ duration: 0.12 }}
+          initial={lamp ? { opacity: 0, rotateX: below ? -14 : 14, y: below ? -6 : 6, scale: 0.97 } : { opacity: 0, y: 4, scale: 0.98 }}
+          animate={lamp ? { opacity: 1, rotateX: 0, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
+          exit={lamp ? { opacity: 0, y: below ? -4 : 4, scale: 0.98 } : { opacity: 0, y: 4, scale: 0.98 }}
+          transition={lamp ? { type: "spring", stiffness: 520, damping: 34 } : { duration: 0.12 }}
           onMouseEnter={pin}
           onMouseLeave={() => { unpin(); hide(); }}
-          className="fixed z-[9999] rounded-2xl border border-line/20 bg-panel/95 p-4 shadow-2xl backdrop-blur-xl"
+          className={lamp
+            ? "fixed z-[9999] overflow-hidden rounded-[1.25rem] border border-[rgb(var(--lamp)/0.24)] bg-[rgb(var(--color-surface)/0.96)] p-4 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.85),0_0_40px_-24px_rgb(var(--lamp)/0.6)] backdrop-blur-xl"
+            : "fixed z-[9999] rounded-2xl border border-line/20 bg-panel/95 p-4 shadow-2xl backdrop-blur-xl"}
           style={{
+            ...(lamp ? { transformPerspective: 800, transformOrigin: below ? "50% 0%" : "50% 100%" } : null),
             top:   pos.top,
             left:  pos.left,
             width: CARD_WIDTH,
@@ -168,6 +178,18 @@ export default function HovercardRoot() {
             visibility: anchorRect ? "visible" : "hidden",
           }}
         >
+          {lamp ? (
+            <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[radial-gradient(closest-side,rgb(var(--lamp)/0.16),transparent)]" />
+          ) : null}
+          {lamp ? (
+            <LampHovercardContent
+              profile={profile}
+              mutual={mutual}
+              loading={loading && !profile}
+              userId={userId}
+              onNavigate={hide}
+            />
+          ) : (
           <HovercardContent
             profile={profile}
             mutual={mutual}
@@ -179,6 +201,7 @@ export default function HovercardRoot() {
             onNavigate={hide}
             pinned={pinned}
           />
+          )}
         </motion.div>
       )}
     </AnimatePresence>,
@@ -283,6 +306,93 @@ function HovercardContent({ profile, mutual, loading, userId, onNavigate }) {
         className="block text-center font-mono text-[10px] uppercase tracking-wider text-primary/80 hover:text-primary"
       >
         View full profile →
+      </Link>
+    </div>
+  );
+}
+
+/**
+ * Lamplight content — same data, calmer hierarchy: the name leads, the
+ * numbers count up in the display face, actions sit on one row.
+ */
+function LampHovercardContent({ profile, mutual, loading, userId, onNavigate }) {
+  if (loading) {
+    return (
+      <div className="relative flex items-center gap-3">
+        <div className="h-12 w-12 animate-pulse rounded-2xl bg-[rgb(var(--rule))]" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3 w-28 animate-pulse rounded-full bg-[rgb(var(--rule))]" />
+          <div className="h-2.5 w-16 animate-pulse rounded-full bg-[rgb(var(--rule)/0.7)]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return <p className="relative text-sm text-text-muted">Couldn&apos;t load this person. Try hovering again.</p>;
+  }
+
+  const p = profile.profile || profile;
+  const isPrivate = p.isPrivate === true;
+  const stats = [
+    typeof p.xp === "number" && { key: "xp", value: p.xp, label: "XP", lit: true },
+    typeof p.friend_count === "number" && { key: "friends", value: p.friend_count, label: "friends" },
+    typeof p.achievement_count === "number" && { key: "badges", value: p.achievement_count, label: "badges" },
+  ].filter(Boolean);
+
+  return (
+    <div className="relative space-y-3.5">
+      <div className="flex items-center gap-3">
+        <div
+          className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-2xl ring-1 ring-[rgb(var(--rule))]"
+          style={{ backgroundColor: p.avatar_color || "rgb(var(--color-panel))" }}
+          aria-hidden
+        >
+          {p.avatar_emoji || <UserRound className="h-5 w-5 text-text-muted" strokeWidth={1.75} />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="lamp-display truncate text-[17px] text-text-primary">{p.name || "Unknown"}</p>
+          {isPrivate ? (
+            <p className="flex items-center gap-1 text-[12px] text-text-dim">
+              <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
+              Private profile
+            </p>
+          ) : (
+            <p className="truncate text-[12px] capitalize text-text-muted">{p.title || p.role || "member"}</p>
+          )}
+        </div>
+        {!isPrivate && userId && <IdentityGlyph userId={userId} size={28} title="Identity glyph" />}
+      </div>
+
+      {!isPrivate && stats.length > 0 && (
+        <dl className="grid grid-flow-col gap-2 border-y border-[rgb(var(--rule))] py-2.5">
+          {stats.map((s) => (
+            <div key={s.key} className="flex flex-col-reverse">
+              <dt className="mt-1 text-[11px] text-text-dim">{s.label}</dt>
+              <dd className={"lamp-numerals text-lg leading-none " + (s.lit ? "text-primary" : "text-text-primary")}>
+                <AnimatedNumber value={s.value} duration={0.9} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {!isPrivate && mutual?.count > 0 && (
+        <MutualFriendsStrip mutual={mutual.mutual} count={mutual.count} max={4} />
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <FriendButton userId={userId} size="sm" />
+        <MessageButton userId={userId} size="sm" />
+      </div>
+
+      <Link
+        to={`/profile/${userId}`}
+        onClick={onNavigate}
+        className="group flex min-h-10 items-center justify-between rounded-xl border border-[rgb(var(--rule))] px-3 text-[13px] font-medium text-text-muted transition hover:border-[rgb(var(--lamp)/0.45)] hover:text-text-primary"
+      >
+        View full profile
+        <ArrowUpRight className="h-4 w-4 text-primary transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" strokeWidth={1.75} aria-hidden="true" />
       </Link>
     </div>
   );

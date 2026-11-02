@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import BackgroundEffects from "@/features/public/components/gallery/BackgroundEffects";
-import GalleryHero from "@/features/public/components/gallery/GalleryHero";
+import { PageHeader } from "@/components/lamp";
+import { Parallax, ScrollCurve } from "@/components/motion/ScrollFx";
 import GallerySection from "@/features/public/components/gallery/GallerySection";
 import TreasureHuntSection from "@/features/public/components/gallery/TreasureHuntSection";
 import { cloudinaryImg } from "@/lib/cloudinary";
@@ -67,29 +67,33 @@ export default function GalleryPage() {
 
   return (
     <>
-      <BackgroundEffects />
+      <PageHeader
+        context="The gallery"
+        title="Moments from the collective"
+        description="Treasure hunts, keynotes and the evening the club began. Select any photo to see it full size."
+      />
 
       <div className="relative z-10 space-y-28 pb-20">
-        <GalleryHero />
 
         {/* Treasure Hunt — trail/map layout */}
         <TreasureHuntSection onOpen={openLightbox} />
 
-        {/* Divider */}
-        <div className="flex items-center justify-center">
-          <motion.div initial={{ width: 0 }} whileInView={{ width: 200 }} viewport={{ once: true }}
-            transition={{ duration: 1.2 }} className="h-px bg-gradient-to-r from-transparent via-text-dim/20 to-transparent" />
+        {/* Divider: the asymptote drawing as you go */}
+        <div className="relative mx-auto w-full max-w-3xl">
+          <ScrollCurve tone="violet" className="relative h-12 sm:h-16" start="top 90%" end="top 35%" />
         </div>
 
-        {/* Inauguration — Canva-style collage */}
-        <GallerySection
-          title="Inauguration"
-          subtitle="Where it all began — the first chapter of Asymptotes"
-          label="The Beginning"
-          files={inaugFiles}
-          variant="purple"
-          onOpen={openLightbox}
-        />
+        {/* Inauguration — Canva-style collage, drifting slightly against the scroll */}
+        <Parallax speed={8}>
+          <GallerySection
+            title="Inauguration"
+            subtitle="Where it all began — the first chapter of Asymptotes"
+            label="The Beginning"
+            files={inaugFiles}
+            variant="purple"
+            onOpen={openLightbox}
+          />
+        </Parallax>
       </div>
 
       {/* Lightbox */}

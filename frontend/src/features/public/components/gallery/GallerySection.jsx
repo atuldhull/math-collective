@@ -1,4 +1,7 @@
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import gsap from "@/lib/gsap-setup";
 import AnimatedCard from "./AnimatedCard";
 import FeaturedCard from "./FeaturedCard";
 
@@ -55,100 +58,106 @@ function distributeFiles(files, rows) {
   return result;
 }
 
-function SectionHeader({ label, title, subtitle, variant }) {
+function SectionHeader({ title, subtitle, variant }) {
   const isGold = variant === "gold";
-  const accent = isGold ? "#e8c070" : "#d4b4ff";
-  const tag = isGold ? "#96723a" : "#8050b0";
-  const line = isGold ? "#6b4a28" : "#5a3090";
-
   return (
-    <div className="mb-12 text-center">
-      <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-        className="font-mono text-[10px] uppercase tracking-[6px]" style={{ color: tag }}>
-        {label}
-      </motion.p>
-      <motion.div initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-        transition={{ delay: 0.1 }} className="mt-4 flex items-center justify-center gap-5">
-        <motion.span initial={{ width: 0 }} whileInView={{ width: 80 }} viewport={{ once: true }}
-          transition={{ delay: 0.3, duration: 0.8 }} className="h-px" style={{ background: `linear-gradient(90deg, transparent, ${line})` }} />
-        <h2 className="break-words font-display text-3xl font-bold tracking-tight sm:text-6xl" style={{ color: accent }}>
+    <div className="mb-10 flex flex-col gap-4 sm:mb-12 sm:flex-row sm:items-end sm:justify-between">
+      <div className="max-w-2xl">
+        <h2 data-reveal="up" className="lamp-display break-words text-4xl text-text-primary sm:text-6xl">
           {title}
         </h2>
-        <motion.span initial={{ width: 0 }} whileInView={{ width: 80 }} viewport={{ once: true }}
-          transition={{ delay: 0.3, duration: 0.8 }} className="h-px" style={{ background: `linear-gradient(90deg, ${line}, transparent)` }} />
-      </motion.div>
-      <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-        transition={{ delay: 0.25 }} className="mt-3 text-sm italic" style={{ color: tag }}>
-        {subtitle}
-      </motion.p>
+        {subtitle ? (
+          <p data-reveal="up" className="mt-3 text-base leading-7 text-text-muted">{subtitle}</p>
+        ) : null}
+      </div>
+      <span
+        data-section-rule
+        aria-hidden="true"
+        className={`hidden h-px flex-1 origin-left sm:mb-4 sm:ml-10 sm:block ${
+          isGold
+            ? "bg-[linear-gradient(90deg,rgb(var(--lamp)/0.7),transparent)]"
+            : "bg-[linear-gradient(90deg,rgb(var(--violet)/0.75),transparent)]"
+        }`}
+      />
     </div>
   );
 }
 
+/**
+ * GallerySection — an editorial collage of one event.
+ *
+ * A featured photo, then rows of mixed proportions. Motion: each photo
+ * settles onto the page with a small spin and scale as its row scrolls
+ * in (GSAP batch), alternating direction so the collage feels laid by
+ * hand; the heading rule draws with the scroll.
+ */
 export default function GallerySection({ title, subtitle, label, files, variant, onOpen }) {
+  const root = useRef(null);
   const isGold = variant === "gold";
   const rows = isGold ? treasureRows : inaugRows;
-  const bgColor = isGold ? "#100800" : "#080512";
-  const borderColor = isGold ? "rgba(107,74,40,0.3)" : "rgba(90,48,144,0.3)";
 
   const featured = files[0];
   const rest = files.slice(1);
   const distributed = distributeFiles(rest, rows);
 
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const q = gsap.utils.selector(root);
+      const cells = q("[data-settle]");
+      gsap.set(cells, {
+        autoAlpha: 0, y: 70, scale: 0.86,
+        rotation: (i) => (i % 2 ? 4 : -4) + ((i % 3) - 1) * 1.5,
+        transformOrigin: "50% 100%",
+      });
+      ScrollTrigger.batch(cells, {
+        start: "top 92%",
+        once: true,
+        onEnter: (batch) => gsap.to(batch, {
+          autoAlpha: 1, y: 0, scale: 1, rotation: 0,
+          duration: 1.2, ease: "back.out(1.3)", stagger: 0.09,
+          clearProps: "transform,opacity,visibility",
+        }),
+      });
+      gsap.fromTo(q("[data-section-rule]"), { scaleX: 0 }, {
+        scaleX: 1, ease: "none",
+        scrollTrigger: { trigger: root.current, start: "top 85%", end: "top 30%", scrub: 0.8 },
+      });
+    });
+    return () => mm.revert();
+  }, { scope: root });
+
   let globalIdx = 1; // start from 1 since 0 is featured
 
   return (
-    <motion.section
-      initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true, margin: "-50px" }}
-      className="relative mx-auto max-w-[1400px] overflow-hidden rounded-3xl"
-      style={{ backgroundColor: bgColor, border: `1px solid ${borderColor}` }}
-    >
-      {/* Ambient */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[10%] top-[20%] h-[500px] w-[500px] rounded-full opacity-[0.02] blur-[120px]"
-          style={{ background: isGold ? "#c89030" : "#8040c0" }} />
-        <div className="absolute bottom-[15%] right-[10%] h-[400px] w-[400px] rounded-full opacity-[0.025] blur-[100px]"
-          style={{ background: isGold ? "#7a4810" : "#4020a0" }} />
+    <section ref={root} aria-label={title} className="relative mx-auto w-full max-w-[1400px]">
+      <SectionHeader title={title} subtitle={subtitle} variant={variant} />
+
+      {/* Featured hero */}
+      <FeaturedCard file={featured} label={featured.label || title} sublabel={label} onClick={onOpen} variant={variant} />
+
+      {/* Collage rows */}
+      <div className="space-y-3 sm:space-y-4">
+        {distributed.map((row, rowIdx) => (
+          <div key={rowIdx} className="flex flex-wrap gap-3 sm:flex-nowrap sm:gap-4">
+            {row.map(({ file, config }, colIdx) => {
+              const idx = globalIdx++;
+              // --r drives the flex ratio only at sm+; phones wrap 2-up via basis
+              return (
+                <div key={colIdx} data-settle className={`${config.h} max-sm:h-44 basis-[calc(50%-0.375rem)] grow rounded-2xl sm:[flex:var(--r)]`} style={{ "--r": config.flex }}>
+                  <AnimatedCard
+                    file={file}
+                    index={idx}
+                    onClick={onOpen}
+                    variant={variant}
+                    size="fill"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
-
-      <div className="relative z-10 px-4 py-14 sm:px-8 sm:py-20">
-        <SectionHeader label={label} title={title} subtitle={subtitle} variant={variant} />
-
-        {/* Featured hero */}
-        <FeaturedCard file={featured} label={featured.label || title} sublabel={label} onClick={onOpen} variant={variant} />
-
-        {/* Creative rows */}
-        <div className="mt-10 space-y-4">
-          {distributed.map((row, rowIdx) => (
-            <motion.div
-              key={rowIdx}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ delay: rowIdx * 0.06, duration: 0.6 }}
-              className="flex flex-wrap gap-3 sm:flex-nowrap sm:gap-4"
-            >
-              {row.map(({ file, config }, colIdx) => {
-                const idx = globalIdx++;
-                // --r drives the flex ratio only at sm+; phones wrap 2-up via basis
-                return (
-                  <div key={colIdx} className={`${config.h} max-sm:h-44 basis-[calc(50%-0.375rem)] grow overflow-hidden rounded-2xl sm:[flex:var(--r)]`} style={{ "--r": config.flex }}>
-                    <AnimatedCard
-                      file={file}
-                      index={idx}
-                      onClick={onOpen}
-                      variant={variant}
-                      size="fill"
-                    />
-                  </div>
-                );
-              })}
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </motion.section>
+    </section>
   );
 }

@@ -22,6 +22,26 @@
  */
 
 import { Link } from "react-router-dom";
+import { Award, CalendarDays, Laptop, Mic, PartyPopper, Trophy, Wrench } from "lucide-react";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
+import { cn } from "@/lib/cn";
+
+const LAMP_EVENT_ICONS = {
+  general:     CalendarDays,
+  hackathon:   Laptop,
+  workshop:    Wrench,
+  competition: Trophy,
+  seminar:     Mic,
+  social:      PartyPopper,
+};
+
+const LAMP_RARITY = {
+  common:    "border-[rgb(var(--rule))]",
+  uncommon:  "border-success/40",
+  rare:      "border-secondary/50",
+  epic:      "border-[rgb(var(--lamp)/0.5)]",
+  legendary: "border-warning/70 shadow-[0_0_18px_-4px_rgb(var(--lamp)/0.7)]",
+};
 
 // Emoji table for event_type values. Fallback is a generic calendar.
 // Matches the filters used on EventsPage so the visual language is
@@ -62,7 +82,9 @@ function timeAgo(iso) {
  * @param {{ item: { kind: "event" | "achievement", at: string, data: any } }} props
  */
 export default function ActivityTimelineItem({ item }) {
+  const lamp = useIsLamplight();
   if (!item) return null;
+  if (lamp) return <LampItem item={item} />;
 
   if (item.kind === "event") {
     const d = item.data || {};
@@ -115,5 +137,56 @@ export default function ActivityTimelineItem({ item }) {
 
   // Unknown kind — silently skip rather than crash. Forward-compat
   // for future timeline item types.
+  return null;
+}
+
+/* Lamplight: a ledger line. Icon tile, sentence, quiet timestamp. */
+function LampItem({ item }) {
+  const d = item.data || {};
+  if (item.kind === "event") {
+    const Icon = LAMP_EVENT_ICONS[d.event_type] || LAMP_EVENT_ICONS.general;
+    const statusLabel =
+      d.status === "attended"  ? "Attended" :
+      d.status === "no_show"   ? "Missed"   :
+      d.status === "cancelled" ? "Cancelled" :
+                                 "Registered for";
+    const body = (
+      <>
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[rgb(var(--rule))] bg-surface/60 text-text-muted transition-colors group-hover:text-primary">
+          <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm text-text-primary">
+            <span className="text-text-muted">{statusLabel}</span>{" "}
+            <span className="font-medium">{d.title || "an event"}</span>
+          </p>
+          <p className="text-[12px] text-text-dim">{timeAgo(item.at)}</p>
+        </div>
+      </>
+    );
+    return d.event_id
+      ? <Link to="/events" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-[rgb(var(--lamp)/0.05)]">{body}</Link>
+      : <div className="flex items-center gap-3 py-2">{body}</div>;
+  }
+
+  if (item.kind === "achievement") {
+    return (
+      <div className="flex items-center gap-3 py-2">
+        <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl border bg-surface/60 text-xl", LAMP_RARITY[d.rarity] || LAMP_RARITY.common)}>
+          {d.icon || <Award className="h-[18px] w-[18px] text-primary" strokeWidth={1.75} aria-hidden="true" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm text-text-primary">
+            <span className="text-text-muted">Unlocked</span>{" "}
+            <span className="font-medium">{d.title || "an achievement"}</span>
+            {d.xp_awarded > 0 && (
+              <span className="lamp-numerals ml-2 text-[12px] text-primary">+{d.xp_awarded} XP</span>
+            )}
+          </p>
+          <p className="text-[12px] text-text-dim">{timeAgo(item.at)}</p>
+        </div>
+      </div>
+    );
+  }
   return null;
 }

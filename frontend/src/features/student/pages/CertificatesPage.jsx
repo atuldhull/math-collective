@@ -1,34 +1,29 @@
-import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
-import Card from "@/components/ui/Card";
+import { useState, useEffect, useRef } from "react";
+import { useGSAP } from "@gsap/react";
+import { Award, BadgeCheck, Download, Medal, ScrollText, Trophy } from "lucide-react";
+import gsap from "@/lib/gsap-setup";
+import { cn } from "@/lib/cn";
+import { PageHeader, TiltPanel, StatTile, EmptyState } from "@/components/lamp";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { certificates } from "@/lib/api";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-  }),
+const TYPES = {
+  participation: { label: "Participation", icon: ScrollText, tone: "text-secondary border-secondary/30 bg-secondary/10" },
+  winner: { label: "Winner", icon: Trophy, tone: "text-primary border-primary/30 bg-primary/10" },
+  merit: { label: "Merit", icon: Medal, tone: "text-warning border-warning/30 bg-warning/10" },
+  completion: { label: "Completion", icon: BadgeCheck, tone: "text-success border-success/30 bg-success/10" },
 };
 
-const typeColors = {
-  participation: "text-secondary border-secondary/30 bg-secondary/10",
-  winner: "text-warning border-warning/30 bg-warning/10",
-  merit: "text-glow border-glow/30 bg-glow/10",
-  completion: "text-success border-success/30 bg-success/10",
-};
+const reduceMotion = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export default function CertificatesPage() {
-  useMonument("sky");
   const [certs, setCerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(null);
+  const root = useRef(null);
 
   useEffect(() => {
     fetchCertificates();
@@ -67,174 +62,143 @@ export default function CertificatesPage() {
     }
   }
 
+  // Bespoke moment: once the documents have flipped in, each seal is
+  // pressed onto its paper — a quick spin and squash, like a stamp.
+  const { contextSafe } = useGSAP(() => {
+    if (!root.current) return undefined;
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.from(gsap.utils.toArray("[data-seal]", root.current), {
+        scale: 1.8, rotate: -120, autoAlpha: 0, duration: 0.7, ease: "back.out(2.4)", stagger: 0.09, delay: 0.7,
+      });
+    });
+    return () => mm.revert();
+  }, { scope: root, dependencies: [loading, certs.length], revertOnUpdate: true });
+
+  // Hover: the document lifts off the desk toward the reader. TiltPanel
+  // already leans it toward the pointer; this adds the depth.
+  const lift = contextSafe((e) => {
+    if (reduceMotion()) return;
+    gsap.to(e.currentTarget, { y: -10, z: 40, scale: 1.015, transformPerspective: 1000, duration: 0.5, ease: "power3.out", overwrite: "auto" });
+    gsap.to(e.currentTarget.querySelector("[data-shadow]"), { autoAlpha: 1, scale: 1, duration: 0.5, ease: "power3.out" });
+  });
+  const settle = contextSafe((e) => {
+    if (reduceMotion()) return;
+    gsap.to(e.currentTarget, { y: 0, z: 0, scale: 1, duration: 0.8, ease: "elastic.out(1, 0.7)", overwrite: "auto" });
+    gsap.to(e.currentTarget.querySelector("[data-shadow]"), { autoAlpha: 0, scale: 0.9, duration: 0.5 });
+  });
+
   if (loading) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="sky" intensity={0.15} />
-        <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
-          <Loader variant="orbit" size="lg" label="Loading certificates..." />
-        </div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader variant="orbit" size="lg" label="Loading certificates..." />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="sky" intensity={0.15} />
-        <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center gap-4">
-          <p className="text-danger">{error}</p>
-          <Button variant="secondary" size="sm" onClick={fetchCertificates}>
-            Retry
-          </Button>
-        </div>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <p className="text-danger">{error}</p>
+        <Button variant="secondary" size="sm" onClick={fetchCertificates}>
+          Retry
+        </Button>
       </div>
     );
   }
 
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="sky" intensity={0.15} />
+    <div ref={root} className="space-y-8 pb-16">
+      <PageHeader
+        context="Achievements"
+        title="Your certificates"
+        description="Earned through competitions, events, and achievements."
+      />
 
-      <div className="relative z-10 space-y-8 pb-16">
-        {/* Header */}
-        <motion.section initial="hidden" animate="visible">
-          <motion.div custom={0} variants={fadeUp}>
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-glow">
-              Achievements
-            </p>
-            <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.05em] text-white sm:text-5xl">
-              Your Certificates
-            </h1>
-            <p className="mt-2 text-text-muted">
-              Earned through competitions, events, and achievements.
-            </p>
-          </motion.div>
-        </motion.section>
+      <section data-stagger="up" className="grid grid-cols-3 gap-3 sm:gap-4">
+        <StatTile label="Total earned" value={certs.length} icon={Award} />
+        <StatTile label="Winner awards" value={certs.filter((c) => c.type === "winner").length} icon={Trophy} tone="lamp" />
+        <StatTile label="Merit awards" value={certs.filter((c) => c.type === "merit").length} icon={Medal} tone="warn" />
+      </section>
 
-        {/* Stats Row */}
-        <motion.section
-          initial="hidden"
-          animate="visible"
-          className="grid gap-4 sm:grid-cols-3"
-        >
-          {[
-            { label: "Total Earned", value: certs.length, color: "text-primary" },
-            {
-              label: "Winner Awards",
-              value: certs.filter((c) => c.type === "winner").length,
-              color: "text-warning",
-            },
-            {
-              label: "Merit Awards",
-              value: certs.filter((c) => c.type === "merit").length,
-              color: "text-glow",
-            },
-          ].map((stat, i) => (
-            <motion.div key={stat.label} custom={i + 1} variants={fadeUp}>
-              <Card variant="glass" className="text-center">
-                <p className={`math-text text-3xl font-bold ${stat.color}`}>
-                  {stat.value}
-                </p>
-                <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-                  {stat.label}
-                </p>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.section>
-
-        {/* Certificates Grid */}
-        {certs.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card variant="solid" className="text-center">
-              <div className="py-12">
-                <svg
+      {certs.length === 0 ? (
+        <EmptyState
+          title="No certificates yet"
+          body="Take part in an event or competition. Your certificates appear here as soon as they are issued."
+        />
+      ) : (
+        <ul data-stagger="tilt" className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 [perspective:1400px]">
+          {certs.map((cert, i) => {
+            const type = TYPES[cert.type] || TYPES.participation;
+            const Icon = type.icon;
+            return (
+              <li key={cert._id} className="relative">
+                <span
+                  data-shadow
                   aria-hidden="true"
-                  className="mx-auto h-14 w-14 text-text-dim/50"
-                  viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth={1.4}
-                  strokeLinecap="round" strokeLinejoin="round"
+                  className="pointer-events-none absolute inset-x-6 -bottom-3 top-8 rounded-[1.25rem] bg-[rgb(var(--lamp)/0.18)] opacity-0 blur-2xl"
+                />
+                <TiltPanel
+                  lit={i === 0}
+                  onPointerEnter={lift}
+                  onPointerLeave={settle}
+                  className="relative h-full p-2.5"
                 >
-                  <path d="M4 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 3z" />
-                  <circle cx="12" cy="10.5" r="2.5" />
-                  <path d="M10.5 12.5L9 16l3-1.2L15 16l-1.5-3.5" />
-                </svg>
-                <h3 className="mt-4 font-display text-xl font-bold text-white">
-                  No Certificates Yet
-                </h3>
-                <p className="mt-2 text-sm text-text-muted">
-                  Participate in events and competitions to earn certificates.
-                </p>
-              </div>
-            </Card>
-          </motion.div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {certs.map((cert, i) => (
-              <motion.div
-                key={cert._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + i * 0.08 }}
-              >
-                <Card variant="glass" interactive>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 via-secondary/20 to-glow/20 text-2xl">
-                      {cert.type === "winner" ? "🏆" : cert.type === "merit" ? "🏅" : "📜"}
-                    </div>
-                    <span
-                      className={`inline-block rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
-                        typeColors[cert.type] || typeColors.participation
-                      }`}
-                    >
-                      {cert.type || "Participation"}
-                    </span>
-                  </div>
-
-                  <h3 className="mt-4 font-display text-lg font-bold tracking-[-0.02em] text-white">
-                    {cert.eventName || cert.title || "Certificate"}
-                  </h3>
-
-                  {cert.description && (
-                    <p className="mt-1 text-sm text-text-muted line-clamp-2">
-                      {cert.description}
-                    </p>
-                  )}
-
-                  <div className="mt-3 flex items-center gap-3">
-                    {cert.issuedAt && (
-                      <span className="font-mono text-[10px] text-text-dim">
-                        {new Date(cert.issuedAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                  {/* The certificate itself: a ruled frame inside the panel. */}
+                  <div className="relative flex h-full flex-col rounded-[0.9rem] border border-[rgb(var(--lamp)/0.22)] p-5 [background:repeating-linear-gradient(0deg,transparent_0_23px,rgb(var(--rule)/0.35)_23px_24px)]">
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-1.5 rounded-[0.7rem] border border-dashed border-[rgb(var(--rule))]" />
+                    <div className="relative flex items-start justify-between gap-3">
+                      <span
+                        data-seal
+                        className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgb(var(--lamp)/0.4)] bg-[radial-gradient(circle_at_35%_30%,rgb(var(--lamp)/0.35),rgb(var(--lamp)/0.06))] text-primary shadow-[0_0_24px_-6px_rgb(var(--lamp)/0.6)]"
+                      >
+                        <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
                       </span>
-                    )}
-                  </div>
+                      <span className={cn("inline-block rounded-full border px-2.5 py-0.5 text-[12px] font-medium", type.tone)}>
+                        {cert.type ? type.label : "Participation"}
+                      </span>
+                    </div>
 
-                  <div className="mt-4">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="w-full justify-center"
-                      loading={downloading === cert._id}
-                      onClick={() => handleDownload(cert)}
-                    >
-                      Download
-                    </Button>
+                    <p className="relative mt-5 text-[13px] text-text-dim">This certifies achievement in</p>
+                    <h3 className="relative mt-1 text-xl leading-snug text-text-primary" style={{ textWrap: "balance" }}>
+                      {cert.eventName || cert.title || "Certificate"}
+                    </h3>
+
+                    {cert.description && (
+                      <p className="relative mt-2 line-clamp-2 text-sm text-text-muted">{cert.description}</p>
+                    )}
+
+                    <div className="relative mt-auto flex items-end justify-between gap-3 pt-5">
+                      <div className="min-w-0">
+                        <span aria-hidden="true" className="block h-px w-24 bg-[rgb(var(--rule))]" />
+                        {cert.issuedAt && (
+                          <span className="mt-1.5 block text-xs text-text-dim">
+                            Issued{" "}
+                            {new Date(cert.issuedAt).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        variant={i === 0 ? "primary" : "secondary"}
+                        size="sm"
+                        loading={downloading === cert._id}
+                        onClick={() => handleDownload(cert)}
+                        leading={<Download className="h-4 w-4" strokeWidth={1.75} />}
+                      >
+                        Download
+                      </Button>
+                    </div>
                   </div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
+                </TiltPanel>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

@@ -1,72 +1,81 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "@/lib/gsap-setup";
 import { cloudinaryImg } from "@/lib/cloudinary";
 
+/**
+ * FeaturedCard — the lead photo of a gallery section.
+ *
+ * The frame opens like a lamp being turned up: a clipped inset widens
+ * to the full card as it scrolls in (GSAP, scrubbed), while the photo
+ * drifts inside it on a slower parallax (framer useScroll).
+ */
 export default function FeaturedCard({ file, label, sublabel, onClick, variant = "gold" }) {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const imgY = useTransform(scrollYProgress, [0, 1], [-40, 40]);
   const isGold = variant === "gold";
+  const isImg = file.type === "img";
 
-  const border = isGold ? "border-[#8B6340]/40" : "border-[#5a2080]/40";
-  const hoverBorder = isGold ? "hover:border-[#e8c070]/60" : "hover:border-[#c060e0]/60";
-  const glow = isGold
-    ? "hover:shadow-[0_30px_80px_rgba(200,144,42,0.2)]"
-    : "hover:shadow-[0_30px_80px_rgba(192,96,224,0.15)]";
-  const accent = isGold ? "text-[#e8c070]" : "text-[#d0a0ff]";
-  const sub = isGold ? "text-[#8a5a30]" : "text-[#6b3fa0]";
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.fromTo(ref.current,
+        { clipPath: "inset(9% 7% 9% 7% round 1.5rem)" },
+        {
+          clipPath: "inset(0% 0% 0% 0% round 1.5rem)",
+          ease: "none",
+          scrollTrigger: { trigger: ref.current, start: "top 95%", end: "top 35%", scrub: 0.7 },
+        });
+      gsap.from(ref.current.querySelectorAll("[data-feature-text] > *"), {
+        y: 28, autoAlpha: 0, duration: 1, ease: "expo.out", stagger: 0.08,
+        scrollTrigger: { trigger: ref.current, start: "top 55%", once: true },
+      });
+    });
+    return () => mm.revert();
+  }, { scope: ref });
 
   return (
-    <motion.div
+    <div
       ref={ref}
-      initial={{ opacity: 0, y: 80 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ scale: 1.015 }}
-      className={`group relative mb-10 cursor-pointer overflow-hidden rounded-3xl border-2 ${border} ${hoverBorder} ${glow} transition-all duration-500`}
-      onClick={() => file.type === "img" && onClick(file.url)}
+      className={`group relative mb-10 overflow-hidden rounded-3xl border transition-[border-color,box-shadow] duration-500 ${
+        isGold
+          ? "border-[rgb(var(--lamp)/0.3)] hover:border-[rgb(var(--lamp)/0.55)] hover:shadow-[0_30px_80px_-20px_rgb(var(--lamp)/0.35)]"
+          : "border-[rgb(var(--violet)/0.3)] hover:border-[rgb(var(--violet)/0.6)] hover:shadow-[0_30px_80px_-20px_rgb(var(--violet)/0.4)]"
+      } ${isImg ? "cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : ""}`}
+      onClick={() => isImg && onClick(file.url)}
+      {...(isImg ? {
+        role: "button",
+        tabIndex: 0,
+        "aria-label": `Open photo: ${label}`,
+        onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(file.url); } },
+      } : {})}
     >
-      <div className="relative h-[340px] overflow-hidden sm:h-[440px] lg:h-[520px]">
+      <div className="relative h-[300px] overflow-hidden sm:h-[440px] lg:h-[520px]">
         <motion.img
           src={cloudinaryImg(file.url, 1400, { quality: "best" })}
           alt={label}
           loading="lazy"
           decoding="async"
-          fetchpriority="high"
+          fetchPriority="high"
           style={{ y: imgY }}
           className="h-[120%] w-full object-cover transition-transform duration-[1s] group-hover:scale-105"
         />
-        {/* Deep gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
+        {/* Ink wash so the title stays legible */}
+        <div className="absolute inset-0 bg-gradient-to-t from-obsidian via-obsidian/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-obsidian/50 to-transparent" />
       </div>
 
       {/* Content overlay */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 p-8 sm:p-10">
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          whileInView={{ y: 0, opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-        >
-          {sublabel && (
-            <p className={`font-mono text-[10px] uppercase tracking-[5px] ${sub}`}>{sublabel}</p>
-          )}
-          <h3 className={`mt-3 font-display text-4xl font-bold tracking-wide sm:text-5xl ${accent}`}
-            style={{ textShadow: `0 0 40px ${isGold ? "rgba(232,192,112,0.3)" : "rgba(208,160,255,0.3)"}` }}>
-            {label}
-          </h3>
-        </motion.div>
+      <div data-feature-text className="absolute bottom-0 left-0 right-0 z-10 p-6 sm:p-10">
+        {sublabel && (
+          <p className={`text-sm font-medium ${isGold ? "text-primary" : "text-secondary"}`}>{sublabel}</p>
+        )}
+        <h3 className="lamp-display mt-2 text-4xl text-text-primary sm:text-5xl">
+          {label}
+        </h3>
       </div>
-
-      {/* Corner accents */}
-      <svg className="pointer-events-none absolute left-4 top-4 h-12 w-12 opacity-0 transition-opacity group-hover:opacity-40" viewBox="0 0 48 48">
-        <path d="M2 16 L2 2 L16 2" stroke={isGold ? "#e8c070" : "#c060e0"} strokeWidth="2" fill="none" />
-      </svg>
-      <svg className="pointer-events-none absolute bottom-4 right-4 h-12 w-12 opacity-0 transition-opacity group-hover:opacity-40" viewBox="0 0 48 48">
-        <path d="M46 32 L46 46 L32 46" stroke={isGold ? "#e8c070" : "#c060e0"} strokeWidth="2" fill="none" />
-      </svg>
-    </motion.div>
+    </div>
   );
 }

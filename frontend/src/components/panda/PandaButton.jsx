@@ -43,11 +43,11 @@ export default function PandaButton({ open, onClick, launching }) {
       <motion.div
         animate={{
           boxShadow: open
-            ? "0 0 40px rgba(var(--color-primary),0.4), 0 0 80px rgba(var(--color-glow),0.15)"
+            ? "0 0 40px rgb(var(--color-primary)/0.4), 0 0 80px rgb(var(--color-glow)/0.15)"
             : [
-                "0 0 20px rgba(var(--color-primary),0.2), 0 0 40px rgba(var(--color-glow),0.08)",
-                "0 0 35px rgba(var(--color-primary),0.35), 0 0 60px rgba(var(--color-glow),0.15)",
-                "0 0 20px rgba(var(--color-primary),0.2), 0 0 40px rgba(var(--color-glow),0.08)",
+                "0 0 20px rgb(var(--color-primary)/0.2), 0 0 40px rgb(var(--color-glow)/0.08)",
+                "0 0 35px rgb(var(--color-primary)/0.35), 0 0 60px rgb(var(--color-glow)/0.15)",
+                "0 0 20px rgb(var(--color-primary)/0.2), 0 0 40px rgb(var(--color-glow)/0.08)",
               ],
         }}
         transition={open ? { duration: 0.3 } : { duration: 3, repeat: Infinity, ease: "easeInOut" }}

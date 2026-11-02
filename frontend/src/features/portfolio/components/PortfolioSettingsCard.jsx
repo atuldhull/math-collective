@@ -97,7 +97,7 @@ export default function PortfolioSettingsCard() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-display text-lg font-semibold text-white">Public portfolio</h3>
-          <p className="mt-1 text-xs text-text-soft">
+          <p className="mt-1 text-xs text-text-muted">
             A shareable, login-free URL that shows off your writeups, projects, and achievements. Paste it on LinkedIn / your résumé.
           </p>
         </div>
@@ -108,7 +108,7 @@ export default function PortfolioSettingsCard() {
             onChange={(e) => setForm((f) => ({ ...f, public_portfolio: e.target.checked }))}
             className="h-5 w-5 accent-primary"
           />
-          <span className="font-mono text-[11px] uppercase tracking-wider text-text-soft">Public</span>
+          <span className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Public</span>
         </label>
       </div>
 
@@ -177,7 +177,7 @@ export default function PortfolioSettingsCard() {
 
       {/* Save row */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1 text-xs text-text-soft">
+        <div className="min-w-0 flex-1 text-xs text-text-muted">
           {form.public_portfolio && form.handle ? (
             <>Live at <Link to={`/u/${form.handle}`} target="_blank" className="font-mono text-primary hover:underline">/u/{form.handle}</Link></>
           ) : form.handle ? (

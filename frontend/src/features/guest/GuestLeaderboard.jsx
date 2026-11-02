@@ -1,7 +1,12 @@
 // Isolated public view: existing data/actions preserved; member source stays unchanged.
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import gsap from "@/lib/gsap-setup";
+import { WorldIntro } from "@/components/lamp";
+import "./worlds.css";
 import { GuestDataHero as MonumentHero } from "./GuestDataHero";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -12,6 +17,35 @@ import { leaderboard, events as eventsApi } from "@/lib/api";
 // store on page load so hovers are instant rather than firing N requests.
 import UserHoverCard from "@/components/social/UserHoverCard";
 import { useRelationshipStore } from "@/store/relationship-store";
+
+// The way in: a climb through a tower of ranks. Frames fly past in order,
+// so the ranks count down the Fibonacci numbers until you reach #1.
+const towerBeats = [
+  {
+    kicker: "Leaderboard",
+    title: "Climb the *tower*.",
+    body: "Every solved problem is a step up. Weekly ranks reset; lifetime XP never does.",
+  },
+  {
+    kicker: "Every week",
+    title: "A fresh climb, every week.",
+    body: "When the week closes the weekly ranks start again, so anyone can reach the top next time.",
+  },
+  {
+    kicker: "Hall of Fame",
+    title: "The top stays on record.",
+    body: "Each week's winner is written into the Hall of Fame for good.",
+  },
+  {
+    kicker: "The standings",
+    title: "See who is up *there*.",
+    body: "This week, all time, the Hall of Fame and every finished competition.",
+  },
+];
+const towerFrames = ["#89", "#55", "+40 XP", "#34", "#21", "+120 XP", "#13", "#8", "#5", "#3", "#2", "#1"].map(
+  (label) => ({ label }),
+);
+const towerGlyphs = ["↑", "#", "XP", "≥", "max", "Σ", "∞", "1st", "Δ", "n+1", "π", "▲", "∂"];
 
 export default function LeaderboardPage() {
   const [tab, setTab] = useState("weekly");
@@ -82,6 +116,61 @@ export default function LeaderboardPage() {
 
   const rankColors = ["text-warning", "text-text-muted", "text-warning/70"];
 
+  // Podium rise (presentation only): plinths grow out of the floor, third
+  // place first and first place last and tallest, and each card rides up
+  // on its plinth as the podium scrolls into view.
+  const pageRef = useRef(null);
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      mm.add({ motion: "(prefers-reduced-motion: no-preference)", wide: "(min-width: 640px)" }, ({ conditions }) => {
+        if (!conditions.motion) return;
+        const q = gsap.utils.selector(pageRef);
+        const podium = q(".mc-podium")[0];
+        if (podium) {
+          const byRank = (rank) => podium.querySelector(`[data-podium-rank="${rank}"]`);
+          const order = [3, 2, 1].map(byRank).filter(Boolean);
+          const tl = gsap.timeline({
+            defaults: { ease: "none" },
+            scrollTrigger: { trigger: podium, start: "top 88%", end: "top 30%", scrub: 0.7 },
+          });
+          order.forEach((place, i) => {
+            const step = place.querySelector(".mc-podium-step");
+            const card = place.querySelector("[data-podium-card]");
+            const at = i * 0.22;
+            if (conditions.wide && step) tl.from(step, { scaleY: 0, duration: 0.6 }, at);
+            tl.from(
+              card,
+              {
+                y: conditions.wide ? (step?.offsetHeight || 100) + 40 : 60,
+                rotateX: -35,
+                transformPerspective: 900,
+                transformOrigin: "50% 100%",
+                duration: 0.6,
+              },
+              at,
+            );
+          });
+        }
+        // The tab row and list tip up into place as they arrive.
+        q("[data-rank-list]").forEach((list) => {
+          gsap.from(list, {
+            rotateX: 14,
+            y: 60,
+            transformPerspective: 1200,
+            transformOrigin: "50% 0%",
+            ease: "none",
+            scrollTrigger: { trigger: list, start: "top bottom", end: "top 70%", scrub: 0.6 },
+          });
+        });
+        const refresh = gsap.delayedCall(0.9, () => ScrollTrigger.refresh());
+        return () => refresh.kill();
+      });
+      return () => mm.revert();
+    },
+    { scope: pageRef, dependencies: [loading, eventLbLoading, tab, current.length], revertOnUpdate: true },
+  );
+
   // Pick the correct XP field for the current tab. Uses ?? (nullish
   // coalescing), NOT || — an entry with `xp: 0` has a *real* zero and
   // we must not silently fall through to another field (that's what
@@ -124,7 +213,20 @@ export default function LeaderboardPage() {
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative" }} ref={pageRef}>
+      <WorldIntro
+        inset="full"
+        className="mc-world"
+        beats={towerBeats}
+        frames={towerFrames}
+        glyphs={towerGlyphs}
+        length={4.2}
+        cta={
+          <Link className="mc-button" to="/register">
+            Join the climb
+          </Link>
+        }
+      />
       <div className="relative z-10 space-y-10 pb-16">
         <MonumentHero
           monument="glacier"
@@ -200,39 +302,42 @@ export default function LeaderboardPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto w-full max-w-6xl">
             {/* Top 3 podium */}
             {current.length >= 3 && tab !== "winners" && (
-              <div className="mx-auto mb-10 grid max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-6">
+              <div className="mc-podium mx-auto mb-10 grid max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-6">
                 {[1, 0, 2].map((idx) => {
                   const p = current[idx];
                   if (!p) return null;
                   const rank = idx + 1;
                   return (
-                    <motion.div
+                    <div
                       key={idx}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.1 }}
-                      className={`text-center ${idx === 0 ? "order-first md:order-none md:-mt-4" : ""}`}
+                      data-podium-rank={rank}
+                      className={`text-center ${idx === 0 ? "order-first sm:order-none" : ""}`}
                     >
-                      <Card
-                        variant={rank === 1 ? "glow" : "glass"}
-                        className="text-center"
-                        style={{ boxShadow: "0 0 20px var(--page-glow)" }}
-                      >
-                        <p className={`math-text text-3xl font-bold ${rankColors[rank - 1] || "text-text-dim"}`}>
-                          #{rank}
-                        </p>
-                        <p className="mt-2 text-sm font-medium text-white">
-                          {p.user_id ? <UserHoverCard userId={p.user_id}>{nameFor(p)}</UserHoverCard> : nameFor(p)}
-                        </p>
-                        {subtitleFor(p) && (
-                          <p className="font-mono text-[9px] uppercase tracking-wider text-secondary/70">
-                            {subtitleFor(p)}
+                      <div data-podium-card>
+                        <Card
+                          variant={rank === 1 ? "glow" : "glass"}
+                          className="text-center"
+                          style={{ boxShadow: "0 0 20px var(--page-glow)" }}
+                        >
+                          <p className={`math-text text-3xl font-bold ${rankColors[rank - 1] || "text-text-dim"}`}>
+                            #{rank}
                           </p>
-                        )}
-                        <p className="math-text mt-1 text-2xl font-bold text-primary">{xpFor(p)}</p>
-                        <p className="font-mono text-[10px] text-text-dim">XP</p>
-                      </Card>
-                    </motion.div>
+                          <p className="mt-2 text-sm font-medium text-white">
+                            {p.user_id ? <UserHoverCard userId={p.user_id}>{nameFor(p)}</UserHoverCard> : nameFor(p)}
+                          </p>
+                          {subtitleFor(p) && (
+                            <p className="font-mono text-[9px] uppercase tracking-wider text-secondary/70">
+                              {subtitleFor(p)}
+                            </p>
+                          )}
+                          <p className="math-text mt-1 text-2xl font-bold text-primary">{xpFor(p)}</p>
+                          <p className="font-mono text-[10px] text-text-dim">XP</p>
+                        </Card>
+                      </div>
+                      <div className="mc-podium-step" data-rank={rank} aria-hidden="true">
+                        {rank}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -240,59 +345,61 @@ export default function LeaderboardPage() {
 
             {/* Full list — two columns on wide screens so the ranking
                 fills the page instead of a thin centred strip. */}
-            <Card variant="solid">
-              <div className="grid gap-2.5 lg:grid-cols-2 lg:gap-x-4">
-                {current.length === 0 && (
-                  <p className="py-8 text-center text-text-dim lg:col-span-2">
-                    {tab === "winners"
-                      ? "No past winners yet. Weekly winners appear here after each week closes."
-                      : tab === "events"
-                        ? "Pick a competition above to see its final leaderboard."
-                        : "No rankings available yet."}
-                  </p>
-                )}
-                {current.map((player, i) => {
-                  const href = linkFor(player);
-                  const body = (
-                    <>
-                      <p className={`truncate text-sm font-medium text-white ${href ? "hover:text-primary" : ""}`}>
-                        {player.user_id ? (
-                          <UserHoverCard userId={player.user_id}>{nameFor(player)}</UserHoverCard>
-                        ) : (
-                          nameFor(player)
-                        )}
-                      </p>
-                      <p className="truncate font-mono text-[10px] text-text-dim">{subtitleFor(player)}</p>
-                    </>
-                  );
-                  return (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.3 + i * 0.04 }}
-                      className="flex items-center gap-4 rounded-xl border border-line/10 bg-black/10 px-4 py-3"
-                    >
-                      <span
-                        className={`math-text flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-                          i < 3 ? `${rankColors[i]} bg-warning/10` : "bg-white/5 text-text-dim"
-                        }`}
+            <div data-rank-list>
+              <Card variant="solid">
+                <div className="grid gap-2.5 lg:grid-cols-2 lg:gap-x-4">
+                  {current.length === 0 && (
+                    <p className="py-8 text-center text-text-dim lg:col-span-2">
+                      {tab === "winners"
+                        ? "No past winners yet. Weekly winners appear here after each week closes."
+                        : tab === "events"
+                          ? "Pick a competition above to see its final leaderboard."
+                          : "No rankings available yet."}
+                    </p>
+                  )}
+                  {current.map((player, i) => {
+                    const href = linkFor(player);
+                    const body = (
+                      <>
+                        <p className={`truncate text-sm font-medium text-white ${href ? "hover:text-primary" : ""}`}>
+                          {player.user_id ? (
+                            <UserHoverCard userId={player.user_id}>{nameFor(player)}</UserHoverCard>
+                          ) : (
+                            nameFor(player)
+                          )}
+                        </p>
+                        <p className="truncate font-mono text-[10px] text-text-dim">{subtitleFor(player)}</p>
+                      </>
+                    );
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + i * 0.04 }}
+                        className="flex items-center gap-4 rounded-xl border border-line/10 bg-black/10 px-4 py-3"
                       >
-                        {i + 1}
-                      </span>
-                      {href ? (
-                        <Link to={href} className="flex-1 min-w-0 transition hover:opacity-80">
-                          {body}
-                        </Link>
-                      ) : (
-                        <div className="flex-1 min-w-0">{body}</div>
-                      )}
-                      <span className="math-text text-lg font-bold text-primary">{xpFor(player)}</span>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </Card>
+                        <span
+                          className={`math-text flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+                            i < 3 ? `${rankColors[i]} bg-warning/10` : "bg-white/5 text-text-dim"
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+                        {href ? (
+                          <Link to={href} className="flex-1 min-w-0 transition hover:opacity-80">
+                            {body}
+                          </Link>
+                        ) : (
+                          <div className="flex-1 min-w-0">{body}</div>
+                        )}
+                        <span className="math-text text-lg font-bold text-primary">{xpFor(player)}</span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </Card>
+            </div>
           </motion.div>
         )}
       </div>

@@ -2,42 +2,51 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
-import Card from "@/components/ui/Card";
+import { AlertCircle, ArrowUpRight, CheckCheck, Trash2, UserPlus } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { PageHeader, EmptyState } from "@/components/lamp";
 import { notifications, chat } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-  }),
-};
+const ICON = { strokeWidth: 1.75 };
 
-const listItem = {
-  initial: { opacity: 0, x: -20, scale: 0.97 },
-  animate: { opacity: 1, x: 0, scale: 1 },
-  exit: { opacity: 0, x: 20, height: 0, marginBottom: 0 },
-};
-
-function formatDate(dateStr) {
+function formatTime(dateStr) {
   if (!dateStr) return "";
-  return new Date(dateStr).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return new Date(dateStr).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Bucket notifications into day groups ("Today", "Yesterday", "Monday 26 Oct"), keeping list order. */
+function groupByDay(list) {
+  const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const today = startOf(new Date());
+  const DAY = 86400000;
+  const groups = new Map();
+  for (const n of list) {
+    const raw = n.created_at || n.createdAt;
+    const d = raw ? new Date(raw) : null;
+    let key = "undated";
+    let label = "Earlier";
+    if (d && !Number.isNaN(d.getTime())) {
+      const day = startOf(d);
+      key = String(day);
+      if (day === today) label = "Today";
+      else if (day === today - DAY) label = "Yesterday";
+      else {
+        label = d.toLocaleDateString("en-IN", {
+          weekday: "long", day: "numeric", month: "short",
+          ...(d.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+        });
+      }
+    }
+    if (!groups.has(key)) groups.set(key, { key, label, items: [] });
+    groups.get(key).items.push(n);
+  }
+  return [...groups.values()];
 }
 
 export default function NotificationsPage() {
-  useMonument("sky");
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -170,23 +179,17 @@ export default function NotificationsPage() {
 
   if (loading) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="sky" intensity={0.12} />
-        <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
-          <Loader variant="orbit" size="lg" label="Loading notifications..." />
-        </div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader variant="orbit" size="lg" label="Loading notifications..." />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="sky" intensity={0.12} />
-        <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center gap-4">
-          <svg className="h-12 w-12 text-danger/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-          </svg>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="lamp-panel flex max-w-md flex-col items-center gap-4 px-6 py-10 text-center">
+          <AlertCircle className="h-10 w-10 text-danger/70" strokeWidth={1.5} aria-hidden="true" />
           <p className="text-sm text-danger">{error}</p>
           <Button variant="secondary" size="sm" onClick={fetchNotifications}>
             Retry
@@ -196,303 +199,231 @@ export default function NotificationsPage() {
     );
   }
 
+  const groups = groupByDay(items);
+  let rowIndex = -1;
+
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="sky" intensity={0.12} />
-
-      <div className="relative z-10 space-y-8 pb-16">
-        {/* Header */}
-        <motion.section initial="hidden" animate="visible">
-          <motion.div
-            custom={0}
-            variants={fadeUp}
-            className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
-          >
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.3em] text-secondary">
-                Comms Center
-              </p>
-              <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.05em] text-white sm:text-5xl">
-                Notifications
-                {unreadCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 20, delay: 0.3 }}
-                    className="ml-3 inline-flex h-8 min-w-[2rem] items-center justify-center rounded-full bg-primary px-2.5 align-middle font-mono text-sm font-bold text-white"
-                  >
-                    {unreadCount}
-                  </motion.span>
-                )}
-              </h1>
-              <p className="mt-2 text-text-muted">
-                {unreadCount > 0
-                  ? `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
-                  : "All caught up!"}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={markingAll}
-                disabled={unreadCount === 0}
-                onClick={handleMarkAllRead}
-              >
-                <span className="flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Mark All Read
-                </span>
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                loading={clearing}
-                disabled={items.length === 0}
-                onClick={handleClearAll}
-              >
-                <span className="flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                  </svg>
-                  Clear All
-                </span>
-              </Button>
-            </div>
-          </motion.div>
-        </motion.section>
-
-        {/* Stats Row */}
-        <motion.section
-          initial="hidden"
-          animate="visible"
-          className="grid gap-4 sm:grid-cols-3"
-        >
-          {[
-            {
-              label: "Total",
-              value: items.length,
-              color: "text-primary",
-              bg: "bg-primary/10",
-              icon: (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                </svg>
-              ),
-            },
-            {
-              label: "Unread",
-              value: unreadCount,
-              color: "text-warning",
-              bg: "bg-warning/10",
-              icon: (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-              ),
-            },
-            {
-              label: "Read",
-              value: items.length - unreadCount,
-              color: "text-success",
-              bg: "bg-success/10",
-              icon: (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ),
-            },
-          ].map((stat, i) => (
-            <motion.div key={stat.label} custom={i + 1} variants={fadeUp}>
-              <Card variant="glass" className="text-center">
-                <div className="flex items-center justify-center gap-3">
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${stat.bg} ${stat.color}`}>
-                    {stat.icon}
-                  </span>
-                  <div className="text-left">
-                    <p className={`math-text text-3xl font-bold ${stat.color}`}>
-                      {stat.value}
-                    </p>
-                    <p className="font-mono text-[11px] uppercase tracking-wider text-text-dim">
-                      {stat.label}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.section>
-
-        {/* Pending Friend Requests */}
-        {pendingRequests.length > 0 && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <Card variant="glow">
-              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Friend Requests</p>
-              <h3 className="mt-2 font-display text-lg font-bold text-white">{pendingRequests.length} Pending</h3>
-              <div className="mt-4 space-y-3">
-                {pendingRequests.map((req) => (
-                  <div key={req.id} className="flex flex-col gap-3 rounded-xl border border-line/15 bg-white/[0.03] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg">
-                        {req.avatar_emoji || "👤"}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-white">{req.name || "Unknown"}</p>
-                        <p className="truncate font-mono text-[10px] text-text-dim">{req.email || ""}</p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <Button size="sm" onClick={() => handleAcceptFriend(req.id, req.user_id || req.requester_id)}>
-                        Accept
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleRejectFriend(req.id)}>
-                        Decline
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </motion.section>
+    <div className="pb-16">
+      <PageHeader
+        context={unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
+        title="Notifications"
+        description={unreadCount > 0
+          ? `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+          : "All caught up! New notifications appear here in real time."}
+        progress={items.length ? (items.length - unreadCount) / items.length : 1}
+        actions={(
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={markingAll}
+              disabled={unreadCount === 0}
+              onClick={handleMarkAllRead}
+              leading={<CheckCheck className="h-4 w-4" {...ICON} />}
+            >
+              Mark All Read
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              loading={clearing}
+              disabled={items.length === 0}
+              onClick={handleClearAll}
+              leading={<Trash2 className="h-4 w-4" {...ICON} />}
+            >
+              Clear All
+            </Button>
+          </>
         )}
+      />
 
-        {/* Notification List */}
-        {items.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-          >
-            <Card variant="solid" className="text-center">
-              <div className="py-16">
-                <motion.div
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-                >
-                  <svg className="mx-auto h-16 w-16 text-text-dim/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                  </svg>
-                </motion.div>
-                <h3 className="mt-6 font-display text-xl font-bold text-white">
-                  No Notifications
-                </h3>
-                <p className="mt-2 text-sm text-text-muted">
-                  You're all caught up. New notifications will appear here in real time.
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-8">
+        {/* Notification list, grouped by day */}
+        <div className="min-w-0 lg:order-1">
+          {items.length === 0 ? (
+            <EmptyState
+              title="No Notifications"
+              body="You're all caught up. New notifications will appear here in real time."
+            />
+          ) : (
+            <div className="space-y-8">
+              <AnimatePresence initial={false}>
+                {groups.map((group) => (
+                  <motion.section
+                    key={group.key}
+                    layout
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, transition: { duration: 0.2, delay: 0.25 } }}
+                    aria-label={group.label}
+                  >
+                    <div className="mb-3 flex items-center gap-3">
+                      <h2 className="text-[15px] font-medium text-text-primary">{group.label}</h2>
+                      <span className="h-px flex-1 bg-[rgb(var(--rule))]" />
+                      <span className="text-[12px] tabular-nums text-text-dim">{group.items.length}</span>
+                    </div>
+
+                    <ul className="lamp-panel divide-y divide-[rgb(var(--rule))] overflow-hidden">
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {group.items.map((notif) => {
+                          rowIndex += 1;
+                          const order = rowIndex;
+                          const id = notif.id || notif._id;
+                          const isUnread = !notif.is_read && !notif.read;
+                          const isMarking = markingId === id;
+                          const bodyText = notif.body || notif.message || "";
+
+                          const handleClick = async () => {
+                            if (isUnread) await handleMarkRead(id);
+                            // Navigate to link if present
+                            if (notif.link) navigate(notif.link);
+                          };
+
+                          return (
+                            <motion.li
+                              key={id}
+                              layout
+                              initial={{ opacity: 0, x: -16 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 40, transition: { duration: 0.28, delay: Math.min(order, 12) * 0.03 } }}
+                              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                              className={`group relative flex cursor-pointer items-start gap-4 px-4 py-4 transition-colors sm:px-5 ${
+                                isUnread ? "bg-primary/[0.045] hover:bg-primary/[0.08]" : "hover:bg-white/[0.025]"
+                              }`}
+                              onClick={handleClick}
+                            >
+                              {/* Lamp dot — lit while unread, goes out when read. */}
+                              <span className="relative mt-1.5 flex h-3 w-3 shrink-0 items-center justify-center">
+                                <span className="absolute inset-0 rounded-full bg-white/10" />
+                                <AnimatePresence initial={false}>
+                                  {isUnread && (
+                                    <motion.span
+                                      key="lit"
+                                      className="absolute inset-0 rounded-full bg-primary shadow-[0_0_12px_rgb(var(--lamp)/0.9)]"
+                                      initial={{ scale: 0 }}
+                                      animate={{ scale: 1 }}
+                                      exit={{ scale: 0, opacity: 0, transition: { duration: 0.45, delay: Math.min(order, 12) * 0.04, ease: "backIn" } }}
+                                    />
+                                  )}
+                                </AnimatePresence>
+                                {isUnread && (
+                                  <motion.span
+                                    aria-hidden="true"
+                                    className="absolute inset-0 rounded-full bg-primary"
+                                    animate={{ scale: [1, 2.2], opacity: [0.45, 0] }}
+                                    transition={{ repeat: Infinity, duration: 2.2, ease: "easeOut" }}
+                                  />
+                                )}
+                                <span className="sr-only">{isUnread ? "Unread" : "Read"}</span>
+                              </span>
+
+                              {/* Content */}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <h3 className={`text-sm font-medium transition-colors ${isUnread ? "text-text-primary" : "text-text-muted"}`}>
+                                      {notif.title}
+                                    </h3>
+                                    {bodyText && (
+                                      <p className={`mt-1 text-sm leading-6 ${isUnread ? "text-text-muted" : "text-text-dim"}`}>
+                                        {bodyText}
+                                      </p>
+                                    )}
+                                    <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-text-dim">
+                                      <span>{formatTime(notif.created_at || notif.createdAt)}</span>
+                                      {notif.link && (
+                                        <span className="inline-flex items-center gap-1 text-primary">
+                                          Open <ArrowUpRight className="h-3 w-3" {...ICON} aria-hidden="true" />
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
+                                  {isUnread && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      loading={isMarking}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleMarkRead(id);
+                                      }}
+                                      className="flex-shrink-0 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                                    >
+                                      Mark Read
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.li>
+                          );
+                        })}
+                      </AnimatePresence>
+                    </ul>
+                  </motion.section>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+
+        {/* Side column: counts + friend requests */}
+        <aside className="order-first min-w-0 space-y-6 lg:order-2">
+          <section data-reveal="right" className="lamp-panel grid grid-cols-3 divide-x divide-[rgb(var(--rule))] py-4">
+            {[
+              { label: "Total", value: items.length, tone: "text-text-primary" },
+              { label: "Unread", value: unreadCount, tone: "text-primary" },
+              { label: "Read", value: items.length - unreadCount, tone: "text-text-muted" },
+            ].map((stat) => (
+              <div key={stat.label} className="px-4">
+                <p className="text-[13px] text-text-muted">{stat.label}</p>
+                <p className={`lamp-numerals mt-1 text-3xl leading-none ${stat.tone}`}>
+                  <AnimatedNumber value={stat.value} duration={0.8} />
                 </p>
               </div>
-            </Card>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            className="space-y-3"
-          >
-            <AnimatePresence mode="popLayout">
-              {items.map((notif, i) => {
-                const id = notif.id || notif._id;
-                const isUnread = !notif.is_read && !notif.read;
-                const isMarking = markingId === id;
-                const bodyText = notif.body || notif.message || "";
+            ))}
+          </section>
 
-                const handleClick = async () => {
-                  if (isUnread) await handleMarkRead(id);
-                  // Navigate to link if present
-                  if (notif.link) navigate(notif.link);
-                };
-
-                return (
-                  <motion.div
-                    key={id}
-                    layout
-                    variants={listItem}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    transition={{
-                      delay: i * 0.04,
-                      duration: 0.35,
-                      ease: [0.16, 1, 0.3, 1],
-                    }}
-                  >
-                    <Card
-                      variant={isUnread ? "glass" : "solid"}
-                      className={`group cursor-pointer transition-all duration-200 ${
-                        isUnread
-                          ? "border-primary/25 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
-                          : "opacity-70 hover:opacity-90"
-                      }`}
-                      style={isUnread ? { borderLeft: "3px solid var(--monument-sky)", background: "rgba(182,149,248,0.04)" } : undefined}
-                      onClick={handleClick}
+          {/* Pending Friend Requests */}
+          {pendingRequests.length > 0 && (
+            <section data-reveal="right" className="lamp-panel lamp-panel--lit p-5">
+              <h3 className="flex items-center gap-2 text-lg text-text-primary">
+                <UserPlus className="h-4 w-4 text-primary" {...ICON} aria-hidden="true" />
+                Friend requests
+              </h3>
+              <p className="mt-1 text-[13px] text-text-muted">{pendingRequests.length} Pending</p>
+              <ul className="mt-4 space-y-3">
+                <AnimatePresence initial={false}>
+                  {pendingRequests.map((req) => (
+                    <motion.li
+                      key={req.id}
+                      layout
+                      exit={{ opacity: 0, x: 40, transition: { duration: 0.25 } }}
+                      className="rounded-xl bg-white/[0.03] p-3"
                     >
-                      <div className="flex items-start gap-4">
-                        {/* Dot indicator */}
-                        <div className="relative mt-1.5 flex-shrink-0">
-                          <span
-                            className={`block h-3 w-3 rounded-full transition-colors ${
-                              isUnread ? "bg-primary" : "bg-text-dim/30"
-                            }`}
-                          />
-                          {isUnread && (
-                            <motion.span
-                              className="absolute inset-0 rounded-full bg-primary"
-                              animate={{ scale: [1, 2], opacity: [0.5, 0] }}
-                              transition={{ repeat: Infinity, duration: 2, ease: "easeOut" }}
-                            />
-                          )}
-                        </div>
-
-                        {/* Content */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <h3
-                                className={`text-sm font-semibold ${
-                                  isUnread ? "text-white" : "text-text-muted"
-                                }`}
-                              >
-                                {notif.title}
-                              </h3>
-                              {bodyText && (
-                                <p className="mt-1 text-sm leading-relaxed text-text-dim">
-                                  {bodyText}
-                                </p>
-                              )}
-                              {notif.link && (
-                                <p className="mt-1 font-mono text-[10px] text-primary/60">
-                                  Click to view →
-                                </p>
-                              )}
-                              <p className="mt-2 font-mono text-[10px] text-text-dim">
-                                {formatDate(notif.created_at || notif.createdAt)}
-                              </p>
-                            </div>
-                            {isUnread && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                loading={isMarking}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMarkRead(id);
-                                }}
-                                className="flex-shrink-0 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100"
-                              >
-                                Mark Read
-                              </Button>
-                            )}
-                          </div>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg">
+                          {req.avatar_emoji || "👤"}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-text-primary">{req.name || "Unknown"}</p>
+                          <p className="truncate text-[12px] text-text-dim">{req.email || ""}</p>
                         </div>
                       </div>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
-        )}
+                      <div className="mt-3 flex gap-2">
+                        <Button size="sm" className="flex-1 justify-center" onClick={() => handleAcceptFriend(req.id, req.user_id || req.requester_id)}>
+                          Accept
+                        </Button>
+                        <Button variant="ghost" size="sm" className="flex-1 justify-center" onClick={() => handleRejectFriend(req.id)}>
+                          Decline
+                        </Button>
+                      </div>
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+              </ul>
+            </section>
+          )}
+        </aside>
       </div>
     </div>
   );

@@ -1,6 +1,9 @@
-import { memo } from "react";
+import { memo, useRef } from "react";
 import { motion } from "framer-motion";
+import { useGSAP } from "@gsap/react";
+import gsap from "@/lib/gsap-setup";
 import { cn } from "@/lib/cn";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 const sizeMap = {
   xs: "h-4 w-4",
@@ -20,6 +23,13 @@ function Loader({
   className,
   label,
 }) {
+  const lamp = useIsLamplight();
+  // Lamplight: every decorative loader becomes the asymptote. "ring" stays
+  // a ring because it lives inside buttons where a curve would not fit.
+  if (variant === "asymptote" || (lamp && variant !== "ring")) {
+    return <AsymptoteLoader size={size} className={className} label={label} />;
+  }
+
   if (variant === "dots") {
     return (
       <div className={cn("inline-flex items-center gap-3", className)}>
@@ -93,3 +103,57 @@ function Loader({
 }
 
 export default memo(Loader);
+
+/* ── Lamplight "asymptote" loader ────────────────────────────────────
+ * A y = 1/x curve draws itself toward a dashed asymptote while a lamp
+ * dot rides it, forever approaching and never arriving, which is
+ * honestly what waiting feels like. Reduced motion: the finished curve
+ * with the dot parked near the line.
+ */
+const ASYM_CURVE = "M3 3 C 14 26, 34 33, 77 35";
+const asymSize = { xs: "h-4 w-8", sm: "h-5 w-10", md: "h-8 w-16", lg: "h-12 w-24" };
+
+function AsymptoteLoader({ size = "md", className, label }) {
+  const root = useRef(null);
+
+  useGSAP(() => {
+    const svg = root.current?.querySelector("svg");
+    const path = svg?.querySelector("[data-curve]");
+    const dot = svg?.querySelector("[data-dot]");
+    if (!path || typeof path.getTotalLength !== "function" || typeof window.matchMedia !== "function") return;
+    const len = path.getTotalLength();
+    const place = (t) => {
+      const p = path.getPointAtLength(len * t);
+      dot.setAttribute("cx", p.x);
+      dot.setAttribute("cy", p.y);
+    };
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: reduce)", () => { place(0.9); });
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const state = { t: 0 };
+      gsap.set(path, { strokeDasharray: len, strokeDashoffset: len });
+      const tl = gsap.timeline({ repeat: -1, repeatDelay: 0.15 });
+      tl.to(path, { strokeDashoffset: 0, duration: 1.1, ease: "power2.inOut" })
+        .to(state, { t: 0.97, duration: 1.1, ease: "power2.inOut", onUpdate: () => place(state.t) }, 0)
+        .to(path, { opacity: 0.25, duration: 0.35, ease: "power1.in" }, 1.15)
+        .set(path, { opacity: 1, strokeDashoffset: len })
+        .add(() => { state.t = 0; place(0); });
+    });
+    return () => mm.revert();
+  }, { scope: root });
+
+  return (
+    <div ref={root} role="status" className={cn("inline-flex items-center gap-3", className)}>
+      <svg viewBox="0 0 80 40" fill="none" aria-hidden="true" className={cn("overflow-visible", asymSize[size] || asymSize.md)}>
+        <line x1="0" y1="38" x2="80" y2="38" stroke="rgb(var(--rule))" strokeWidth="1.6" strokeDasharray="3 4" />
+        <path data-curve d={ASYM_CURVE} stroke="rgb(var(--lamp))" strokeWidth="2.4" strokeLinecap="round" />
+        <circle data-dot r="3.4" cx="3" cy="3" fill="rgb(var(--lamp))" style={{ filter: "drop-shadow(0 0 4px rgb(var(--lamp)))" }} />
+      </svg>
+      {label ? (
+        <span className="text-[13px] font-medium text-text-muted">{label}</span>
+      ) : (
+        <span className="sr-only">Loading</span>
+      )}
+    </div>
+  );
+}

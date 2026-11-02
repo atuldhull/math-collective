@@ -1,3 +1,10 @@
+import {
+  Award, BadgeCheck, BarChart3, Bookmark, Building2, CalendarDays, CreditCard,
+  Database, FileBadge, FolderKanban, Gift, History, Home, Images, KeyRound,
+  LayoutDashboard, Lightbulb, Mail, Map, PlayCircle, Puzzle, Radio, ScanLine,
+  Settings, ShieldCheck, Swords, Timer, ToggleRight, Trophy, Users,
+} from "lucide-react";
+
 export const mainNavigation = [
   { to: "/", label: "Home", note: "System overview" },
   { to: "/arena", label: "Arena", note: "Challenge zone" },
@@ -40,3 +47,99 @@ export const superAdminNavigation = [
   { to: "/super-admin/plans", label: "Plans & Billing", note: "Subscriptions" },
   { to: "/super-admin/access", label: "Access Control", note: "Impersonation & flags" },
 ];
+
+// ── Lamplight shell navigation ─────────────────────────────────────
+// Grouped rail sections (desktop) + the four phone-dock shortcuts per
+// audience. Icons are lucide components so the rail, dock and More
+// sheet all draw from one source.
+
+export const studentRail = [
+  { label: "Practice", items: [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/arena", label: "Arena", icon: Swords },
+    { to: "/problems", label: "Problems", icon: Puzzle },
+    { to: "/roadmaps", label: "Roadmaps", icon: Map },
+    { to: "/sprints", label: "Sprints", icon: Timer },
+  ] },
+  { label: "Compete", items: [
+    { to: "/events", label: "Events", icon: CalendarDays },
+    { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+    { to: "/live-quiz", label: "Live quiz", icon: Radio },
+    { to: "/history", label: "Test history", icon: History },
+  ] },
+  { label: "Your work", items: [
+    { to: "/projects", label: "Projects", icon: FolderKanban },
+    { to: "/certificates", label: "Certificates", icon: Award },
+    { to: "/saved", label: "Saved", icon: Bookmark },
+    { to: "/referrals", label: "Referrals", icon: Gift },
+  ] },
+  { label: "Club", items: [
+    { to: "/gallery", label: "Gallery", icon: Images },
+    { to: "/contact", label: "Contact", icon: Mail },
+  ] },
+];
+export const studentDock = [
+  { to: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { to: "/arena", label: "Arena", icon: Swords },
+  { to: "/problems", label: "Problems", icon: Puzzle },
+  { to: "/events", label: "Events", icon: CalendarDays },
+];
+
+export const guestRail = [
+  { label: "Explore", items: [
+    { to: "/", label: "Home", icon: Home, end: true },
+    { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+    { to: "/events", label: "Events", icon: CalendarDays },
+    { to: "/gallery", label: "Gallery", icon: Images },
+  ] },
+  { label: "Club", items: [
+    { to: "/contact", label: "Contact", icon: Mail },
+    { to: "/verify", label: "Verify a certificate", icon: BadgeCheck },
+  ] },
+];
+export const guestDock = [
+  { to: "/", label: "Home", icon: Home, end: true },
+  { to: "/leaderboard", label: "Ranks", icon: Trophy },
+  { to: "/events", label: "Events", icon: CalendarDays },
+  { to: "/gallery", label: "Gallery", icon: Images },
+];
+
+export const teacherRail = [
+  { label: "Teaching", items: [
+    { to: "/teacher", label: "Dashboard", icon: LayoutDashboard, end: true },
+    { to: "/teacher/students", label: "Students", icon: Users },
+    { to: "/teacher/challenges", label: "Challenges", icon: Lightbulb },
+    { to: "/teacher/quiz", label: "Live quiz", icon: PlayCircle },
+  ] },
+  { label: "Records", items: [
+    { to: "/teacher/certificates", label: "Certificates", icon: FileBadge },
+    { to: "/teacher/scanner", label: "Event scanner", icon: ScanLine },
+  ] },
+];
+export const teacherDock = teacherRail[0].items;
+
+export const adminRail = [
+  { label: "Operations", items: [
+    { to: "/admin", label: "Overview", icon: LayoutDashboard, end: true },
+    { to: "/admin/users", label: "Users", icon: Users },
+    { to: "/admin/challenges", label: "Challenges", icon: Lightbulb },
+    { to: "/admin/events", label: "Events", icon: CalendarDays },
+    { to: "/admin/moderation", label: "Moderation", icon: ShieldCheck },
+  ] },
+  { label: "System", items: [
+    { to: "/admin/data", label: "Data", icon: Database },
+    { to: "/admin/features", label: "Features", icon: ToggleRight },
+    { to: "/admin/settings", label: "Settings", icon: Settings },
+  ] },
+];
+export const adminDock = adminRail[0].items.slice(0, 4);
+
+export const superAdminRail = [
+  { label: "Platform", items: [
+    { to: "/super-admin", label: "Analytics", icon: BarChart3, end: true },
+    { to: "/super-admin/organisations", label: "Organisations", icon: Building2 },
+    { to: "/super-admin/plans", label: "Plans and billing", icon: CreditCard },
+    { to: "/super-admin/access", label: "Access control", icon: KeyRound },
+  ] },
+];
+export const superAdminDock = superAdminRail[0].items;

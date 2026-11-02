@@ -1,24 +1,24 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
-import Card from "@/components/ui/Card";
+import { ArrowUpRight, Code2, Github, Plus, Presentation, ThumbsUp, Users, X } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { PageHeader, TiltPanel, SegmentedTabs, EmptyState } from "@/components/lamp";
 import Button from "@/components/ui/Button";
 import InputField from "@/components/ui/InputField";
 import Loader from "@/components/ui/Loader";
 import { projects } from "@/lib/api";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-  }),
+const fieldClass =
+  "w-full rounded-xl border border-[rgb(var(--rule))] bg-surface/70 px-4 py-3 text-sm text-text-primary outline-none transition duration-200 placeholder:text-text-dim focus:border-primary/45 focus:ring-2 focus:ring-primary/15";
+
+// Forms unfold from their top edge like a sheet being pulled down.
+const sheet = {
+  initial: { opacity: 0, height: 0, rotateX: -12 },
+  animate: { opacity: 1, height: "auto", rotateX: 0, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } },
+  exit: { opacity: 0, height: 0, rotateX: -8, transition: { duration: 0.35, ease: [0.4, 0, 1, 1] } },
 };
 
 export default function ProjectsPage() {
-  useMonument("sky");
   const [projectList, setProjectList] = useState([]);
   const [categories, setCategories] = useState([]);
   const [myTeam, setMyTeam] = useState(null);
@@ -181,127 +181,97 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="sky" intensity={0.13} />
-        <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
-          <Loader variant="orbit" size="lg" label="Loading projects..." />
-        </div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader variant="orbit" size="lg" label="Loading projects..." />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="sky" intensity={0.13} />
-        <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center gap-4">
-          <p className="text-danger">{error}</p>
-          <Button variant="secondary" size="sm" onClick={fetchAll}>
-            Retry
-          </Button>
-        </div>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <p className="text-danger">{error}</p>
+        <Button variant="secondary" size="sm" onClick={fetchAll}>
+          Retry
+        </Button>
       </div>
     );
   }
 
+  const categoryTabs = [
+    { value: "All", label: "All", count: projectList.length },
+    ...categories.map((cat) => {
+      const value = cat._id || cat.name;
+      return { value, label: cat.name, count: projectList.filter((p) => p.category === value).length };
+    }),
+  ];
+
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="sky" intensity={0.13} />
+    <div className="space-y-8 pb-16">
+      <PageHeader
+        context="Innovation hub"
+        title="Projects"
+        description="Browse, create, and vote on math projects."
+        actions={
+          <>
+            {!myTeam && (
+              <Button
+                variant={showTeamForm ? "ghost" : "secondary"}
+                onClick={() => setShowTeamForm(!showTeamForm)}
+                leading={showTeamForm ? <X className="h-4 w-4" strokeWidth={1.75} /> : <Users className="h-4 w-4" strokeWidth={1.75} />}
+              >
+                {showTeamForm ? "Cancel" : "Create team"}
+              </Button>
+            )}
+            {myTeam && (
+              <Button
+                variant={showProjectForm ? "ghost" : "primary"}
+                onClick={() => setShowProjectForm(!showProjectForm)}
+                leading={showProjectForm ? <X className="h-4 w-4" strokeWidth={1.75} /> : <Plus className="h-4 w-4" strokeWidth={1.75} />}
+              >
+                {showProjectForm ? "Cancel" : "Submit project"}
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      {/* Ambient math glyphs — sky-themed (secondary/blue tint) to
-          match the sky monument backdrop. Same visual signature as
-          every other page in the app so the design feels cohesive. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
-        <span className="math-text absolute left-[4%] top-[12%] text-[9rem] text-secondary/[0.045]">⊕</span>
-        <span className="math-text absolute right-[5%] top-[20%] text-[8rem] text-white/[0.03]">⊗</span>
-        <span className="math-text absolute left-[14%] top-[58%] text-[6rem] text-white/[0.03]">ψ</span>
-        <span className="math-text absolute right-[7%] bottom-[14%] text-[7rem] text-primary/[0.04]">α</span>
-        <span className="math-text absolute left-[44%] top-[44%] text-[5rem] text-white/[0.025]">β</span>
-      </div>
-
-      <div className="relative z-10 space-y-8 pb-16">
-        {/* Header */}
-        <motion.section initial="hidden" animate="visible">
-          <motion.div
-            custom={0}
-            variants={fadeUp}
-            className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
-          >
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.3em] text-warning">
-                Innovation Hub
-              </p>
-              <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.05em] text-white sm:text-5xl">
-                Projects
-              </h1>
-              <p className="mt-2 text-text-muted">
-                Browse, create, and vote on math projects.
-              </p>
+      {/* My Team Card */}
+      {myTeam && (
+        <TiltPanel lit data-reveal="up" className="p-6 sm:p-7">
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-primary">Your team</p>
+              <h2 className="mt-1 truncate text-2xl text-text-primary sm:text-3xl">{myTeam.name}</h2>
             </div>
-            <div className="flex gap-3">
-              {!myTeam && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowTeamForm(!showTeamForm)}
-                >
-                  {showTeamForm ? "Cancel" : "Create Team"}
-                </Button>
-              )}
-              {myTeam && (
-                <Button
-                  size="sm"
-                  onClick={() => setShowProjectForm(!showProjectForm)}
-                >
-                  {showProjectForm ? "Cancel" : "Submit Project"}
-                </Button>
-              )}
-            </div>
-          </motion.div>
-        </motion.section>
-
-        {/* My Team Card */}
-        {myTeam && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-          >
-            <Card variant="glow">
-              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-glow">
-                Your Team
-              </p>
-              <h3 className="mt-2 font-display text-xl font-bold text-white">
-                {myTeam.name}
-              </h3>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {(myTeam.members || []).map((m, i) => (
-                  <span
+            <ul data-stagger="scale" className="flex flex-wrap gap-2">
+              {(myTeam.members || []).map((m, i) => {
+                const label = m.name || m.email || m;
+                return (
+                  <li
                     key={i}
-                    className="inline-block rounded-full border border-line/20 bg-white/[0.03] px-3 py-1 text-xs text-text-muted"
+                    className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--rule))] bg-surface/60 py-1 pl-1 pr-3 text-[13px] text-text-muted"
                   >
-                    {m.name || m.email || m}
-                  </span>
-                ))}
-              </div>
-            </Card>
-          </motion.section>
-        )}
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary/20 text-[11px] font-semibold uppercase text-secondary">
+                      {String(label).charAt(0)}
+                    </span>
+                    {label}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </TiltPanel>
+      )}
 
+      <AnimatePresence initial={false}>
         {/* Create Team Form */}
         {showTeamForm && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <Card variant="solid">
-              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">
-                New Team
-              </p>
-              <h2 className="mt-2 font-display text-2xl font-bold text-white">
-                Create Your Team
-              </h2>
-              <form onSubmit={handleCreateTeam} className="mt-6 space-y-4">
+          <motion.section key="team-form" {...sheet} className="origin-top overflow-hidden [perspective:1200px]">
+            <div className="lamp-panel p-6 sm:p-8">
+              <h2 className="text-2xl text-text-primary">Create your team</h2>
+              <p className="mt-1 text-sm text-text-muted">You lead the team. Name it and invite your teammates.</p>
+              <form onSubmit={handleCreateTeam} className="mt-6 max-w-2xl space-y-5">
                 <InputField
                   label="Team Name"
                   value={teamName}
@@ -310,274 +280,248 @@ export default function ProjectsPage() {
                   required
                 />
                 <div>
-                  <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.28em] text-text-muted">
-                    Teammate Emails
+                  <span className="mb-1 block text-[13px] font-medium text-text-muted">
+                    Teammate emails
                   </span>
                   <p className="mb-3 text-xs text-text-dim">
                     You are the team leader. Add 2–5 teammates by email (teams need 3–6 members in total).
                   </p>
-                  <div className="space-y-2">
-                    {teamMemberEmails.map((emailValue, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <input
-                          type="email"
-                          value={emailValue}
-                          onChange={(e) => updateMemberEmail(idx, e.target.value)}
-                          placeholder={`teammate${idx + 1}@example.com`}
-                          className="flex-1 rounded-[1.5rem] border border-line/18 bg-panel/70 px-4 py-3 text-sm text-white outline-none transition duration-200 focus:border-primary/45"
-                        />
-                        {teamMemberEmails.length > 2 && (
-                          <button
-                            type="button"
-                            onClick={() => removeMemberSlot(idx)}
-                            aria-label={`Remove teammate ${idx + 1}`}
-                            className="rounded-full border border-line/20 bg-black/10 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-dim transition hover:border-danger/40 hover:text-danger"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <ul className="space-y-2">
+                    <AnimatePresence initial={false}>
+                      {teamMemberEmails.map((emailValue, idx) => (
+                        <motion.li
+                          key={idx}
+                          layout
+                          initial={{ opacity: 0, x: -16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 16 }}
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                          className="flex items-center gap-2"
+                        >
+                          <input
+                            type="email"
+                            value={emailValue}
+                            onChange={(e) => updateMemberEmail(idx, e.target.value)}
+                            placeholder={`teammate${idx + 1}@example.com`}
+                            className={cn(fieldClass, "flex-1")}
+                          />
+                          {teamMemberEmails.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => removeMemberSlot(idx)}
+                              aria-label={`Remove teammate ${idx + 1}`}
+                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[rgb(var(--rule))] text-text-dim transition hover:border-danger/40 hover:text-danger"
+                            >
+                              <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                            </button>
+                          )}
+                        </motion.li>
+                      ))}
+                    </AnimatePresence>
+                  </ul>
                   {teamMemberEmails.length < 5 && (
                     <button
                       type="button"
                       onClick={addMemberSlot}
-                      className="mt-3 rounded-full border border-line/20 bg-white/[0.04] px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-text-muted transition hover:border-primary/40 hover:text-white"
+                      className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl border border-dashed border-[rgb(var(--rule))] px-4 text-[13px] font-medium text-text-muted transition hover:border-primary/40 hover:text-text-primary"
                     >
-                      + Add teammate
+                      <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                      Add teammate
                     </button>
                   )}
                 </div>
-                <Button type="submit" size="sm" loading={teamLoading}>
-                  Create Team
+                <Button type="submit" loading={teamLoading}>
+                  Create team
                 </Button>
               </form>
-            </Card>
+            </div>
           </motion.section>
         )}
 
         {/* Submit Project Form */}
         {showProjectForm && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <Card variant="solid">
-              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">
-                New Submission
-              </p>
-              <h2 className="mt-2 font-display text-2xl font-bold text-white">
-                Submit Your Project
-              </h2>
-              <form onSubmit={handleSubmitProject} className="mt-6 space-y-4">
-                <InputField
-                  label="Project Title"
-                  value={projectTitle}
-                  onChange={(e) => setProjectTitle(e.target.value)}
-                  placeholder="Enter project title"
-                  required
-                />
-                <InputField
-                  label="Description"
-                  multiline
-                  value={projectDescription}
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                  placeholder="Describe your project..."
-                  required
-                />
-                <div>
-                  <span className="mb-3 block font-mono text-[11px] uppercase tracking-[0.28em] text-text-muted">
-                    Category
-                  </span>
-                  <select
-                    value={projectCategory}
-                    onChange={(e) => setProjectCategory(e.target.value)}
+          <motion.section key="project-form" {...sheet} className="origin-top overflow-hidden [perspective:1200px]">
+            <div className="lamp-panel p-6 sm:p-8">
+              <h2 className="text-2xl text-text-primary">Submit your project</h2>
+              <p className="mt-1 text-sm text-text-muted">Submitting for {myTeam?.name || "your team"}. Links are optional, but judges love a live demo.</p>
+              <form onSubmit={handleSubmitProject} className="mt-6 grid gap-5 lg:grid-cols-2">
+                <div className="space-y-5">
+                  <InputField
+                    label="Project Title"
+                    value={projectTitle}
+                    onChange={(e) => setProjectTitle(e.target.value)}
+                    placeholder="Enter project title"
                     required
-                    className="w-full rounded-[1.5rem] border border-line/18 bg-panel/70 px-4 py-3 text-sm text-white outline-none transition duration-200 focus:border-primary/45"
-                  >
-                    <option value="" disabled>
-                      Select category
-                    </option>
-                    {categories.map((cat) => (
-                      <option key={cat._id || cat.name} value={cat._id || cat.name}>
-                        {cat.name}
+                  />
+                  <InputField
+                    label="Description"
+                    multiline
+                    value={projectDescription}
+                    onChange={(e) => setProjectDescription(e.target.value)}
+                    placeholder="Describe your project..."
+                    required
+                  />
+                  <label className="block">
+                    <span className="mb-2 block text-[13px] font-medium text-text-muted">Category</span>
+                    <select
+                      value={projectCategory}
+                      onChange={(e) => setProjectCategory(e.target.value)}
+                      required
+                      className={fieldClass}
+                    >
+                      <option value="" disabled>
+                        Select category
                       </option>
-                    ))}
-                  </select>
+                      {categories.map((cat) => (
+                        <option key={cat._id || cat.name} value={cat._id || cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-                <InputField
-                  label="GitHub URL (optional)"
-                  value={projectGithub}
-                  onChange={(e) => setProjectGithub(e.target.value)}
-                  placeholder="https://github.com/your-team/project"
-                />
-                <InputField
-                  label="Live demo URL (optional)"
-                  value={projectDemo}
-                  onChange={(e) => setProjectDemo(e.target.value)}
-                  placeholder="https://your-deployed-site.com"
-                />
-                <InputField
-                  label="Slides / pitch-deck URL (optional)"
-                  value={projectSlides}
-                  onChange={(e) => setProjectSlides(e.target.value)}
-                  placeholder="https://docs.google.com/presentation/..."
-                />
-                <Button type="submit" size="sm" loading={submitLoading}>
-                  Submit Project
-                </Button>
+                <div className="space-y-5">
+                  <InputField
+                    label="GitHub URL (optional)"
+                    value={projectGithub}
+                    onChange={(e) => setProjectGithub(e.target.value)}
+                    placeholder="https://github.com/your-team/project"
+                  />
+                  <InputField
+                    label="Live demo URL (optional)"
+                    value={projectDemo}
+                    onChange={(e) => setProjectDemo(e.target.value)}
+                    placeholder="https://your-deployed-site.com"
+                  />
+                  <InputField
+                    label="Slides / pitch-deck URL (optional)"
+                    value={projectSlides}
+                    onChange={(e) => setProjectSlides(e.target.value)}
+                    placeholder="https://docs.google.com/presentation/..."
+                  />
+                  <Button type="submit" loading={submitLoading}>
+                    Submit project
+                  </Button>
+                </div>
               </form>
-            </Card>
+            </div>
           </motion.section>
         )}
+      </AnimatePresence>
 
-        {/* Category Filters */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25 }}
-          className="flex flex-wrap items-center gap-3"
-        >
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim">
-            Filter:
-          </span>
-          <Button
-            variant={selectedCategory === "All" ? "primary" : "ghost"}
-            size="sm"
-            onClick={() => setSelectedCategory("All")}
-          >
-            All
-          </Button>
-          {categories.map((cat) => (
-            <Button
-              key={cat._id || cat.name}
-              variant={selectedCategory === (cat._id || cat.name) ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => setSelectedCategory(cat._id || cat.name)}
-            >
-              {cat.name}
-            </Button>
-          ))}
-        </motion.div>
+      {/* Category Filters */}
+      <div data-reveal="fade">
+        <SegmentedTabs
+          aria-label="Filter projects by category"
+          items={categoryTabs}
+          value={selectedCategory}
+          onChange={setSelectedCategory}
+        />
+      </div>
 
-        {/* Projects Grid */}
-        {filteredProjects.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.35 }}
-          >
-            <Card variant="solid" className="text-center">
-              <div className="py-12">
-                <svg
-                  aria-hidden="true"
-                  className="mx-auto h-14 w-14 text-text-dim/50"
-                  viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth={1.4}
-                  strokeLinecap="round" strokeLinejoin="round"
-                >
-                  <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
-                </svg>
-                <h3 className="mt-4 font-display text-xl font-bold text-white">
-                  No Projects Found
-                </h3>
-                <p className="mt-2 text-sm text-text-muted">
-                  Be the first to submit a project in this category.
+      {/* Projects Grid */}
+      {filteredProjects.length === 0 ? (
+        <EmptyState
+          title="No projects found"
+          body="Be the first to submit a project in this category."
+          action={myTeam && !showProjectForm ? (
+            <Button onClick={() => setShowProjectForm(true)} leading={<Plus className="h-4 w-4" strokeWidth={1.75} />}>Submit project</Button>
+          ) : null}
+        />
+      ) : (
+        <ul key={selectedCategory} data-stagger="tilt" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredProjects.map((project) => (
+            <li key={project._id}>
+              <TiltPanel className="flex h-full flex-col p-5 sm:p-6">
+                <div className="relative flex items-start justify-between gap-3">
+                  <h3 className="min-w-0 text-lg leading-snug text-text-primary">
+                    {project.title}
+                  </h3>
+                  <span className="shrink-0 rounded-full border border-secondary/30 bg-secondary/10 px-2.5 py-0.5 text-[12px] font-medium text-secondary">
+                    {project.categoryName || project.category || "General"}
+                  </span>
+                </div>
+
+                <p className="relative mt-2 line-clamp-3 text-sm leading-6 text-text-muted">
+                  {project.description}
                 </p>
-              </div>
-            </Card>
-          </motion.div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredProjects.map((project, i) => (
-              <motion.div
-                key={project._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + i * 0.06 }}
-              >
-                <Card variant="glass" interactive>
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="font-display text-lg font-bold tracking-[-0.02em] text-white">
-                      {project.title}
-                    </h3>
-                    <span className="inline-block rounded-full border border-secondary/30 bg-secondary/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-secondary">
-                      {project.categoryName || project.category || "General"}
-                    </span>
-                  </div>
 
-                  <p className="mt-2 text-sm leading-7 text-text-muted line-clamp-3">
-                    {project.description}
+                {project.teamName && (
+                  <p className="relative mt-3 inline-flex items-center gap-1.5 text-[13px] text-text-dim">
+                    <Users className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                    Team {project.teamName}
                   </p>
+                )}
 
-                  {project.teamName && (
-                    <p className="mt-3 font-mono text-[11px] text-primary/70">
-                      Team: {project.teamName}
-                    </p>
-                  )}
+                {/* Three optional links — github / demo / slides. Each
+                    populated URL renders as its own labelled link so
+                    judges can jump to the right artefact without guessing. */}
+                {(project.github_url || project.demo_url || project.slides_url) && (
+                  <div className="relative mt-4 flex flex-wrap items-center gap-2">
+                    {project.github_url && (
+                      <ProjectLink href={project.github_url} icon={Github}>Code</ProjectLink>
+                    )}
+                    {project.demo_url && (
+                      <ProjectLink href={project.demo_url} icon={Code2}>Live demo</ProjectLink>
+                    )}
+                    {project.slides_url && (
+                      <ProjectLink href={project.slides_url} icon={Presentation}>Slides</ProjectLink>
+                    )}
+                  </div>
+                )}
 
-                  {/* Three optional links — github / demo / slides. The
-                      previous `project.link` ternary referenced a column
-                      that doesn't exist on the row, so it was always
-                      hidden. Now each populated URL renders as its own
-                      labelled link so judges can jump to the right
-                      artefact without guessing. */}
-                  {(project.github_url || project.demo_url || project.slides_url) && (
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      {project.github_url && (
-                        <a
-                          href={project.github_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-[11px] text-secondary underline underline-offset-4 hover:text-white"
+                <div aria-hidden="true" className="min-h-5 flex-1" />
+                <div className="relative flex items-center justify-between gap-3 border-t border-[rgb(var(--rule))] pt-4">
+                  <span className="inline-flex items-baseline gap-1.5 text-sm text-text-muted">
+                    <span className="relative inline-flex h-7 min-w-[1.5ch] items-center overflow-hidden">
+                      <AnimatePresence initial={false} mode="popLayout">
+                        <motion.span
+                          key={project.votes ?? 0}
+                          initial={{ y: 22, opacity: 0, scale: 1.4 }}
+                          animate={{ y: 0, opacity: 1, scale: 1 }}
+                          exit={{ y: -22, opacity: 0 }}
+                          transition={{ type: "spring", stiffness: 420, damping: 22 }}
+                          className="lamp-numerals inline-block text-xl text-primary"
                         >
-                          Code
-                        </a>
-                      )}
-                      {project.demo_url && (
-                        <a
-                          href={project.demo_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-[11px] text-secondary underline underline-offset-4 hover:text-white"
-                        >
-                          Live Demo
-                        </a>
-                      )}
-                      {project.slides_url && (
-                        <a
-                          href={project.slides_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-[11px] text-secondary underline underline-offset-4 hover:text-white"
-                        >
-                          Slides
-                        </a>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="math-text text-sm font-bold text-warning">
-                      {project.votes ?? 0} votes
+                          {project.votes ?? 0}
+                        </motion.span>
+                      </AnimatePresence>
                     </span>
+                    votes
+                  </span>
+                  <motion.div whileTap={project.hasVoted ? undefined : { scale: 0.92 }}>
                     <Button
                       variant={project.hasVoted ? "ghost" : "secondary"}
                       size="sm"
                       disabled={project.hasVoted}
                       loading={votingId === project._id}
                       onClick={() => handleVote(project._id)}
+                      leading={<ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.75} />}
                     >
                       {project.hasVoted ? "Voted" : "Vote"}
                     </Button>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
+                  </motion.div>
+                </div>
+              </TiltPanel>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
+  );
+}
+
+function ProjectLink({ href, icon: Icon, children }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group inline-flex h-9 items-center gap-1.5 rounded-lg border border-[rgb(var(--rule))] bg-surface/50 px-3 text-[13px] text-text-muted transition hover:border-secondary/40 hover:text-text-primary"
+    >
+      <Icon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+      {children}
+      <ArrowUpRight className="h-3 w-3 opacity-0 transition group-hover:opacity-100" strokeWidth={1.75} aria-hidden="true" />
+    </a>
   );
 }

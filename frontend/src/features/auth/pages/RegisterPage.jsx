@@ -1,21 +1,25 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { ArrowRight, CalendarClock, Gift, LogIn, Lock, Trophy, UserPlus } from "lucide-react";
 import Button from "@/components/ui/Button";
 import InputField from "@/components/ui/InputField";
 import { useAuthStore } from "@/store/auth-store";
 import http from "@/lib/http";
+import { AuthHeading, AuthNotice, PasswordMeter } from "@/features/auth/components/AuthChrome";
+
+const EASE = [0.16, 1, 0.3, 1];
+const field = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } } };
+const icon = (Icon) => <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />;
 
 export default function RegisterPage() {
-  useMonument("city");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const register = useAuthStore((s) => s.register);
   const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const reduced = useReducedMotion();
 
   // Referral code from URL (?ref=MATH-XXXXX)
   const [refCode] = useState(() => searchParams.get("ref") || "");
@@ -85,115 +89,103 @@ export default function RegisterPage() {
   // ── Loading state while checking registration status ──
   if (regOpen === null) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="city" intensity={0.35} />
-        <div className="relative z-10 flex min-h-[40vh] items-center justify-center">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="math-text text-4xl"
-            style={{ color: "var(--monument-city)" }}
-          >
-            ∑
-          </motion.div>
-        </div>
+      <div className="flex min-h-[22rem] flex-col items-center justify-center gap-4" role="status">
+        <motion.span
+          animate={reduced ? undefined : { rotate: 360 }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: "linear" }}
+          className="math-text text-5xl text-primary"
+          style={{ filter: "drop-shadow(0 0 12px rgb(var(--lamp)/0.6))" }}
+          aria-hidden="true"
+        >
+          ∑
+        </motion.span>
+        <p className="text-[13px] font-medium text-text-muted">Checking whether registrations are open</p>
       </div>
     );
   }
 
   // ── Registrations CLOSED ──
   if (!regOpen) {
+    const next = [
+      { Icon: CalendarClock, text: "Ask your admin or teacher when registrations reopen" },
+      { Icon: LogIn, text: "If you already have an account, sign in below" },
+      { Icon: Trophy, text: "Check the leaderboard and events while you wait" },
+    ];
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="city" intensity={0.35} />
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="relative z-10 w-full"
-        >
-          <div
-            className="relative overflow-hidden border border-line/20 bg-surface/60 p-8 shadow-panel backdrop-blur-2xl sm:p-10"
-            style={{ clipPath: "var(--clip-notch)", borderTop: "2px solid var(--monument-city)" }}
+      <div>
+        <div className="flex justify-center">
+          <motion.span
+            initial={reduced ? false : { scale: 0, rotate: -30 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", bounce: 0.45, delay: 0.3 }}
+            className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-danger/30 bg-danger/10 text-danger"
           >
-            {/* Background symbol */}
-            <span
-              className="math-text pointer-events-none absolute right-4 top-4 select-none"
-              style={{ fontSize: "6rem", opacity: 0.04, lineHeight: 1 }}
-            >
-              🔒
-            </span>
+            {!reduced ? (
+              <motion.span
+                aria-hidden="true"
+                className="absolute inset-0 rounded-2xl border border-danger/40"
+                animate={{ scale: [1, 1.35], opacity: [0.6, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.9 }}
+              />
+            ) : null}
+            <Lock className="h-9 w-9" strokeWidth={1.5} aria-hidden="true" />
+          </motion.span>
+        </div>
 
-            <div className="text-center">
-              {/* Lock icon */}
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", bounce: 0.4, delay: 0.3 }}
-                className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-danger/30 bg-danger/10"
-              >
-                <svg className="h-10 w-10 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
-              </motion.div>
+        <motion.h1
+          initial={reduced ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.6, ease: EASE }}
+          className="mt-6 text-center text-[1.85rem] leading-tight text-text-primary sm:text-3xl"
+        >
+          Registrations are closed
+        </motion.h1>
 
-              <motion.h1
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="mt-6 font-display text-2xl font-extrabold tracking-[-0.03em] text-white sm:text-3xl"
-              >
-                Registrations Closed
-              </motion.h1>
+        <motion.p
+          initial={reduced ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.7 }}
+          className="mx-auto mt-3 max-w-sm text-center text-sm leading-6 text-text-muted"
+        >
+          {regMessage}
+        </motion.p>
 
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.7 }}
-                className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-text-muted"
-              >
-                {regMessage}
-              </motion.p>
+        <motion.div
+          initial={reduced ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.9, duration: 0.6, ease: EASE }}
+          className="mt-7 rounded-2xl border border-[rgb(var(--rule))] bg-surface/50 p-5"
+        >
+          <p className="text-[13px] font-medium text-text-primary">What you can do now</p>
+          <motion.ul
+            className="mt-3 space-y-3"
+            initial="hidden"
+            animate="visible"
+            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 1 } } }}
+          >
+            {next.map(({ Icon, text }) => (
+              <motion.li key={text} variants={field} className="flex items-start gap-3 text-sm text-text-muted">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                </span>
+                <span className="pt-0.5">{text}</span>
+              </motion.li>
+            ))}
+          </motion.ul>
+        </motion.div>
 
-              {/* Countdown-style visual */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 }}
-                className="mx-auto mt-6 max-w-xs rounded-xl border border-line/15 bg-black/20 p-4"
-              >
-                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-text-dim">What to do</p>
-                <div className="mt-3 space-y-2 text-left text-xs text-text-muted">
-                  <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">→</span>
-                    <span>Ask your admin or teacher when registrations reopen</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">→</span>
-                    <span>If you already have an account, sign in below</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">→</span>
-                    <span>Check the leaderboard and events while you wait</span>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.1 }}
-                className="mt-6 flex flex-wrap justify-center gap-3"
-              >
-                <Link to="/login">
-                  <Button size="lg">Sign In Instead</Button>
-                </Link>
-                <Link to="/leaderboard">
-                  <Button variant="ghost" size="lg">View Leaderboard</Button>
-                </Link>
-              </motion.div>
-            </div>
-          </div>
+        <motion.div
+          initial={reduced ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.3 }}
+          className="mt-6 grid gap-3 sm:grid-cols-2"
+        >
+          <Link to="/login" className="block">
+            <Button size="lg" className="w-full justify-center" leading={icon(LogIn)}>Sign in instead</Button>
+          </Link>
+          <Link to="/leaderboard" className="block">
+            <Button variant="secondary" size="lg" className="w-full justify-center" leading={icon(Trophy)}>View leaderboard</Button>
+          </Link>
         </motion.div>
       </div>
     );
@@ -201,114 +193,70 @@ export default function RegisterPage() {
 
   // ── Registrations OPEN — normal form ──
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="city" intensity={0.35} />
+    <div>
+      <AuthHeading icon={UserPlus} kicker="Join the collective" title="Create your account" tone="violet">
+        Start solving challenges, competing in events, and climbing the ranks.
+      </AuthHeading>
 
-      {/* Ambient math glyphs scattered behind the card — same pattern
-          as LoginPage so the auth surface reads as a coherent set,
-          just with different glyphs so each page has its own
-          micro-identity. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
-        <span className="math-text absolute left-[5%] top-[10%] text-[8rem] text-secondary/[0.05]">∑</span>
-        <span className="math-text absolute right-[4%] top-[16%] text-[10rem] text-white/[0.035]">∇</span>
-        <span className="math-text absolute left-[14%] top-[60%] text-[6rem] text-white/[0.03]">∂</span>
-        <span className="math-text absolute right-[8%] bottom-[8%] text-[7rem] text-primary/[0.05]">ℵ</span>
-        <span className="math-text absolute left-[42%] top-[40%] text-[5rem] text-white/[0.03]">ϕ</span>
-        <span className="math-text absolute right-[38%] top-[72%] text-[6rem] text-white/[0.03]">Ω</span>
-      </div>
+      <AnimatePresence initial={false}>
+        {refCode && refValid && (
+          <AuthNotice key="ref-ok" tone="success" icon={Gift} className="mb-5">
+            Referred by <strong>{refName}</strong> — you'll get <strong>50 bonus XP</strong> after signing up!
+          </AuthNotice>
+        )}
+        {refCode && refValid === false && (
+          <AuthNotice key="ref-bad" tone="warning" className="mb-5">
+            Invalid referral code — but you can still register!
+          </AuthNotice>
+        )}
+        {error && (
+          <AuthNotice key="err" tone="error" className="mb-5">{error}</AuthNotice>
+        )}
+      </AnimatePresence>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-10 w-full"
+      <motion.form
+        onSubmit={handleSubmit}
+        className="space-y-5"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden:  { opacity: 0 },
+          visible: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.45 } },
+        }}
       >
-        <div
-          className="relative overflow-hidden border border-line/20 bg-surface/60 p-8 shadow-panel backdrop-blur-2xl sm:p-10"
-          style={{ clipPath: "var(--clip-notch)", borderTop: "2px solid var(--monument-city)" }}
-        >
-          <span
-            className="math-text pointer-events-none absolute -right-4 -top-6 select-none"
-            style={{ fontSize: "10rem", opacity: 0.05, lineHeight: 1 }}
-          >
-            ∑
-          </span>
+        <motion.div variants={field}>
+          <InputField label="Full Name" placeholder="Your display name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+        </motion.div>
+        <motion.div variants={field}>
+          <InputField label="Email" type="email" placeholder="yourname@bmsit.in" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+        </motion.div>
+        <motion.div variants={field} className="space-y-2">
+          <InputField label="Password" type="password" placeholder="Create a secure password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+          <PasswordMeter value={form.password} />
+        </motion.div>
+        <motion.div variants={field}>
+          <InputField
+            label="Confirm Password"
+            type="password"
+            placeholder="Confirm your password"
+            value={form.confirmPassword}
+            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+            required
+          />
+        </motion.div>
+        <motion.div variants={field}>
+          <Button type="submit" loading={loading} className="w-full justify-center" size="lg" trailing={icon(ArrowRight)}>
+            Create Account
+          </Button>
+        </motion.div>
+      </motion.form>
 
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.5 }}
-            className="mb-8"
-          >
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-secondary">Join the Collective</p>
-            <h1 className="mt-3 font-display text-[2rem] font-extrabold tracking-[-0.05em] text-white sm:text-4xl">
-              Create your account
-            </h1>
-            <p className="mt-3 text-sm text-text-muted">
-              Start solving challenges, competing in events, and climbing the ranks.
-            </p>
-          </motion.div>
-
-          {/* Referral banner */}
-          {refCode && refValid && (
-            <div className="mb-5 border border-success/30 bg-success/10 px-4 py-3 text-sm text-success" style={{ clipPath: "var(--clip-notch)" }}>
-              🎁 Referred by <strong>{refName}</strong> — you'll get <strong>50 bonus XP</strong> after signing up!
-            </div>
-          )}
-          {refCode && refValid === false && (
-            <div className="mb-5 border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning" style={{ clipPath: "var(--clip-notch)" }}>
-              Invalid referral code — but you can still register!
-            </div>
-          )}
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-5 border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-              style={{ clipPath: "var(--clip-notch)" }}
-            >
-              {error}
-            </motion.div>
-          )}
-
-          <motion.form
-            onSubmit={handleSubmit}
-            className="space-y-5"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden:  { opacity: 0 },
-              visible: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.25 } },
-            }}
-          >
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <InputField label="Full Name" placeholder="Your display name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <InputField label="Email" type="email" placeholder="yourname@bmsit.in" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <InputField label="Password" type="password" placeholder="Create a secure password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <InputField label="Confirm Password" type="password" placeholder="Confirm your password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <Button type="submit" loading={loading} className="w-full justify-center" size="lg">
-                Create Account
-              </Button>
-            </motion.div>
-          </motion.form>
-
-          <div className="mt-6 text-center text-sm text-text-muted">
-            Already have an account?{" "}
-            <Link to="/login" className="font-medium text-primary transition hover:text-secondary">
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </motion.div>
+      <p className="mt-7 text-center text-sm text-text-muted">
+        Already have an account?{" "}
+        <Link to="/login" className="font-medium text-primary underline-offset-4 transition hover:underline">
+          Sign in
+        </Link>
+      </p>
     </div>
   );
 }

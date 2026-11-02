@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 const STAR_COUNT = 220;
 const SHIP_COUNT = 6;
@@ -148,7 +149,7 @@ function createNebula() {
   };
 }
 
-export default function SpaceBackground() {
+function SpaceBackgroundScene() {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
 
@@ -286,4 +287,10 @@ export default function SpaceBackground() {
       style={{ background: "transparent" }}
     />
   );
+}
+
+// Off the home page the Lamplight shell paints one shared backdrop
+// (LampBackdrop), so the per-page scenes step aside there.
+export default function SpaceBackground(props) {
+  return useIsLamplight() ? null : <SpaceBackgroundScene {...props} />;
 }

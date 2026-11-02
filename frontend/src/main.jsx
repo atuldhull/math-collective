@@ -7,6 +7,7 @@ import '@fontsource/space-grotesk/700.css';
 import '@fontsource/jetbrains-mono/400.css';
 import "@/styles/tailwind.css";
 import "@/styles/theme.css";
+import "@/styles/lamplight.css";
 import { registerPwaInstallListeners } from "@/lib/pwaInstall";
 import { initSentry } from "@/lib/sentry";
 

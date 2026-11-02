@@ -30,12 +30,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { motion } from "framer-motion";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { AnimatePresence, motion } from "framer-motion";
 import Loader from "@/components/ui/Loader";
-import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import { EmptyState } from "@/components/lamp";
 import { users, core } from "@/lib/api";
 import ProfileHeader from "@/features/profile/components/ProfileHeader";
 import ProfileTabs from "@/features/profile/components/ProfileTabs";
@@ -45,7 +43,6 @@ import FriendsTab from "@/features/profile/components/FriendsTab";
 import ActivityTab from "@/features/profile/components/ActivityTab";
 
 export default function RichProfilePage() {
-  useMonument("jungle");
   const { userId } = useParams();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -85,11 +82,8 @@ export default function RichProfilePage() {
   }, [data]);
 
   const shell = (content) => (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="jungle" intensity={0.12} />
-      <div className="relative z-10 mx-auto max-w-4xl space-y-6 px-4 py-10">
-        {content}
-      </div>
+    <div className="mx-auto w-full max-w-5xl space-y-6 pb-16">
+      {content}
     </div>
   );
 
@@ -103,36 +97,27 @@ export default function RichProfilePage() {
 
   if (error === "not_found") {
     return shell(
-      <Card variant="glass" className="py-12 text-center">
-        <p className="text-4xl">🌫️</p>
-        <p className="mt-4 font-display text-lg text-white">User not found</p>
-        <p className="mt-2 text-sm text-text-dim">
-          This profile doesn&apos;t exist, or they&apos;re not part of your organisation.
-        </p>
-      </Card>,
+      <EmptyState
+        title="User not found"
+        body="This profile doesn't exist, or they're not part of your organisation."
+      />,
     );
   }
 
   if (error === "error" || !data) {
     return shell(
-      <Card variant="glass" className="py-12 text-center">
-        <p className="text-4xl">⚠️</p>
-        <p className="mt-4 font-display text-lg text-white">Couldn&apos;t load profile</p>
-        <div className="mt-4 flex justify-center">
-          <Button size="sm" variant="secondary" onClick={fetchProfile}>Retry</Button>
-        </div>
-      </Card>,
+      <EmptyState
+        title="Couldn't load profile"
+        body="Check your connection and try again."
+        action={<Button size="sm" variant="secondary" onClick={fetchProfile}>Retry</Button>}
+      />,
     );
   }
 
   const { profile, access } = data;
 
   return shell(
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
+    <div className="space-y-6">
       <ProfileHeader profile={profile} access={access} userId={userId} coreBadge={coreBadge} />
 
       {/* Only show tabs + content when the profile is viewable. Private
@@ -142,12 +127,25 @@ export default function RichProfilePage() {
         <>
           <ProfileTabs active={activeTab} onChange={setActiveTab} access={access} />
 
-          <div role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
-            {activeTab === "overview"     && <OverviewTab     userId={userId} access={access} />}
-            {activeTab === "achievements" && <AchievementsTab userId={userId} />}
-            {activeTab === "friends"      && <FriendsTab      userId={userId} access={access} />}
-            {activeTab === "activity"     && <ActivityTab     userId={userId} />}
-          </div>
+          {/* Tab swap: the outgoing panel tips back, the incoming one
+              rises off the desk. */}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              role="tabpanel"
+              aria-labelledby={`tab-${activeTab}`}
+              initial={{ opacity: 0, y: 18, rotateX: -6 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0 }}
+              exit={{ opacity: 0, y: -10, rotateX: 4 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              style={{ transformPerspective: 1200 }}
+            >
+              {activeTab === "overview"     && <OverviewTab     userId={userId} access={access} />}
+              {activeTab === "achievements" && <AchievementsTab userId={userId} />}
+              {activeTab === "friends"      && <FriendsTab      userId={userId} access={access} />}
+              {activeTab === "activity"     && <ActivityTab     userId={userId} />}
+            </motion.div>
+          </AnimatePresence>
         </>
       )}
 
@@ -155,14 +153,12 @@ export default function RichProfilePage() {
           "private" message below the header so the page isn't just a
           bare card. */}
       {!access.canViewProfile && (
-        <Card variant="glass" className="py-10 text-center">
-          <p className="text-3xl">🔒</p>
-          <p className="mt-3 font-display text-base text-white">This profile is private</p>
-          <p className="mt-1 text-sm text-text-dim">
-            Only the profile owner can view the full page.
-          </p>
-        </Card>
+        <EmptyState
+          compact
+          title="This profile is private"
+          body="Only the profile owner can view the full page."
+        />
       )}
-    </motion.div>,
+    </div>,
   );
 }

@@ -1,20 +1,77 @@
+import { useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { useGSAP } from "@gsap/react";
+import { ArrowLeft } from "lucide-react";
+import gsap from "@/lib/gsap-setup";
 import { useAuthStore } from "@/store/auth-store";
 import { dashboardForRole } from "@/lib/roles";
-import AuroraMesh from "@/components/backgrounds/AuroraMesh";
+import Button from "@/components/ui/Button";
 
-// Background math symbols that drift / pulse so the page reads alive
-// instead of a static error screen. Each gets an independent animation
-// so they don't sync up into a single beat.
-const SYMBOLS = [
-  { ch: "∫", left: "8%",  top: "18%", size: "10rem", delay: 0,    drift: 14 },
-  { ch: "Σ", left: "82%", top: "22%", size: "9rem",  delay: 1.2,  drift: 10 },
-  { ch: "π", left: "12%", top: "70%", size: "7.5rem",delay: 0.6,  drift: 12 },
-  { ch: "∞", left: "85%", top: "75%", size: "9.5rem",delay: 1.8,  drift: 16 },
-  { ch: "ϕ", left: "50%", top: "10%", size: "6rem",  delay: 2.4,  drift: 8  },
-  { ch: "∇", left: "48%", top: "85%", size: "7rem",  delay: 0.9,  drift: 11 },
-];
+const motionOK = () =>
+  typeof window !== "undefined"
+  && typeof window.matchMedia === "function"
+  && window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+
+// y = k / (a - x): a curve racing up a vertical asymptote it never meets,
+// and its mirror branch falling in from the far side.
+const A = 300;
+const BASE = 196;
+const K = 2400;
+function branch(from, to, step, sign) {
+  const pts = [];
+  for (let x = from; sign > 0 ? x <= to : x >= to; x += step * sign) {
+    const y = BASE - K / Math.abs(A - x);
+    if (y < -30) break;
+    pts.push(`${x.toFixed(1)} ${y.toFixed(1)}`);
+  }
+  return `M${pts.join(" L")}`;
+}
+const LEFT = branch(16, A - 1, 4, 1);
+const RIGHT = branch(392, A + 1, 3, -1);
+
+/**
+ * The graph: a dot rides the left branch, speeding up as it climbs the
+ * asymptote at x = 404, and vanishes off the top before it can arrive.
+ * Then it tries again. The page, like the function, tends to nowhere.
+ */
+function LimitGraph() {
+  const root = useRef(null);
+  useGSAP(() => {
+    if (!motionOK()) return;
+    const q = gsap.utils.selector(root);
+    const left = q("[data-left]")[0];
+    const tl = gsap.timeline({ defaults: { ease: "expo.out" } });
+    tl.from(q("[data-axis]"), { scaleX: 0, transformOrigin: "0% 50%", duration: 1.2 }, 0)
+      .from(q("[data-asym]"), { scaleY: 0, transformOrigin: "50% 100%", duration: 1.2 }, 0.15)
+      .fromTo(q("[data-left], [data-right]"), { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 1.8, ease: "power2.inOut", stagger: 0.25 }, 0.3)
+      .from(q("[data-asym-label]"), { autoAlpha: 0, y: 8, duration: 0.8 }, 1);
+
+    const chase = gsap.timeline({ repeat: -1, repeatDelay: 0.6, delay: 2 });
+    chase.set(q("[data-dot]"), { autoAlpha: 1 })
+      .to(q("[data-dot]"), {
+        motionPath: { path: left, align: left, alignOrigin: [0.5, 0.5] },
+        duration: 3.2, ease: "power3.in",
+      })
+      .to(q("[data-dot]"), { autoAlpha: 0, duration: 0.25 }, "-=0.3")
+      .fromTo(q("[data-asym]"), { opacity: 0.6 }, { opacity: 1, duration: 0.15, yoyo: true, repeat: 1 }, "<");
+  }, { scope: root });
+
+  return (
+    <svg ref={root} viewBox="0 -30 400 240" fill="none" aria-hidden="true" className="h-auto w-full overflow-visible">
+      {/* graph paper */}
+      <g stroke="rgb(var(--rule))" strokeWidth="0.6" opacity="0.5">
+        {[40, 80, 120, 160].map((y) => <line key={y} x1="0" x2="400" y1={y} y2={y} />)}
+        {[50, 100, 150, 200, 250, 350].map((x) => <line key={x} y1="-30" y2="210" x1={x} x2={x} />)}
+      </g>
+      <line data-axis x1="0" x2="400" y1={BASE} y2={BASE} stroke="rgb(var(--color-text-dim))" strokeOpacity="0.6" strokeWidth="1.2" />
+      <line data-asym x1={A} x2={A} y1="-30" y2="210" stroke="rgb(var(--lamp))" strokeOpacity="0.7" strokeWidth="1.4" strokeDasharray="5 6" />
+      <text data-asym-label x={A + 8} y="-12" fill="rgb(var(--lamp))" fontSize="12" fontFamily="ui-monospace, monospace">x = 404</text>
+      <path data-left d={LEFT} pathLength="1" strokeDasharray="1" stroke="rgb(var(--violet))" strokeWidth="2.4" strokeLinecap="round" />
+      <path data-right d={RIGHT} pathLength="1" strokeDasharray="1" stroke="rgb(var(--violet))" strokeOpacity="0.55" strokeWidth="2" strokeLinecap="round" />
+      <circle data-dot r="6" cx="0" cy="0" fill="rgb(var(--lamp))" opacity="0" style={{ filter: "drop-shadow(0 0 8px rgb(var(--lamp)))" }} />
+    </svg>
+  );
+}
 
 export default function NotFoundPage() {
   const navigate = useNavigate();
@@ -22,130 +79,52 @@ export default function NotFoundPage() {
   const status = useAuthStore((s) => s.status);
   const isAuth = status === "authenticated" && user;
   const homePath = isAuth ? dashboardForRole(user.role) : "/";
+  const root = useRef(null);
+
+  useGSAP(() => {
+    if (!motionOK()) return;
+    const q = gsap.utils.selector(root);
+    const tl = gsap.timeline({ defaults: { ease: "expo.out" } });
+    tl.from(q("[data-digit]"), { yPercent: 110, rotate: (i) => (i - 1) * 10, duration: 1.2, stagger: 0.09 }, 0.1)
+      .from(q("[data-copy] > *"), { y: 22, autoAlpha: 0, duration: 0.9, stagger: 0.08 }, 0.45)
+      .from(q("[data-graph]"), { y: 40, autoAlpha: 0, duration: 1.2 }, 0.2);
+    // The zero drifts upward and back, as if pulled toward the line.
+    gsap.to(q("[data-digit-zero]"), { y: -14, duration: 2.2, ease: "sine.inOut", yoyo: true, repeat: -1, delay: 1.4 });
+  }, { scope: root });
 
   return (
-    <div className="relative">
-      <AuroraMesh palette="primary" intensity={0.5} />
-
-      {/* Floating math symbols, low-opacity, drifting */}
-      {SYMBOLS.map((s, i) => (
-        <motion.span
-          key={i}
-          aria-hidden="true"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{
-            opacity: [0, 0.10, 0.07, 0.10],
-            y: [0, -s.drift, 0, s.drift, 0],
-          }}
-          transition={{
-            duration: 12 + i * 1.2,
-            delay: s.delay,
-            repeat: Infinity,
-            ease: "easeInOut",
-            opacity: { duration: 2, delay: s.delay },
-          }}
-          className="math-text pointer-events-none absolute select-none text-white"
-          style={{
-            left: s.left,
-            top: s.top,
-            fontSize: s.size,
-            transform: "translate(-50%, -50%)",
-            mixBlendMode: "screen",
-          }}
-        >
-          {s.ch}
-        </motion.span>
-      ))}
-
-      <div className="relative z-10 flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
-        <motion.p
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="font-mono text-[11px] uppercase tracking-[0.42em] text-primary/85"
-        >
-          Error 404 · Undefined route
-        </motion.p>
-
-        {/* Big stylised 4-0-4 with the zero rendered as an animated
-            infinity-style ring — visual hook so the page feels
-            crafted instead of a default browser 404. */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-6 flex items-center justify-center gap-3 font-display sm:gap-5"
-        >
-          <span className="text-[7rem] font-extrabold leading-none tracking-[-0.08em] text-white drop-shadow-[0_8px_30px_rgba(124,58,237,0.35)] sm:text-[10rem]">4</span>
-          <motion.span
-            animate={{ rotate: 360 }}
-            transition={{ duration: 16, ease: "linear", repeat: Infinity }}
-            className="relative inline-block h-[6rem] w-[6rem] sm:h-[9rem] sm:w-[9rem]"
+    <div ref={root} className="relative mx-auto grid min-h-[72vh] w-full max-w-5xl items-center gap-10 py-10 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
+      <div data-copy className="order-2 text-center lg:order-1 lg:text-left">
+        <p className="text-[13px] font-medium text-primary">Error 404</p>
+        <p aria-hidden="true" className="lamp-numerals mt-2 flex justify-center gap-1 text-[6.5rem] leading-[0.9] text-text-primary sm:text-[8.5rem] lg:justify-start">
+          <span className="lamp-word"><span data-digit>4</span></span>
+          <span className="lamp-word"><span data-digit><span data-digit-zero className="inline-block text-primary [text-shadow:0_0_40px_rgb(var(--lamp)/0.5)]">0</span></span></span>
+          <span className="lamp-word"><span data-digit>4</span></span>
+        </p>
+        <h1 className="lamp-display mt-4 text-[2rem] leading-[1.05] text-text-primary sm:text-5xl" style={{ textWrap: "balance" }}>
+          This page tends to nowhere
+        </h1>
+        <p className="mx-auto mt-4 max-w-[46ch] text-base leading-7 text-text-muted lg:mx-0">
+          The address you followed approaches a page that isn&rsquo;t there. Go back, or start again from {isAuth ? "your dashboard" : "the home page"}.
+        </p>
+        <p className="mt-3 font-mono text-[13px] text-text-dim">lim<sub>x→404</sub> f(x) does not exist</p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+          <Button variant="secondary" onClick={() => navigate(-1)} leading={<ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />}>
+            Go back
+          </Button>
+          <Link
+            to={homePath}
+            className="inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-medium text-[rgb(var(--color-obsidian))] shadow-[0_10px_30px_-12px_rgb(var(--lamp)/0.75)] transition hover:brightness-[1.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian"
           >
-            <span
-              className="absolute inset-0 rounded-full"
-              style={{
-                background: "conic-gradient(from 0deg, var(--color-primary, #8352ff), var(--color-secondary, #23c1ff), var(--color-glow, #6ee7ff), var(--color-primary, #8352ff))",
-                opacity: 0.25,
-                filter: "blur(2px)",
-              }}
-            />
-            <span
-              className="absolute inset-[8%] rounded-full border-[6px] sm:border-[10px]"
-              style={{ borderColor: "rgb(var(--color-primary))" }}
-            />
-            <span
-              className="absolute inset-[40%] rounded-full"
-              style={{ background: "rgb(var(--color-glow))", opacity: 0.85, filter: "blur(2px)" }}
-            />
-          </motion.span>
-          <span className="text-[7rem] font-extrabold leading-none tracking-[-0.08em] text-white drop-shadow-[0_8px_30px_rgba(124,58,237,0.35)] sm:text-[10rem]">4</span>
-        </motion.div>
+            {isAuth ? "Go to dashboard" : "Go home"}
+          </Link>
+        </div>
+      </div>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.7 }}
-          className="mt-8 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl"
-        >
-          Lost in the void.
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.32, duration: 0.7 }}
-          className="mt-3 max-w-md text-sm leading-7 text-text-muted sm:text-base"
-        >
-          This route doesn&rsquo;t exist on the Asymptotes.
-          <span className="block opacity-70">Even Euler couldn&rsquo;t find a function for it.</span>
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.42, duration: 0.7 }}
-          className="mt-9 flex flex-wrap items-center justify-center gap-3"
-        >
-          <motion.button
-            onClick={() => navigate(-1)}
-            whileHover={{ y: -2, scale: 1.02, transition: { type: "spring", stiffness: 420, damping: 24 } }}
-            whileTap={{ scale: 0.96 }}
-            className="rounded-full border border-line/20 bg-white/[0.04] px-6 py-2.5 font-mono text-[11px] uppercase tracking-[0.24em] text-text-muted backdrop-blur transition-colors hover:border-line/35 hover:text-white"
-          >
-            ← Go back
-          </motion.button>
-          <motion.div
-            whileHover={{ y: -2, scale: 1.02, transition: { type: "spring", stiffness: 420, damping: 24 } }}
-            whileTap={{ scale: 0.96 }}
-          >
-            <Link
-              to={homePath}
-              className="inline-block rounded-full border border-primary/40 bg-primary/15 px-6 py-2.5 font-mono text-[11px] uppercase tracking-[0.24em] text-white backdrop-blur transition hover:bg-primary/25"
-            >
-              {isAuth ? "To dashboard →" : "Home →"}
-            </Link>
-          </motion.div>
-        </motion.div>
+      <div data-graph className="order-1 mx-auto w-full max-w-md lg:order-2 lg:max-w-none">
+        <div className="lamp-panel p-4 sm:p-6">
+          <LimitGraph />
+        </div>
       </div>
     </div>
   );

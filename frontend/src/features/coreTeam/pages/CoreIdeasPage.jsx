@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Card from "@/components/ui/Card";
+import { ArrowBigUp, Check, Plus, Trash2 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { core } from "@/lib/api";
 import { useCoreStore } from "@/store/core-store";
 import { ModalShell, Field, INPUT_CLS } from "@/features/coreTeam/components/FormBits";
+import { AsymptoteCurve, EmptyState, PageHeader, SegmentedTabs } from "@/components/lamp";
 
 const FIELDS = ["Marketing", "Social Media", "Design", "Events", "Technical", "Maths", "General"];
 
@@ -50,87 +51,104 @@ export default function CoreIdeasPage() {
   const visible = filter === "All" ? ideas : ideas.filter((i) => i.field === filter);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {fields.map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`rounded-full border px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] transition ${
-                filter === f ? "border-primary/40 bg-primary/12 text-white"
-                             : "border-line/15 bg-white/[0.02] text-text-muted hover:text-white"
-              }`}>
-              {f}
-            </button>
-          ))}
-        </div>
-        <Button size="sm" variant="primary" magnetic={false} onClick={() => setShowNew(true)}>
-          + Share an idea
-        </Button>
-      </div>
+    <div className="flex flex-col">
+      <PageHeader
+        context="Core team"
+        title="Ideas"
+        description={`Pitch something for the club. At ${threshold} votes an idea is green-lit.`}
+        actions={(
+          <Button size="sm" variant="primary" magnetic={false} onClick={() => setShowNew(true)} leading={<Plus className="h-4 w-4" strokeWidth={1.75} />}>
+            Share an idea
+          </Button>
+        )}
+      >
+        <SegmentedTabs
+          aria-label="Filter ideas by field"
+          value={filter}
+          onChange={setFilter}
+          items={fields.map((f) => ({ value: f, label: f, count: f === "All" ? ideas.length : ideas.filter((i) => i.field === f).length }))}
+        />
+      </PageHeader>
 
       {visible.length === 0 && (
-        <Card variant="solid" spotlight={false} className="text-center">
-          <p className="py-8 text-sm text-text-dim">No ideas here yet — be the first to pitch one.</p>
-        </Card>
+        <EmptyState
+          title="No ideas here yet"
+          body="Be the first to pitch one."
+          action={<Button size="sm" variant="secondary" magnetic={false} onClick={() => setShowNew(true)}>Share an idea</Button>}
+        />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {visible.map((idea) => {
-          const pct = Math.min(100, Math.round((idea.vote_count / threshold) * 100));
-          const approved = idea.status === "approved";
-          const canDelete = member?.tier === "council" || idea.author_member_id === member?.id;
-          return (
-            <motion.div key={idea.id} layout initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-              <Card variant={approved ? "glow" : "glass"} spotlight={false} noEntrance className="flex h-full flex-col">
-                <div className="flex items-center justify-between">
-                  <span className="rounded-full border border-secondary/30 bg-secondary/10 px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-secondary">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {visible.map((idea) => {
+            const pct = Math.min(100, Math.round((idea.vote_count / threshold) * 100));
+            const approved = idea.status === "approved";
+            const canDelete = member?.tier === "council" || idea.author_member_id === member?.id;
+            return (
+              <motion.article
+                key={idea.id}
+                layout
+                initial={{ opacity: 0, scale: 0.94, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.2 } }}
+                transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                className={`lamp-panel flex h-full flex-col p-5 ${approved ? "lamp-panel--lit" : ""}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded-full border border-secondary/30 bg-secondary/10 px-2.5 py-0.5 text-[11px] font-medium text-secondary">
                     {idea.field}
                   </span>
                   {approved && (
-                    <span className="rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">
-                      ✓ Approved
+                    <span className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 text-[11px] font-medium text-success">
+                      <Check className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" />Approved
                     </span>
                   )}
                 </div>
-                <h3 className="mt-3 break-words font-display text-lg font-bold text-white">{idea.title}</h3>
+                <h3 className="mt-3 break-words text-lg text-text-primary">{idea.title}</h3>
                 <p className="mt-1 flex-1 break-words text-sm leading-6 text-text-muted">{idea.body}</p>
 
-                <p className="mt-3 font-mono text-[10px] text-text-dim">by {idea.author_name || "A core member"}</p>
+                <p className="mt-3 text-[12px] text-text-dim">by {idea.author_name || "A core member"}</p>
 
-                {/* vote progress */}
-                <div className="mt-2">
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
-                    <motion.div
-                      className={`h-full rounded-full ${approved ? "bg-success" : "bg-primary"}`}
-                      initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }}
-                    />
-                  </div>
-                  <p className="mt-1 font-mono text-[10px] text-text-dim">
-                    {idea.vote_count} / {threshold} votes to green-light
+                {/* vote progress — the dot rides the asymptote toward the green-light line */}
+                <div className="mt-2 flex items-end gap-3">
+                  <AsymptoteCurve progress={pct / 100} tone={approved ? "lamp" : "violet"} className="h-10 w-28 shrink-0" />
+                  <p className="pb-0.5 text-[12px] text-text-dim">
+                    <span className="lamp-numerals text-text-muted">{idea.vote_count}</span> / <span className="lamp-numerals">{threshold}</span> votes to green-light
                   </p>
                 </div>
 
-                <div className="mt-3 flex items-center gap-2 border-t border-line/10 pt-3">
+                <div className="mt-3 flex items-center gap-2 border-t border-[rgb(var(--rule))] pt-3">
                   <Button
                     size="sm"
                     variant={idea.hasVoted ? "secondary" : "primary"}
                     magnetic={false}
                     loading={voting === idea.id}
                     onClick={() => vote(idea)}
+                    aria-pressed={!!idea.hasVoted}
+                    leading={<ArrowBigUp className={`h-4 w-4 ${idea.hasVoted ? "fill-current" : ""}`} strokeWidth={1.75} />}
                   >
-                    {idea.hasVoted ? "▲ Voted" : "▲ Vote"} · {idea.vote_count}
+                    {idea.hasVoted ? "Voted" : "Vote"}
+                    <motion.span
+                      key={idea.vote_count}
+                      initial={{ y: -10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      className="lamp-numerals ml-1.5 inline-block"
+                    >
+                      {idea.vote_count}
+                    </motion.span>
                   </Button>
                   {canDelete && (
-                    <button onClick={() => remove(idea.id)}
-                      className="ml-auto font-mono text-[10px] uppercase tracking-wider text-text-dim transition hover:text-danger">
+                    <button onClick={() => remove(idea.id)} aria-label={`Delete ${idea.title}`}
+                      className="ml-auto inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2 text-[13px] text-text-dim transition hover:bg-danger/10 hover:text-danger">
+                      <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                       Delete
                     </button>
                   )}
                 </div>
-              </Card>
-            </motion.div>
-          );
-        })}
+              </motion.article>
+            );
+          })}
+        </AnimatePresence>
       </div>
 
       <AnimatePresence>
@@ -174,7 +192,7 @@ function NewIdeaModal({ onClose, onCreated }) {
           <textarea rows={4} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })}
             className={INPUT_CLS} placeholder="How would it work? Why is it good?" />
         </Field>
-        {err && <p className="text-xs text-danger">{err}</p>}
+        {err && <p role="alert" className="text-[13px] text-danger">{err}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button size="sm" variant="ghost" magnetic={false} onClick={onClose}>Cancel</Button>
           <Button size="sm" variant="primary" magnetic={false} loading={busy} onClick={save}>Post idea</Button>

@@ -1,27 +1,38 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import MonumentHero from "@/components/monument/MonumentHero";
-import { useMonument } from "@/hooks/useMonument";
+import { useGSAP } from "@gsap/react";
+import { Check, Crosshair, MessageSquare, SkipForward, Sparkles, Target, Timer, Trophy, X, Zap } from "lucide-react";
+import gsap from "@/lib/gsap-setup";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
+import { PageHeader, StatTile, SegmentedTabs, TiltPanel, EmptyState } from "@/components/lamp";
+import { Flicker } from "@/components/motion/ScrollFx";
 import { arena, challenges, leaderboard, comments as commentsApi } from "@/lib/api";
 import MathRender from "@/components/math/MathRender";
 
-function getDiffBadgeStyle(d) {
-  const key = (d || "medium").toLowerCase();
-  const map = {
-    easy: { background: "rgba(45,212,191,0.15)", color: "#2dd4bf", border: "1px solid rgba(45,212,191,0.3)" },
-    medium: { background: "rgba(251,191,36,0.15)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)" },
-    hard: { background: "rgba(248,113,113,0.15)", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" },
-    extreme: { background: "rgba(110,231,255,0.15)", color: "#6ee7ff", border: "1px solid rgba(110,231,255,0.3)" },
-  };
-  return { clipPath: "var(--clip-para)", padding: "0.25rem 0.85rem", ...map[key] || map.medium };
+const ICON = { strokeWidth: 1.75 };
+const DIFFICULTIES = ["All", "Easy", "Medium", "Hard", "Extreme"];
+const TIME_LIMIT = { easy: 120, medium: 180, hard: 300, extreme: 600 };
+
+// Difficulty reads as a temperature: cool teal for easy, the lamp for
+// medium, warm red for hard, violet ink for extreme.
+const DIFF_TONE = {
+  easy: "border-success/30 bg-success/10 text-success",
+  medium: "border-primary/30 bg-primary/10 text-primary",
+  hard: "border-danger/30 bg-danger/10 text-danger",
+  extreme: "border-secondary/35 bg-secondary/12 text-secondary",
+};
+/** Status colour as a literal GSAP can tween (it can't read var()). */
+function tone(name, alpha) {
+  const raw = window.getComputedStyle(document.documentElement).getPropertyValue(`--color-${name}`).trim();
+  return `rgba(${raw.split(/\s+/).join(",") || "128,128,128"},${alpha})`;
+}
+
+function diffTone(d) {
+  return DIFF_TONE[(d || "medium").toLowerCase()] || DIFF_TONE.medium;
 }
 
 export default function ArenaPage() {
-  useMonument("desert");
   const [challenge, setChallenge] = useState(null);
   const [weeklyBoard, setWeeklyBoard] = useState([]);
   const [arenaStats, setArenaStats] = useState(null);
@@ -38,6 +49,7 @@ export default function ArenaPage() {
   const [commentLoading, setCommentLoading] = useState(false);
   const [aiAsking, setAiAsking] = useState(false);
   const [noMore, setNoMore] = useState(false);
+  const stage = useRef(null);
 
   // Load a random challenge automatically
   const loadRandomChallenge = async (diff) => {
@@ -152,285 +164,337 @@ export default function ArenaPage() {
     loadRandomChallenge(d);
   };
 
+  // ── Motion ─────────────────────────────────────────────────────
+  // New challenge: the card flips up off the desk and its options
+  // deal in one after another.
+  useGSAP(() => {
+    if (!challenge || loading) return;
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.timeline({ defaults: { ease: "expo.out" } })
+        .from("[data-card]", { rotateX: -18, y: 40, autoAlpha: 0, transformPerspective: 1100, transformOrigin: "50% 100%", duration: 0.9 })
+        .from("[data-option]", { x: -24, autoAlpha: 0, duration: 0.6, stagger: 0.07 }, 0.25);
+    });
+    return () => mm.revert();
+  }, { scope: stage, dependencies: [challenge?.id, loading], revertOnUpdate: true });
+
+  // Verdict: a correct answer bursts lamp sparks out of the verdict and
+  // pulses the card's border green; a wrong one shakes the card on its
+  // hinge and flashes the border red.
+  useGSAP(() => {
+    if (!result || result.error) return;
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const card = stage.current?.querySelector("[data-card]");
+      const tl = gsap.timeline();
+      if (result.correct) {
+        const sparks = gsap.utils.toArray("[data-spark]");
+        tl.fromTo("[data-verdict]", { scale: 0.6, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.7, ease: "back.out(2.4)" })
+          .fromTo(sparks,
+            { x: 0, y: 0, scale: 1, autoAlpha: 1 },
+            {
+              x: (i) => Math.cos((i / sparks.length) * Math.PI * 2) * gsap.utils.random(70, 150),
+              y: (i) => Math.sin((i / sparks.length) * Math.PI * 2) * gsap.utils.random(40, 90),
+              scale: 0, autoAlpha: 0, duration: 1.1, ease: "expo.out", stagger: 0.01,
+            }, 0.05)
+          .fromTo(card, { boxShadow: `0 0 0 1px ${tone("success", 0.9)}, 0 0 60px -10px ${tone("success", 0.6)}` },
+            { boxShadow: `0 0 0 1px ${tone("success", 0)}, 0 0 0px 0px ${tone("success", 0)}`, duration: 1.4, ease: "power2.out", clearProps: "boxShadow" }, 0)
+          .from("[data-xp]", { y: 16, autoAlpha: 0, duration: 0.6, ease: "back.out(3)" }, 0.3);
+      } else {
+        tl.to(card, {
+          keyframes: { x: [0, -14, 12, -9, 7, -4, 0], rotate: [0, -0.6, 0.5, -0.3, 0.2, 0, 0] },
+          duration: 0.6, ease: "power1.inOut",
+        })
+          .fromTo(card, { boxShadow: `0 0 0 1px ${tone("danger", 0.9)}, 0 0 50px -12px ${tone("danger", 0.6)}` },
+            { boxShadow: `0 0 0 1px ${tone("danger", 0)}, 0 0 0px 0px ${tone("danger", 0)}`, duration: 1.2, ease: "power2.out", clearProps: "boxShadow" }, 0)
+          .fromTo("[data-verdict]", { y: -10, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.5, ease: "power3.out" }, 0.1)
+          .from("[data-reveal-answer]", { y: 14, autoAlpha: 0, duration: 0.6, ease: "power3.out" }, 0.4);
+      }
+      tl.from("[data-solution]", { y: 14, autoAlpha: 0, duration: 0.6, ease: "power3.out" }, 0.55);
+    });
+    return () => mm.revert();
+  }, { scope: stage, dependencies: [result], revertOnUpdate: true });
+
+  const totalSecs = challenge ? TIME_LIMIT[(challenge.difficulty || "medium").toLowerCase()] || 180 : 1;
+  const timeShare = Math.max(0, Math.min(1, timer / totalSecs));
+  const accuracy = Number.parseFloat(arenaStats?.accuracy || 0) || 0;
+
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="desert" intensity={0.18} />
+    <div className="pb-16">
+      <PageHeader
+        context="Challenge arena"
+        title="The *arena*"
+        description="Random challenges, one at a time. Solve them against the clock, earn points, climb the weekly board."
+      >
+        <SegmentedTabs
+          aria-label="Difficulty"
+          items={DIFFICULTIES.map((d) => ({ value: d, label: d }))}
+          value={difficulty}
+          onChange={handleDifficultyChange}
+        />
+      </PageHeader>
 
-      {/* Ambient math glyphs — desert-themed (warning/gold tint) to
-          match the page's monument backdrop. Same visual signature
-          as auth + dashboard + events; the family of decoration
-          binds every surface in the app together. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
-        <span className="math-text absolute left-[4%] top-[10%] text-[9rem] text-warning/[0.04]">∂</span>
-        <span className="math-text absolute right-[6%] top-[18%] text-[8rem] text-white/[0.03]">θ</span>
-        <span className="math-text absolute left-[12%] top-[62%] text-[6rem] text-white/[0.03]">∮</span>
-        <span className="math-text absolute right-[8%] bottom-[12%] text-[7rem] text-primary/[0.04]">Δ</span>
-        <span className="math-text absolute left-[46%] top-[42%] text-[5rem] text-white/[0.025]">ξ</span>
-      </div>
+      {arenaStats && (
+        <section data-stagger="fog" className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <StatTile label="Attempts" value={Number(arenaStats.total || 0)} icon={Crosshair} />
+          <StatTile label="Correct" value={Number(arenaStats.correct || 0)} icon={Check} tone="good" sub="answers that landed" />
+          <StatTile label="Total XP" value={Number(arenaStats.totalXP || 0)} icon={Zap} tone="lamp" sub="earned in the arena" />
+          <StatTile label="Accuracy" value={accuracy} suffix="%" icon={Target} />
+        </section>
+      )}
 
-      <div className="relative z-10 space-y-10 pb-16">
-        <MonumentHero
-          monument="desert"
-          title="The Arena"
-          subtitle="Challenge Zone"
-          description="Random challenges. Solve them. Earn points. Climb the leaderboard."
-        >
-          {arenaStats && (
-            <div className="flex flex-wrap justify-center gap-6">
-              <div className="text-center">
-                <p className="math-text text-2xl font-bold text-white">{arenaStats.total || 0}</p>
-                <p className="font-mono text-[10px] text-text-dim">Attempts</p>
-              </div>
-              <div className="text-center">
-                <p className="math-text text-2xl font-bold text-success">{arenaStats.correct || 0}</p>
-                <p className="font-mono text-[10px] text-text-dim">Correct</p>
-              </div>
-              <div className="text-center">
-                <p className="math-text text-2xl font-bold text-primary">{arenaStats.totalXP || 0}</p>
-                <p className="font-mono text-[10px] text-text-dim">Total XP</p>
-              </div>
-              <div className="text-center">
-                <p className="math-text text-2xl font-bold text-warning">{arenaStats.accuracy || 0}%</p>
-                <p className="font-mono text-[10px] text-text-dim">Accuracy</p>
-              </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-8">
+        <div ref={stage} className="min-w-0 [perspective:1400px]">
+          {/* Loading state */}
+          {loading && (
+            <div className="lamp-panel flex min-h-[40vh] items-center justify-center">
+              <Loader variant="orbit" size="lg" label="Loading challenge..." />
             </div>
           )}
-        </MonumentHero>
 
-        {/* Difficulty filter — stacks label above buttons on mobile
-           so the label + 5 pills don't wrap awkwardly on ~375px. */}
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-2 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-3">
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim">Difficulty:</span>
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
-            {["All", "Easy", "Medium", "Hard", "Extreme"].map((d) => (
-              <Button
-                key={d}
-                variant={difficulty === d ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => handleDifficultyChange(d)}
-              >
-                {d}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-8 xl:grid-cols-[1fr_340px]">
-          <div>
-            {/* Loading state */}
-            {loading && (
-              <div className="flex min-h-[40vh] items-center justify-center">
-                <Loader variant="orbit" size="lg" label="Loading challenge..." />
-              </div>
-            )}
-
-            {/* No more challenges */}
-            {!loading && noMore && (
-              <div className="py-16 text-center">
-                <svg
-                  aria-hidden="true"
-                  className="mx-auto h-14 w-14 text-text-dim/50"
-                  viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth={1.4}
-                  strokeLinecap="round" strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <circle cx="12" cy="12" r="5" />
-                  <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-                </svg>
-                <p className="mt-4 text-lg text-text-muted">No more challenges available</p>
-                <p className="mt-2 text-sm text-text-dim">You've solved them all or none match this difficulty. Check back later!</p>
-                <Button variant="secondary" className="mt-6" onClick={() => handleDifficultyChange("All")}>
-                  Try All Difficulties
+          {/* No more challenges */}
+          {!loading && noMore && (
+            <EmptyState
+              title="No more challenges available"
+              body="You've solved them all or none match this difficulty. Try every difficulty, or check back later."
+              action={(
+                <Button variant="secondary" onClick={() => handleDifficultyChange("All")}>
+                  Try all difficulties
                 </Button>
-              </div>
-            )}
+              )}
+            />
+          )}
 
-            {/* Active Challenge */}
-            {!loading && challenge && (
-              <motion.section
-                key={challenge.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mx-auto max-w-3xl"
-              >
-                <Card variant="glow">
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block font-mono text-[10px] uppercase" style={getDiffBadgeStyle(challenge.difficulty)}>
-                        {challenge.difficulty || "Medium"}
+          {/* Active Challenge */}
+          {!loading && challenge && (
+            <section key={challenge.id}>
+              <TiltPanel data-card lit tilt={!!result} className="p-5 sm:p-8">
+                {/* Header */}
+                <div className="relative flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full border px-2.5 py-1 text-[12px] font-medium capitalize ${diffTone(challenge.difficulty)}`}>
+                      {challenge.difficulty || "Medium"}
+                    </span>
+                    <span className="text-[13px] tabular-nums text-text-muted">{challenge.points || 50} pts</span>
+                    {!result && timer > 0 && (
+                      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px] font-medium tabular-nums ${
+                        timer <= 30 ? "animate-pulse border-danger/40 bg-danger/10 text-danger" : timer <= 60 ? "border-warning/30 bg-warning/10 text-warning" : "border-[rgb(var(--rule))] text-text-muted"
+                      }`}>
+                        <Timer className="h-3.5 w-3.5" aria-hidden="true" {...ICON} />
+                        {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, "0")}
                       </span>
-                      <span className="math-text text-[11px] text-primary">{challenge.points || 50} pts</span>
-                      {!result && timer > 0 && (
-                        <span className={`math-text rounded-full border px-3 py-0.5 text-xs font-bold ${
-                          timer <= 30 ? "animate-pulse border-danger/40 bg-danger/10 text-danger" : timer <= 60 ? "border-warning/30 bg-warning/10 text-warning" : "border-line/20 bg-white/5 text-text-muted"
-                        }`}>
-                          {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, "0")}
-                        </span>
-                      )}
-                      {!result && timer === 0 && (
-                        <span className="math-text rounded-full border border-danger/40 bg-danger/10 px-3 py-0.5 text-xs font-bold text-danger">
-                          Time's up!
-                        </span>
-                      )}
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={handleNext}>
-                      Skip
-                    </Button>
+                    )}
+                    {!result && timer === 0 && (
+                      <span className="rounded-full border border-danger/40 bg-danger/10 px-2.5 py-1 text-[13px] font-medium text-danger">
+                        Time's up!
+                      </span>
+                    )}
                   </div>
+                  <Button variant="ghost" size="sm" onClick={handleNext} leading={<SkipForward className="h-3.5 w-3.5" {...ICON} />}>
+                    Skip
+                  </Button>
+                </div>
 
-                  {/* Question — math segments rendered via KaTeX so
-                      authored $\int_0^1 x\,dx$ shows as a real integral. */}
-                  <h2 className="mt-4 font-display text-2xl font-bold text-white">{challenge.title}</h2>
-                  <div className="overflow-x-auto">
-                    <MathRender
-                      source={String(challenge.question || "")}
-                      className="mt-3 text-sm leading-7 text-text-muted [&_.katex]:text-text-muted"
+                {/* The clock as a draining rule line. */}
+                {!result && (
+                  <div aria-hidden="true" className="relative mt-4 h-px w-full bg-[rgb(var(--rule))]">
+                    <div
+                      className={`absolute inset-y-0 left-0 w-full origin-left transition-transform duration-1000 ease-linear ${timer <= 30 ? "bg-danger" : "bg-primary"}`}
+                      style={{ transform: `scaleX(${timeShare})` }}
                     />
                   </div>
+                )}
 
-                  {/* Options */}
-                  {!result && (
-                    <div className="mt-6 space-y-3">
-                      {(challenge.options || []).length === 0 && (
-                        <p className="text-sm text-danger">This question has no options. Skipping...</p>
-                      )}
-                      {(challenge.options || []).map((opt, i) => (
+                {/* Question — math segments rendered via KaTeX so
+                    authored $\int_0^1 x\,dx$ shows as a real integral. */}
+                <h2 className="lamp-display relative mt-5 text-2xl leading-tight text-text-primary sm:text-[1.9rem]" style={{ textWrap: "balance" }}>
+                  {challenge.title}
+                </h2>
+                <div className="relative overflow-x-auto">
+                  <MathRender
+                    source={String(challenge.question || "")}
+                    className="mt-3 text-[15px] leading-7 text-text-muted [&_.katex]:text-text-primary"
+                  />
+                </div>
+
+                {/* Options */}
+                {!result && (
+                  <div className="relative mt-6 space-y-2.5">
+                    {(challenge.options || []).length === 0 && (
+                      <p className="text-sm text-danger">This question has no options. Skipping...</p>
+                    )}
+                    {(challenge.options || []).map((opt, i) => {
+                      const picked = selectedAnswer === i;
+                      return (
                         <motion.button
                           key={i}
-                          whileHover={{ scale: 1.01 }}
-                          whileTap={{ scale: 0.98 }}
+                          data-option
+                          whileTap={{ scale: 0.985 }}
                           onClick={() => setSelectedAnswer(i)}
-                          className={`w-full border px-4 py-3 text-left text-sm transition-all duration-200 ${
-                            selectedAnswer === i
-                              ? "border-primary/40 bg-primary/15 text-white shadow-[0_0_16px_var(--page-glow)]"
-                              : "border-line/15 bg-white/[0.03] text-text-muted hover:border-primary/25 hover:text-white"
+                          aria-pressed={picked}
+                          className={`flex min-h-[52px] w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm transition-colors duration-200 ${
+                            picked
+                              ? "border-primary/50 bg-primary/10 text-text-primary shadow-[0_8px_28px_-14px_rgb(var(--lamp)/0.9)]"
+                              : "border-[rgb(var(--rule))] bg-obsidian/30 text-text-muted hover:border-primary/30 hover:text-text-primary"
                           }`}
-                          style={{ clipPath: "var(--clip-notch)" }}
                         >
-                          <span className="math-text mr-3 text-xs text-primary">{String.fromCharCode(65 + i)}.</span>
-                          <MathRender source={String(opt || "")} className="inline break-words [&_.katex]:text-current [&_.katex]:whitespace-normal" />
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold transition-colors ${
+                            picked ? "bg-primary text-[rgb(var(--color-obsidian))]" : "bg-white/[0.05] text-text-dim"
+                          }`}>
+                            {String.fromCharCode(65 + i)}
+                          </span>
+                          <MathRender source={String(opt || "")} className="inline min-w-0 break-words [&_.katex]:text-current [&_.katex]:whitespace-normal" />
                         </motion.button>
-                      ))}
-                      <Button
-                        onClick={handleSubmit}
-                        loading={submitting}
-                        disabled={selectedAnswer === null || (challenge.options || []).length === 0}
-                        className="mt-4 w-full justify-center"
-                      >
-                        Submit Answer
-                      </Button>
-                    </div>
-                  )}
+                      );
+                    })}
+                    <Button
+                      onClick={handleSubmit}
+                      loading={submitting}
+                      disabled={selectedAnswer === null || (challenge.options || []).length === 0}
+                      size="lg"
+                      className="mt-4 w-full justify-center"
+                    >
+                      Submit answer
+                    </Button>
+                  </div>
+                )}
 
-                  {/* Result */}
-                  {result && !result.error && (
-                    <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="mt-6 space-y-4">
-                      <div className={`border px-5 py-4 text-center ${
-                        result.correct ? "border-success/30 bg-success/10" : "border-danger/30 bg-danger/10"
-                      }`} style={{ clipPath: "var(--clip-notch)" }}>
-                        <p className={`font-display text-2xl font-bold ${result.correct ? "text-success" : "text-danger"}`}>
+                {/* Result */}
+                {result && !result.error && (
+                  <div className="relative mt-6 space-y-4">
+                    <div
+                      data-verdict
+                      className={`relative flex items-center gap-4 rounded-2xl border px-5 py-4 ${
+                        result.correct ? "border-success/35 bg-success/10" : "border-danger/35 bg-danger/10"
+                      }`}
+                    >
+                      {result.correct && (
+                        <span aria-hidden="true" className="pointer-events-none absolute left-9 top-1/2">
+                          {Array.from({ length: 14 }).map((_, i) => (
+                            <span
+                              key={i}
+                              data-spark
+                              className={`absolute h-1.5 w-1.5 rounded-full opacity-0 ${i % 3 === 0 ? "bg-success" : "bg-primary"}`}
+                            />
+                          ))}
+                        </span>
+                      )}
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                        result.correct ? "bg-success/20 text-success" : "bg-danger/20 text-danger"
+                      }`}>
+                        {result.correct ? <Check className="h-5 w-5" {...ICON} /> : <X className="h-5 w-5" {...ICON} />}
+                      </span>
+                      <div className="min-w-0">
+                        <p className={`lamp-display text-2xl ${result.correct ? "text-success" : "text-danger"}`}>
                           {result.correct ? "Correct!" : "Incorrect"}
                         </p>
-                        {result.correct && result.xpEarned > 0 && <motion.p initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }} className="math-text mt-1 text-sm text-success">+{result.xpEarned} XP earned</motion.p>}
-                        {!result.correct && result.xpEarned < 0 && <motion.p initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }} className="math-text mt-1 text-sm text-danger">{result.xpEarned} XP penalty</motion.p>}
-                        {result.alreadySolved && <p className="mt-1 text-xs text-text-dim">Already solved before</p>}
+                        {result.correct && result.xpEarned > 0 && <p data-xp className="mt-0.5 text-sm tabular-nums text-success">+{result.xpEarned} XP earned</p>}
+                        {!result.correct && result.xpEarned < 0 && <p data-xp className="mt-0.5 text-sm tabular-nums text-danger">{result.xpEarned} XP penalty</p>}
+                        {result.alreadySolved && <p className="mt-0.5 text-[13px] text-text-dim">Already solved before</p>}
                       </div>
-                      {/* Show correct answer */}
-                      {/* The answer comes from the SUBMIT response, not from the
-                          challenge payload. The question endpoints no longer ship
-                          correct_index — it was readable in the Network tab before
-                          the student had answered. */}
-                      {!result.correct && challenge.options && result.correctIndex != null && (
-                        <div className="rounded-xl border border-success/15 bg-success/5 px-4 py-3">
-                          <p className="font-mono text-[10px] uppercase tracking-wider text-success">Correct Answer</p>
-                          <p className="mt-1 text-sm text-white">
-                            <span className="math-text mr-2 text-success">{String.fromCharCode(65 + result.correctIndex)}.</span>
-                            {challenge.options[result.correctIndex]}
-                          </p>
-                        </div>
-                      )}
-                      {result.solution && (
-                        <div className="rounded-xl border border-line/15 bg-black/15 px-4 py-3">
-                          <p className="font-mono text-[11px] uppercase tracking-wider text-text-dim">Solution</p>
-                          <p className="mt-2 text-sm text-text-muted whitespace-pre-wrap">{result.solution}</p>
-                        </div>
-                      )}
-                      <Button variant="secondary" onClick={handleNext} disabled={cooldown > 0} className="w-full justify-center">
-                        {cooldown > 0 ? `Next Challenge (${cooldown}s)` : "Next Challenge"}
-                      </Button>
-                    </motion.div>
-                  )}
-                  {result?.error && (
-                    <div className="mt-4 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-                      {result.error}
                     </div>
-                  )}
-
-                  {/* Discussion */}
-                  <div className="mt-6 border-t border-line/15 pt-5">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim">Discussion</p>
-                    <div className="mt-3 max-h-48 space-y-2 overflow-y-auto">
-                      {commentsList.length === 0 && <p className="text-xs text-text-dim">No comments yet. Be the first!</p>}
-                      {commentsList.map((c) => (
-                        <div key={c.id} className={`rounded-lg px-3 py-2 text-xs ${c.is_ai ? "border border-primary/15 bg-primary/5 text-text-muted" : "bg-white/[0.03] text-text-muted"}`}>
-                          <span className="font-medium text-white">{c.user_name}</span>
-                          {c.is_ai && <span className="ml-1.5 rounded bg-primary/15 px-1 py-0.5 font-mono text-[8px] text-primary">AI</span>}
-                          <span className="ml-2 font-mono text-[9px] text-text-dim">{c.created_at ? new Date(c.created_at).toLocaleString() : ""}</span>
-                          <p className="mt-1 whitespace-pre-wrap">{c.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <input type="text" value={commentInput} onChange={(e) => setCommentInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && postComment()}
-                        placeholder="Comment or ask a question..."
-                        className="min-w-0 flex-1 basis-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 text-xs text-white outline-none focus:border-primary/30 sm:basis-auto" />
-                      <Button variant="ghost" size="sm" onClick={postComment} disabled={commentLoading || !commentInput.trim()}>
-                        Post
-                      </Button>
-                      <Button variant="secondary" size="sm" onClick={askAi} disabled={aiAsking || !commentInput.trim()}>
-                        {aiAsking ? "..." : "Ask AI 🐼"}
-                      </Button>
-                    </div>
+                    {/* The answer comes from the SUBMIT response, not from the
+                        challenge payload. The question endpoints no longer ship
+                        correct_index — it was readable in the Network tab before
+                        the student had answered. */}
+                    {!result.correct && challenge.options && result.correctIndex != null && (
+                      <div data-reveal-answer className="rounded-xl border border-success/20 bg-success/[0.06] px-4 py-3">
+                        <p className="text-[13px] font-medium text-success">Correct answer</p>
+                        <p className="mt-1 text-sm text-text-primary">
+                          <span className="mr-2 font-semibold text-success">{String.fromCharCode(65 + result.correctIndex)}.</span>
+                          {challenge.options[result.correctIndex]}
+                        </p>
+                      </div>
+                    )}
+                    {result.solution && (
+                      <div data-solution className="rounded-xl border border-[rgb(var(--rule))] bg-obsidian/30 px-4 py-3">
+                        <p className="text-[13px] font-medium text-text-muted">Solution</p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-muted">{result.solution}</p>
+                      </div>
+                    )}
+                    <Button variant="secondary" onClick={handleNext} disabled={cooldown > 0} size="lg" className="w-full justify-center">
+                      {cooldown > 0 ? `Next challenge (${cooldown}s)` : "Next challenge"}
+                    </Button>
                   </div>
-                </Card>
-              </motion.section>
-            )}
-          </div>
-
-          {/* Leaderboard sidebar */}
-          <motion.aside
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="space-y-6"
-          >
-            <Card variant="solid" className="xl:sticky xl:top-24">
-              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Weekly Leaderboard</p>
-              <h3 className="mt-2 font-display text-xl font-bold text-white">Top Performers</h3>
-              <div className="mt-5 space-y-3">
-                {weeklyBoard.length === 0 && (
-                  <p className="py-4 text-center text-sm text-text-dim">No rankings yet</p>
                 )}
+                {result?.error && (
+                  <div className="relative mt-4 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+                    {result.error}
+                  </div>
+                )}
+
+                {/* Discussion */}
+                <div className="relative mt-7 border-t border-[rgb(var(--rule))] pt-5">
+                  <p className="flex items-center gap-2 text-[13px] font-medium text-text-muted">
+                    <MessageSquare className="h-4 w-4 text-text-dim" aria-hidden="true" {...ICON} />
+                    Discussion
+                  </p>
+                  <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
+                    {commentsList.length === 0 && <p className="text-[13px] text-text-dim">No comments yet. Ask a question or share a hint.</p>}
+                    <AnimatePresence initial={false}>
+                      {commentsList.map((c) => (
+                        <motion.div
+                          key={c.id}
+                          layout
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`rounded-xl px-3 py-2.5 text-[13px] ${c.is_ai ? "border border-secondary/25 bg-secondary/[0.08] text-text-muted" : "bg-white/[0.03] text-text-muted"}`}
+                        >
+                          <span className="font-medium text-text-primary">{c.user_name}</span>
+                          {c.is_ai && <span className="ml-1.5 rounded-md bg-secondary/20 px-1.5 py-0.5 text-[11px] font-medium text-secondary">AI</span>}
+                          <span className="ml-2 text-[12px] text-text-dim">{c.created_at ? new Date(c.created_at).toLocaleString() : ""}</span>
+                          <p className="mt-1 whitespace-pre-wrap leading-5">{c.content}</p>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <input type="text" value={commentInput} onChange={(e) => setCommentInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && postComment()}
+                      placeholder="Comment or ask a question..."
+                      className="h-10 min-w-0 flex-1 basis-full rounded-xl border border-[rgb(var(--rule))] bg-obsidian/40 px-3 text-sm text-text-primary outline-none transition placeholder:text-text-dim focus:border-primary/40 sm:basis-auto" />
+                    <Button variant="ghost" size="sm" onClick={postComment} disabled={commentLoading || !commentInput.trim()}>
+                      Post
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={askAi} disabled={aiAsking || !commentInput.trim()} leading={<Sparkles className="h-3.5 w-3.5" {...ICON} />}>
+                      {aiAsking ? "..." : "Ask AI"}
+                    </Button>
+                  </div>
+                </div>
+              </TiltPanel>
+            </section>
+          )}
+        </div>
+
+        {/* Leaderboard sidebar */}
+        <aside data-reveal="right" className="min-w-0">
+          <section className="lamp-panel p-5 xl:sticky xl:top-24">
+            <Flicker as="h3" className="flex items-center gap-2 text-lg text-text-primary">
+              <Trophy className="h-4 w-4 text-primary" aria-hidden="true" {...ICON} />
+              This week&apos;s top performers
+            </Flicker>
+            {weeklyBoard.length === 0 ? (
+              <p className="mt-4 text-[13px] text-text-dim">No rankings yet. Solve a challenge to open the board.</p>
+            ) : (
+              <ol data-stagger="left" className="mt-4 space-y-1">
                 {weeklyBoard.slice(0, 10).map((player, i) => (
-                  <div key={i} className="flex items-center gap-3 rounded-2xl border border-line/10 bg-black/15 px-4 py-3">
-                    <span className={`math-text flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-                      i === 0 ? "bg-warning/20 text-warning" : i === 1 ? "bg-text-muted/15 text-text-muted" : i === 2 ? "bg-warning/10 text-warning/70" : "bg-white/5 text-text-dim"
+                  <li
+                    key={i}
+                    className={`flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2 ${i === 0 ? "bg-primary/[0.08]" : ""}`}
+                  >
+                    <span className={`lamp-numerals flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${
+                      i === 0 ? "bg-primary text-[rgb(var(--color-obsidian))]" : i < 3 ? "bg-primary/15 text-primary" : "bg-white/[0.05] text-text-dim"
                     }`}>
                       {i + 1}
                     </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{player.name || player.student_name}</p>
-                    </div>
-                    <span className="math-text text-lg font-bold text-primary">{player.weekly_xp || player.xp || 0}</span>
-                  </div>
+                    <p className="min-w-0 flex-1 truncate text-sm text-text-primary">{player.name || player.student_name}</p>
+                    <span className="lamp-numerals text-base text-primary">{player.weekly_xp || player.xp || 0}</span>
+                  </li>
                 ))}
-              </div>
-            </Card>
-          </motion.aside>
-        </div>
+              </ol>
+            )}
+          </section>
+        </aside>
       </div>
     </div>
   );

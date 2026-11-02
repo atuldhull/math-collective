@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { bot } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
+import { RotateCcw, SendHorizontal } from "lucide-react";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
+import PandaMark from "./PandaMark";
 
 // Minimal, safe markdown → HTML renderer for PANDA replies.
 // Order matters:
@@ -23,13 +26,16 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
-function renderMd(text) {
+const LAMP_LINK_CLASS =
+  'text-primary underline decoration-[rgb(var(--lamp)/0.4)] underline-offset-2 break-words hover:decoration-[rgb(var(--lamp))]';
+function renderMd(text, lamp = false) {
+  const linkClass = lamp ? LAMP_LINK_CLASS : LINK_CLASS;
   let html = escapeHtml(text);
   // [label](https://url) — the common case for tool-cited papers.
   html = html.replace(
     /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
     (_, label, url) =>
-      `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${LINK_CLASS}">${label}</a>`,
+      `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${label}</a>`,
   );
   // Bare URLs not already wrapped by the step above. Negative lookbehind
   // via the leading group: only match when the url isn't preceded by `"`
@@ -37,11 +43,13 @@ function renderMd(text) {
   html = html.replace(
     /(^|[^"=])(https?:\/\/[^\s<]+)/g,
     (_, prefix, url) =>
-      `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer" class="${LINK_CLASS}">${url}</a>`,
+      `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${url}</a>`,
   );
   html = html
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-    .replace(/`(.*?)`/g, '<code class="rounded bg-[rgba(0,255,200,0.1)] px-1 py-0.5 font-mono text-[11px] text-[#00FFC8]">$1</code>')
+    .replace(/\*\*(.*?)\*\*/g, lamp ? '<strong class="font-semibold text-text-primary">$1</strong>' : '<strong class="text-white">$1</strong>')
+    .replace(/`(.*?)`/g, lamp
+      ? '<code class="rounded bg-[rgb(var(--lamp)/0.12)] px-1 py-0.5 font-mono text-[12px] text-primary">$1</code>'
+      : '<code class="rounded bg-[rgba(0,255,200,0.1)] px-1 py-0.5 font-mono text-[11px] text-[#00FFC8]">$1</code>')
     .replace(/\n/g, "<br/>");
   return html;
 }
@@ -50,6 +58,7 @@ export default function PandaChatPanel({ open, onClose, launcherRef }) {
   // The /api/bot/chat endpoint requires auth (added during the Phase 8
   // security pass — bot was a public abuse vector against our OpenRouter
   // credits). So we need to know who's logged in to give a useful UX.
+  const lamp    = useIsLamplight();
   const status  = useAuthStore((s) => s.status);
   const isGuest = status === "guest" || status === "error";
 
@@ -123,6 +132,165 @@ export default function PandaChatPanel({ open, onClose, launcherRef }) {
 
   const onKey = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
 
+  // ── Lamplight skin ─────────────────────────────────────────────
+  // Same state and handlers; the panel unfolds from the launcher's corner
+  // (transform-origin bottom right) and each reply settles in like a card
+  // laid on the desk.
+  if (lamp) {
+    const canSend = Boolean(input.trim()) && !loading;
+    return (
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            ref={panelRef}
+            initial={{ opacity: 0, y: 28, scale: 0.9, rotateX: 10 }}
+            animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0 }}
+            exit={{ opacity: 0, y: 24, scale: 0.94 }}
+            transition={{ type: "spring", stiffness: 320, damping: 30 }}
+            role="dialog"
+            aria-label="PANDA math assistant"
+            className="lamp-float-panel fixed rounded-[1.25rem] border border-[rgb(var(--lamp)/0.28)] bg-[rgb(var(--color-surface)/0.94)] bg-[radial-gradient(120%_70%_at_100%_0%,rgb(var(--lamp)/0.12),transparent_55%)] backdrop-blur-xl bottom-[96px] right-3 z-50 flex flex-col overflow-hidden shadow-[0_40px_100px_-30px_rgba(0,0,0,0.85),0_0_60px_-30px_rgb(var(--lamp)/0.6)] sm:bottom-[100px] sm:right-6"
+            style={{
+              width: "min(420px, calc(100vw - 1.5rem))",
+              height: "min(600px, calc(100dvh - 8rem))",
+              transformOrigin: "100% 100%",
+              transformPerspective: 1000,
+              overscrollBehavior: "contain",
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 border-b border-[rgb(var(--rule))] px-4 py-3 sm:px-5">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[rgb(var(--lamp)/0.3)] bg-[rgb(var(--color-obsidian)/0.6)]">
+                <PandaMark size={30} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="lamp-display truncate text-[17px] text-text-primary">Panda</p>
+                <p className="flex items-center gap-1.5 text-[12px] text-text-muted">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inset-0 animate-ping rounded-full bg-success/60" />
+                    <span className="relative h-2 w-2 rounded-full bg-success" />
+                  </span>
+                  Math assistant, online
+                </p>
+              </div>
+              <button
+                onClick={() => setMessages([{ role: "assistant", content: "Clean slate! 🐼 What shall we solve?" }])}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-[13px] text-text-muted transition hover:bg-[rgb(var(--lamp)/0.08)] hover:text-text-primary"
+              >
+                <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                Clear
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-4 sm:px-4" style={{ overscrollBehavior: "contain" }}>
+              {messages.map((msg, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 14, rotateX: -30 }}
+                  animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 26 }}
+                  style={{ transformOrigin: "50% 0%", transformPerspective: 600 }}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start gap-2"}`}
+                >
+                  {msg.role === "assistant" && (
+                    <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[rgb(var(--rule))] bg-[rgb(var(--color-obsidian)/0.5)]">
+                      <PandaMark size={20} blink={false} />
+                    </div>
+                  )}
+                  <div
+                    className={
+                      msg.role === "user"
+                        ? "max-w-[85%] break-words rounded-2xl rounded-br-md border border-[rgb(var(--lamp)/0.3)] bg-[rgb(var(--lamp)/0.14)] px-3.5 py-2.5 text-[14px] leading-relaxed text-text-primary"
+                        : "max-w-[85%] break-words rounded-2xl rounded-bl-md border border-[rgb(var(--rule))] bg-panel/80 px-3.5 py-2.5 text-[14px] leading-relaxed text-text-muted"
+                    }
+                    dangerouslySetInnerHTML={{ __html: renderMd(msg.content, true) }}
+                  />
+                </motion.div>
+              ))}
+
+              {/* Typing indicator — the asymptote's dot, three times over */}
+              {loading && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-2" aria-live="polite">
+                  <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[rgb(var(--rule))] bg-[rgb(var(--color-obsidian)/0.5)]">
+                    <PandaMark size={20} blink={false} />
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-[rgb(var(--rule))] bg-panel/80 px-4 py-3">
+                    <span className="sr-only">Panda is thinking</span>
+                    {[0, 0.15, 0.3].map((d, idx) => (
+                      <motion.span key={idx} animate={{ y: [0, -4, 0], opacity: [0.35, 1, 0.35] }}
+                        transition={{ duration: 0.8, repeat: Infinity, delay: d }}
+                        className="h-1.5 w-1.5 rounded-full bg-primary"
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </div>
+
+            {!isGuest && messages.length <= 1 && (
+              <div className="flex flex-wrap gap-1.5 border-t border-[rgb(var(--rule))] px-3 py-2.5 sm:px-4">
+                {["Explain derivatives", "What is a matrix?", "Probability basics"].map((q, i) => (
+                  <motion.button
+                    key={q}
+                    onClick={() => setInput(q)}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 + i * 0.06 }}
+                    className="min-h-9 rounded-full border border-[rgb(var(--rule))] bg-surface/60 px-3 text-[12px] text-text-muted transition hover:border-[rgb(var(--lamp)/0.45)] hover:text-text-primary"
+                  >
+                    {q}
+                  </motion.button>
+                ))}
+              </div>
+            )}
+
+            <div className="border-t border-[rgb(var(--rule))] px-3 py-3 sm:px-4">
+              {isGuest ? (
+                <div className="flex flex-col items-center gap-2.5 py-2 text-center">
+                  <p className="text-[13px] text-text-muted">Sign in to chat with Panda.</p>
+                  <Link
+                    to="/login"
+                    className="inline-flex h-10 items-center rounded-xl bg-primary px-4 text-[13px] font-semibold text-[rgb(var(--color-obsidian))] shadow-[0_10px_30px_-12px_rgb(var(--lamp)/0.75)] transition hover:brightness-110"
+                  >
+                    Sign in
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex items-end gap-2">
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={onKey}
+                    placeholder="Ask Panda about any maths problem"
+                    aria-label="Message Panda"
+                    rows={1}
+                    className="max-h-24 min-h-[44px] flex-1 resize-none rounded-xl border border-[rgb(var(--rule))] bg-[rgb(var(--color-obsidian)/0.6)] px-3.5 py-2.5 text-[14px] text-text-primary outline-none transition placeholder:text-text-dim focus:border-[rgb(var(--lamp)/0.5)] focus:shadow-[0_0_0_3px_rgb(var(--lamp)/0.12)]"
+                  />
+                  <motion.button
+                    onClick={send}
+                    disabled={!canSend}
+                    whileTap={canSend ? { scale: 0.9 } : undefined}
+                    aria-label="Send"
+                    className={
+                      "grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-[background-color,color,box-shadow] duration-300 disabled:cursor-not-allowed " +
+                      (canSend
+                        ? "bg-primary text-[rgb(var(--color-obsidian))] shadow-[0_10px_26px_-10px_rgb(var(--lamp)/0.85)]"
+                        : "bg-surface/70 text-text-dim")
+                    }
+                  >
+                    <SendHorizontal className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
+                  </motion.button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
   return (
     <AnimatePresence>
       {open && (
@@ -132,7 +300,7 @@ export default function PandaChatPanel({ open, onClose, launcherRef }) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 300, damping: 28 }}
-          className="fixed bottom-[96px] right-3 z-50 flex flex-col overflow-hidden sm:bottom-[100px] sm:right-6"
+          className="lamp-float-panel fixed bottom-[96px] right-3 z-50 flex flex-col overflow-hidden sm:bottom-[100px] sm:right-6"
           style={{
             // Dynamic viewport units (100dvh) subtract the mobile
             // browser's address bar / bottom chrome, so the chat panel

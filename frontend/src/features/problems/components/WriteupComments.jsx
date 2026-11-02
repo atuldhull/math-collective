@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown, MessageCircle, Plus } from "lucide-react";
 import { writeupComments as commentsApi } from "@/lib/api";
 
 const MAX_BODY = 2000;
@@ -113,20 +114,16 @@ export default function WriteupComments({ writeupId, initialCount = 0 }) {
   }, []);
 
   return (
-    <div className="mt-4 border-t border-line/10 pt-3">
+    <div className="mt-4 border-t border-[rgb(var(--rule))] pt-3">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="-my-1 flex items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-wider text-text-muted transition hover:text-white"
+        className="-my-1 inline-flex min-h-[40px] items-center gap-2 py-2 text-[13px] font-medium text-text-muted transition hover:text-text-primary"
         aria-expanded={open}
       >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-        <span>Comments · {count}</span>
-        <svg className={"h-3 w-3 transition " + (open ? "rotate-180" : "")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        <MessageCircle className="h-4 w-4" strokeWidth={1.75} />
+        <span>Comments <span className="tabular-nums text-text-dim">{count}</span></span>
+        <ChevronDown className={"h-3.5 w-3.5 transition-transform duration-300 " + (open ? "rotate-180" : "")} strokeWidth={1.75} />
       </button>
 
       <AnimatePresence initial={false}>
@@ -144,12 +141,22 @@ export default function WriteupComments({ writeupId, initialCount = 0 }) {
               {!loading && !error && comments.length === 0 && (
                 <p className="text-xs text-text-dim">No comments yet. Be the first to chime in.</p>
               )}
-              {comments.map((c) => (
-                <CommentRow key={c.id} c={c} onDelete={() => onDelete(c.id)} onEdit={onEdit} />
-              ))}
+              <AnimatePresence initial={false}>
+                {comments.map((c, i) => (
+                  <motion.div
+                    key={c.id}
+                    layout
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.35, delay: Math.min(i * 0.04, 0.3), ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <CommentRow c={c} onDelete={() => onDelete(c.id)} onEdit={onEdit} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
 
               {composeOn ? (
-                <form onSubmit={onPost} className="rounded-lg border border-primary/25 bg-primary/[0.04] p-3">
+                <form onSubmit={onPost} className="rounded-xl border border-primary/25 bg-primary/[0.05] p-3">
                   <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
@@ -157,23 +164,23 @@ export default function WriteupComments({ writeupId, initialCount = 0 }) {
                     maxLength={MAX_BODY}
                     autoFocus
                     placeholder="Share your thought, a follow-up question, or a gotcha you spotted…"
-                    className="w-full resize-y rounded-md border border-line/15 bg-white/[0.03] px-3 py-2 text-sm text-text-soft placeholder:text-text-dim focus:border-primary/50 focus:outline-none"
+                    className="w-full resize-y rounded-xl border border-[rgb(var(--rule))] bg-obsidian/50 px-3 py-2 text-sm leading-6 text-text-primary placeholder:text-text-dim focus:border-primary/50 focus:outline-none"
                   />
                   <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
-                    <span className="mr-auto font-mono text-[10px] text-text-dim">
+                    <span className="mr-auto text-xs tabular-nums text-text-dim">
                       {draft.length}/{MAX_BODY}
                     </span>
                     <button
                       type="button"
                       onClick={() => { setComposeOn(false); setDraft(""); setError(null); }}
-                      className="rounded-md border border-line/20 bg-white/[0.04] px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:text-white"
+                      className="inline-flex min-h-[36px] items-center rounded-xl px-3 text-[13px] font-medium text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={posting || !draft.trim()}
-                      className="rounded-md border border-primary/40 bg-primary/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50"
+                      className="inline-flex min-h-[36px] items-center rounded-xl bg-primary px-3.5 text-[13px] font-semibold text-[rgb(var(--color-obsidian))] transition hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
                     >
                       {posting ? "Posting…" : "Post comment"}
                     </button>
@@ -183,9 +190,10 @@ export default function WriteupComments({ writeupId, initialCount = 0 }) {
                 <button
                   type="button"
                   onClick={() => setComposeOn(true)}
-                  className="rounded-md border border-line/20 bg-white/[0.04] px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:border-primary/30 hover:text-white"
+                  className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-[rgb(var(--rule))] px-3 text-[13px] font-medium text-text-muted transition hover:border-primary/30 hover:text-text-primary"
                 >
-                  + Add comment
+                  <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Add comment
                 </button>
               )}
             </div>
@@ -219,31 +227,31 @@ function CommentRow({ c, onDelete, onEdit }) {
 
   if (c.is_deleted) {
     return (
-      <div className="rounded-lg border border-dashed border-line/10 bg-white/[0.015] px-3 py-2 text-xs italic text-text-dim">
+      <div className="rounded-xl border border-dashed border-[rgb(var(--rule))] px-3 py-2 text-xs italic text-text-dim">
         [comment removed]
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-line/10 bg-white/[0.025] p-3">
+    <div className="rounded-xl border-l-2 border-secondary/40 bg-white/[0.025] py-2.5 pl-3.5 pr-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Avatar name={c.author_name} avatar_url={c.author_avatar} />
-          <span className="truncate text-xs text-text-muted">
+          <span className="truncate text-[13px] font-medium text-text-primary">
             {c.is_mine ? "You" : c.author_name}
           </span>
-          <span className="font-mono text-[10px] text-text-dim">
-            · {new Date(c.created_at).toLocaleDateString()}
+          <span className="text-xs text-text-dim">
+            {new Date(c.created_at).toLocaleDateString()}
           </span>
-          {c.edited && <span className="font-mono text-[10px] text-text-dim">· edited</span>}
+          {c.edited && <span className="text-xs text-text-dim">(edited)</span>}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {c.can_edit && !editing && (
             <button
               type="button"
               onClick={() => { setDraft(c.body || ""); setEditing(true); }}
-              className="rounded-md border border-line/15 bg-white/[0.04] px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:text-white"
+              className="min-h-[32px] rounded-lg px-2 text-xs font-medium text-text-muted transition hover:bg-white/[0.05] hover:text-text-primary"
             >
               Edit
             </button>
@@ -252,7 +260,7 @@ function CommentRow({ c, onDelete, onEdit }) {
             <button
               type="button"
               onClick={onDelete}
-              className="rounded-md border border-danger/30 bg-danger/8 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-danger transition hover:bg-danger/15"
+              className="min-h-[32px] rounded-lg px-2 text-xs font-medium text-danger transition hover:bg-danger/10"
             >
               Remove
             </button>
@@ -268,27 +276,27 @@ function CommentRow({ c, onDelete, onEdit }) {
             rows={3}
             maxLength={MAX_BODY}
             autoFocus
-            className="w-full resize-y rounded-md border border-line/15 bg-white/[0.03] px-3 py-2 text-sm text-text-soft focus:border-primary/50 focus:outline-none"
+            className="w-full resize-y rounded-xl border border-[rgb(var(--rule))] bg-obsidian/50 px-3 py-2 text-sm leading-6 text-text-primary placeholder:text-text-dim focus:border-primary/50 focus:outline-none"
           />
           <div className="mt-2 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="rounded-md border border-line/20 bg-white/[0.04] px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:text-white"
+              className="inline-flex min-h-[36px] items-center rounded-xl px-3 text-[13px] font-medium text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md border border-primary/40 bg-primary/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50"
+              className="inline-flex min-h-[36px] items-center rounded-xl bg-primary px-3.5 text-[13px] font-semibold text-[rgb(var(--color-obsidian))] transition hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </form>
       ) : (
-        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-text-soft">{c.body}</p>
+        <p className="mt-1.5 max-w-[68ch] whitespace-pre-wrap break-words text-sm leading-6 text-text-primary/85">{c.body}</p>
       )}
     </div>
   );
@@ -298,7 +306,7 @@ function Avatar({ name, avatar_url }) {
   const initial = (name || "?").trim().charAt(0).toUpperCase();
   return (
     <div
-      className="flex h-6 w-6 items-center justify-center rounded-full border border-bg/60 bg-white/[0.08] font-mono text-[10px] text-text-soft"
+      className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary/25 text-[11px] font-semibold text-text-primary"
       title={name}
     >
       {avatar_url ? <img src={avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : initial}

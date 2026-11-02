@@ -14,6 +14,7 @@ import CityBg from "./monument/CityBg";
 import AbyssBg from "./monument/AbyssBg";
 import SkyBg from "./monument/SkyBg";
 import MagmaBg from "./monument/MagmaBg";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 const monumentMap = {
   desert: DesertBg,
@@ -26,7 +27,7 @@ const monumentMap = {
   magma: MagmaBg,
 };
 
-export default function MonumentBackground({ monument, intensity = 0.15 }) {
+function MonumentBackgroundScene({ monument, intensity = 0.15 }) {
   ensureKeyframes();
 
   const Scene = monumentMap[monument];
@@ -50,4 +51,10 @@ export default function MonumentBackground({ monument, intensity = 0.15 }) {
       </div>
     </div>
   );
+}
+
+// Off the home page the Lamplight shell paints one shared backdrop
+// (LampBackdrop), so the per-page scenes step aside there.
+export default function MonumentBackground(props) {
+  return useIsLamplight() ? null : <MonumentBackgroundScene {...props} />;
 }

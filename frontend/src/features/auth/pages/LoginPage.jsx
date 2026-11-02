@@ -1,8 +1,7 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { ArrowRight, KeyRound, LogIn, MailCheck, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import InputField from "@/components/ui/InputField";
 import { useAuthStore } from "@/store/auth-store";
@@ -10,9 +9,12 @@ import { auth } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/apiError";
 import { dashboardForRole } from "@/lib/roles";
 import CodeSignIn from "@/features/auth/components/CodeSignIn";
+import { AuthHeading, AuthNotice } from "@/features/auth/components/AuthChrome";
+
+const EASE = [0.16, 1, 0.3, 1];
+const field = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } } };
 
 export default function LoginPage() {
-  useMonument("city");
   const navigate = useNavigate();
   const location = useLocation();
   // If ProtectedRoute bounced a guest here, go back there after login.
@@ -47,6 +49,7 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotMsg, setForgotMsg] = useState(null);
   const [forgotLoading, setForgotLoading] = useState(false);
+  const reduced = useReducedMotion();
 
   const handleForgot = async (e) => {
     e.preventDefault();
@@ -93,162 +96,154 @@ export default function LoginPage() {
     }
   };
 
+  // The two ways in swap like turning a page: one slides off, the
+  // other arrives from the opposite side.
+  const swapDir = mode === "password" ? 1 : -1;
+  const swap = {
+    initial: (d) => (reduced ? { opacity: 0 } : { opacity: 0, x: 28 * d, filter: "blur(4px)" }),
+    animate: { opacity: 1, x: 0, filter: "blur(0px)", transition: { duration: 0.45, ease: EASE } },
+    exit: (d) => (reduced ? { opacity: 0 } : { opacity: 0, x: -28 * d, filter: "blur(4px)", transition: { duration: 0.2 } }),
+  };
+  const icon = (Icon) => <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />;
+
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="city" intensity={0.35} />
+    <div className="relative">
+      <AuthHeading icon={LogIn} kicker="Welcome back" title="Sign in to your account">
+        Continue your math journey. Your challenges are waiting.
+      </AuthHeading>
 
-      {/* Ambient math glyphs scattered behind the card — adds depth so
-          the form doesn't read as a single floating panel. Each glyph
-          renders very low-opacity (0.04-0.06) so it's atmosphere, not
-          content. `pointer-events-none` so they never block clicks. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
-        <span className="math-text absolute left-[4%] top-[8%] text-[8rem] text-white/[0.035]">∫</span>
-        <span className="math-text absolute right-[6%] top-[14%] text-[10rem] text-primary/[0.05]">π</span>
-        <span className="math-text absolute left-[12%] top-[58%] text-[6rem] text-white/[0.035]">Σ</span>
-        <span className="math-text absolute right-[10%] bottom-[10%] text-[7rem] text-secondary/[0.05]">∞</span>
-        <span className="math-text absolute left-[40%] top-[35%] text-[5rem] text-white/[0.03]">√</span>
-        <span className="math-text absolute right-[35%] top-[68%] text-[6rem] text-white/[0.03]">∂</span>
-      </div>
+      <AnimatePresence initial={false}>
+        {error && (
+          <AuthNotice key="err" tone="error" className="mb-5">{error}</AuthNotice>
+        )}
+      </AnimatePresence>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-10 w-full"
-      >
-        <div
-          className="relative overflow-hidden border border-line/20 bg-surface/60 p-8 shadow-panel backdrop-blur-2xl sm:p-10"
-          style={{ clipPath: "var(--clip-notch)", borderTop: "2px solid var(--monument-city)" }}
-        >
-          {/* Foreground accent symbol — bigger now (10rem from 6) and
-              positioned to anchor the card visually. Sits inside the
-              card so backdrop-blur affects it; the wider ambient
-              glyphs above sit OUTSIDE the card on the page background. */}
-          <span
-            className="math-text pointer-events-none absolute -right-4 -top-6 select-none"
-            style={{ fontSize: "10rem", opacity: 0.05, lineHeight: 1 }}
-          >
-            λ
-          </span>
-
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.5 }}
-            className="mb-8"
-          >
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Welcome Back</p>
-            <h1 className="mt-3 font-display text-[2rem] font-extrabold tracking-[-0.05em] text-white sm:text-4xl">
-              Sign in to your account
-            </h1>
-            <p className="mt-3 text-sm text-text-muted">
-              Continue your math journey. Your challenges are waiting.
-            </p>
-          </motion.div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-5 border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-              style={{ clipPath: "var(--clip-notch)" }}
-            >
-              {error}
-            </motion.div>
-          )}
-
-          {mode === "code" ? (
+      <AnimatePresence mode="wait" initial={false} custom={swapDir}>
+        {mode === "code" ? (
+          <motion.div key="code" custom={swapDir} variants={swap} initial="initial" animate="animate" exit="exit">
             <CodeSignIn onSignedIn={goAfterSignIn} />
-          ) : (
-          <motion.form
-            onSubmit={handleSubmit}
-            className="space-y-5"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden:  { opacity: 0 },
-              visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.25 } },
-            }}
-          >
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <InputField
-                label="Email"
-                type="email"
-                placeholder="yourname@bmsit.in"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                required
-              />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <InputField
-                label="Password"
-                type="password"
-                placeholder="Enter your password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required
-              />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <Button type="submit" loading={loading} className="w-full justify-center" size="lg">
-                Sign In
-              </Button>
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setShowForgot(true)} className="w-full justify-center">
-                Forgot password?
-              </Button>
-            </motion.div>
-          </motion.form>
-          )}
+          </motion.div>
+        ) : (
+          <motion.div key="password" custom={swapDir} variants={swap} initial="initial" animate="animate" exit="exit">
+            <motion.form
+              onSubmit={handleSubmit}
+              className="space-y-5"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden:  { opacity: 0 },
+                visible: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.1 } },
+              }}
+            >
+              <motion.div variants={field}>
+                <InputField
+                  label="Email"
+                  type="email"
+                  placeholder="yourname@bmsit.in"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  required
+                />
+              </motion.div>
+              <motion.div variants={field}>
+                <InputField
+                  label="Password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  required
+                />
+              </motion.div>
+              <motion.div variants={field}>
+                <Button type="submit" loading={loading} className="w-full justify-center" size="lg" trailing={icon(ArrowRight)}>
+                  Sign In
+                </Button>
+              </motion.div>
+              <motion.div variants={field}>
+                <Button type="button" variant="ghost" size="md" onClick={() => setShowForgot(true)} className="w-full justify-center" leading={icon(KeyRound)}>
+                  Forgot password?
+                </Button>
+              </motion.div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Switch between the two ways in. Code is the default: no
-              password to forget, and it proves the college mailbox. */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => { setMode(mode === "code" ? "password" : "code"); setError(null); setShowForgot(false); }}
-            className="mt-4 w-full justify-center"
-          >
-            {mode === "code" ? "Sign in with a password instead" : "Email me a code instead"}
-          </Button>
+      {/* Switch between the two ways in. Code is the default: no
+          password to forget, and it proves the college mailbox. */}
+      <div className="mt-6 flex items-center gap-3" aria-hidden="true">
+        <span className="h-px flex-1 bg-[rgb(var(--rule))]" />
+        <span className="text-[13px] text-text-dim">or</span>
+        <span className="h-px flex-1 bg-[rgb(var(--rule))]" />
+      </div>
+      <Button
+        type="button"
+        variant="secondary"
+        size="md"
+        onClick={() => { setMode(mode === "code" ? "password" : "code"); setError(null); setShowForgot(false); }}
+        className="mt-4 w-full justify-center"
+        leading={mode === "code" ? icon(KeyRound) : icon(MailCheck)}
+      >
+        {mode === "code" ? "Sign in with a password instead" : "Email me a code instead"}
+      </Button>
 
-          {/* Forgot Password */}
-          {mode === "password" && showForgot && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-              className="mt-5 border border-line/15 bg-panel/50 p-5" style={{ clipPath: "var(--clip-notch)" }}>
-              <p className="text-sm font-medium text-white">Reset your password</p>
-              <p className="mt-1 text-xs text-text-dim">We'll send a reset link to your email</p>
-              {forgotMsg && (
-                <div className={`mt-3 px-3 py-2 text-xs ${forgotMsg.type === "success" ? "border border-success/30 bg-success/10 text-success" : "border border-danger/30 bg-danger/10 text-danger"}`}>
-                  {forgotMsg.text}
+      {/* Forgot Password */}
+      <AnimatePresence initial={false}>
+        {mode === "password" && showForgot && (
+          <motion.div
+            key="forgot"
+            initial={reduced ? false : { opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={reduced ? undefined : { opacity: 0, height: 0 }}
+            transition={{ duration: 0.4, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div className="mt-5 rounded-2xl border border-[rgb(var(--rule))] bg-surface/50 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[15px] font-medium text-text-primary">Reset your password</p>
+                  <p className="mt-1 text-[13px] text-text-muted">We'll send a reset link to your email</p>
                 </div>
-              )}
-              <form onSubmit={handleForgot} className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForgot(false)}
+                  aria-label="Close reset form"
+                  className="-mr-1 -mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-text-dim transition hover:bg-white/[0.06] hover:text-text-primary"
+                >
+                  {icon(X)}
+                </button>
+              </div>
+              <AnimatePresence initial={false}>
+                {forgotMsg && (
+                  <AuthNotice key={forgotMsg.text} tone={forgotMsg.type === "success" ? "success" : "error"} className="mt-3 text-[13px]">
+                    {forgotMsg.text}
+                  </AuthNotice>
+                )}
+              </AnimatePresence>
+              <form onSubmit={handleForgot} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start">
                 <InputField
                   type="email"
                   placeholder="your@email.com"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
                   required
-                  className="flex-1"
+                  className="min-w-0 flex-1"
                 />
-                <Button type="submit" size="sm" loading={forgotLoading}>Send</Button>
+                <Button type="submit" size="lg" loading={forgotLoading} className="justify-center">Send link</Button>
               </form>
-              <Button variant="ghost" size="sm" onClick={() => setShowForgot(false)} className="mt-2">Cancel</Button>
-            </motion.div>
-          )}
+              <Button variant="ghost" size="md" onClick={() => setShowForgot(false)} className="mt-2">Cancel</Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          <div className="mt-6 text-center text-sm text-text-muted">
-            Don't have an account?{" "}
-            <Link to="/register" className="font-medium text-primary transition hover:text-secondary">
-              Create one
-            </Link>
-          </div>
-        </div>
-      </motion.div>
+      <p className="mt-7 text-center text-sm text-text-muted">
+        Don't have an account?{" "}
+        <Link to="/register" className="font-medium text-primary underline-offset-4 transition hover:underline">
+          Create one
+        </Link>
+      </p>
     </div>
   );
 }

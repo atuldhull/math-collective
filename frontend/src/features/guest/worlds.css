@@ -1,0 +1,318 @@
+/* Guest "worlds": the scroll-driven entrances on the public pages (not home)
+   and the scroll moments inside them. Every rule is rooted in .mc-public and
+   painted from --mc-* tokens so all four public themes carry through. */
+
+/* The intro sits flush under the header: cancel the page's top padding. */
+.mc-public .mc-existing-page .mc-world {
+  margin-top: -56px;
+}
+.mc-public .mc-world [data-beat] h2 {
+  font-family: "Outfit", "Segoe UI", sans-serif !important;
+  font-weight: 400 !important;
+}
+.mc-public .mc-world [data-beat] > p:first-child {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+}
+@media (max-width: 760px) {
+  .mc-public .mc-existing-page .mc-world {
+    margin-top: -32px;
+  }
+}
+/* theme.css shrinks every phone h1/h2 with !important; the intro's
+   headlines are the whole show, so they keep a display size here. */
+@media (max-width: 640px) {
+  .mc-public .mc-world [data-beat] h2 {
+    font-size: clamp(34px, 10.5vw, 46px) !important;
+    line-height: 1.02 !important;
+  }
+  .mc-public .mc-world [data-beat]:first-child h2 {
+    font-size: clamp(40px, 12.5vw, 54px) !important;
+  }
+}
+
+/* Small mono labels in the public voice. */
+.mc-public .mc-world-label {
+  font:
+    10px "IBM Plex Mono",
+    monospace;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+  color: var(--mc-muted);
+}
+
+/* ── Gallery ───────────────────────────────────────────── */
+.mc-public .mc-gallery-section > .mc-section-heading {
+  position: relative;
+}
+.mc-public .mc-gallery-veil-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--mc-accent);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-public .mc-gallery-veil-line {
+    display: none;
+  }
+}
+
+/* ── Events: a timeline rail that draws as you read ───── */
+.mc-public .mc-event-rail {
+  position: absolute;
+  left: 21px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  pointer-events: none;
+  background: var(--mc-line);
+}
+.mc-public .mc-event-rail > i {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 0;
+  background: linear-gradient(180deg, var(--mc-accent-2), var(--mc-accent));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--mc-accent) 55%, transparent);
+}
+.mc-public .mc-event-rail > b {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--mc-accent);
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--mc-accent) 22%, transparent),
+    0 0 24px var(--mc-accent);
+}
+/* The date reads up the rail, just above the lit head. */
+.mc-public .mc-event-rail > b > span {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  padding: 6px 0;
+  writing-mode: vertical-rl;
+  transform: translateX(-50%) rotate(180deg);
+  white-space: nowrap;
+  background: var(--mc-paper);
+  color: var(--mc-accent);
+}
+.mc-public .mc-event-rail > b > span:empty {
+  display: none;
+}
+.mc-public .mc-existing-page .event-timeline-dot {
+  border-color: var(--mc-accent);
+  background: var(--mc-paper);
+  transition:
+    transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+    background-color 0.3s;
+}
+.mc-public .mc-existing-page .event-timeline-dot[data-reached] {
+  background: var(--mc-accent);
+  transform: scale(1.35);
+  box-shadow: 0 0 12px var(--mc-accent);
+}
+.mc-public .mc-existing-page .event-timeline-line {
+  display: none !important;
+}
+@media (max-width: 767px) {
+  .mc-public .mc-event-rail {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-public .mc-event-rail > b {
+    display: none;
+  }
+}
+
+/* ── Leaderboard: plinths that rise under the podium ──── */
+.mc-public .mc-podium-step {
+  display: none;
+}
+@media (min-width: 640px) {
+  .mc-public .mc-podium {
+    align-items: end;
+  }
+  .mc-public .mc-podium-step {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    margin-top: 10px;
+    padding-top: 14px;
+    border: 1px solid var(--mc-line);
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
+    transform-origin: 50% 100%;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--mc-accent) 18%, var(--mc-surface)),
+      color-mix(in srgb, var(--mc-surface) 40%, transparent)
+    );
+    color: var(--mc-accent);
+    font:
+      400 34px/1 Georgia,
+      serif;
+    font-style: italic;
+  }
+  .mc-public .mc-podium-step[data-rank="1"] {
+    height: 150px;
+    box-shadow: 0 -18px 50px -24px var(--mc-accent);
+  }
+  .mc-public .mc-podium-step[data-rank="2"] {
+    height: 104px;
+  }
+  .mc-public .mc-podium-step[data-rank="3"] {
+    height: 72px;
+  }
+}
+
+/* ── Contact: a signal that draws across the page ─────── */
+.mc-public .mc-signal {
+  display: block;
+  width: min(100%, 720px);
+  height: 90px;
+  margin: 0 auto;
+  overflow: visible;
+  color: var(--mc-accent);
+}
+.mc-public .mc-signal path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+.mc-public .mc-signal circle {
+  fill: var(--mc-paper);
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+.mc-public .mc-signal circle[data-end] {
+  fill: currentColor;
+}
+
+/* ── Sign in / join: the threshold scene ──────────────── */
+.mc-public .mc-auth-layout {
+  position: relative;
+  isolation: isolate;
+}
+.mc-public .mc-auth-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: clip;
+  pointer-events: none;
+}
+.mc-public .mc-auth-backdrop > span {
+  position: absolute;
+  color: var(--mc-accent-soft);
+  font:
+    400 var(--s, 28px) / 1 "Outfit",
+    sans-serif;
+  opacity: 0.22;
+  animation: mc-auth-drift var(--t, 18s) linear infinite;
+  animation-delay: var(--d, 0s);
+}
+@keyframes mc-auth-drift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(var(--x, 20px), -36px, 0) rotate(8deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+}
+.mc-public .mc-threshold {
+  position: relative;
+  height: clamp(220px, 26vw, 320px);
+  margin: 28px 0 8px;
+  perspective: 720px;
+  perspective-origin: 50% 50%;
+}
+.mc-public .mc-threshold-tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+.mc-public .mc-threshold-door {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(62%, 300px);
+  aspect-ratio: 3 / 4;
+  max-height: 100%;
+  border: 1px solid var(--mc-accent);
+  border-radius: 999px 999px 6px 6px;
+  transform: translate(-50%, -50%) translateZ(calc(var(--i) * -150px));
+  opacity: calc(1 - var(--i) * 0.16);
+  animation: mc-door-walk 6s linear infinite;
+  animation-delay: calc(var(--i) * -1s);
+}
+.mc-public .mc-threshold-door:nth-child(even) {
+  border-color: var(--mc-accent-2);
+}
+@keyframes mc-door-walk {
+  0% {
+    transform: translate(-50%, -50%) translateZ(-900px);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.55;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) translateZ(220px);
+    opacity: 0;
+  }
+}
+.mc-public .mc-threshold-glow {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 46%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--mc-accent) 30%, transparent), transparent 68%);
+  filter: blur(6px);
+}
+.mc-public .mc-threshold .mc-auth-equation {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  white-space: nowrap;
+  font-size: clamp(34px, 4vw, 52px);
+  color: var(--mc-ink);
+  text-shadow: 0 0 30px color-mix(in srgb, var(--mc-accent) 60%, transparent);
+}
+.mc-public .mc-threshold-caption {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+}
+@media (max-width: 760px) {
+  .mc-public .mc-threshold {
+    height: 200px;
+  }
+}
+
+/* Halloween treatment (useHaunted): world headings in the horror face. */
+.mc-public .mc-world[data-haunted] [data-beat] h2 {
+  font-family: "Creepster", "Outfit", system-ui, sans-serif !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.02em !important;
+  text-shadow: 0 0 22px color-mix(in srgb, var(--mc-accent) 45%, transparent), 0 2px 0 rgb(150 8 22 / 0.8);
+}

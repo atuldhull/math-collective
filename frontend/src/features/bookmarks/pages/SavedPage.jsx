@@ -13,8 +13,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { ArrowBigUp, Bookmark, FileText, Map as MapIcon, Star, Target } from "lucide-react";
 import { bookmarks as bookmarksApi } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
+import { PageHeader, SegmentedTabs, EmptyState } from "@/components/lamp";
+import { SourceBadge, DifficultyMeter } from "@/features/problems/components/ProblemMeta";
 
 const TYPE_TABS = [
   { key: "",        label: "All" },
@@ -63,46 +66,31 @@ export default function SavedPage() {
     }
   }, []);
 
-  return (
-    <div className="mx-auto w-full max-w-4xl pb-20 pt-8">
-      <motion.header
-        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mb-6"
-      >
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">Personal</p>
-        <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-          Saved
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm text-text-soft">
-          Everything you've starred — problems to come back to, writeups worth re-reading, roadmaps you're tracking.
-        </p>
-      </motion.header>
+  const onTab = (key) => {
+    const next = new URLSearchParams(params);
+    if (key) next.set("type", key); else next.delete("type");
+    setParams(next, { replace: true });
+  };
 
-      {/* Type tabs */}
-      <div className="mb-6 flex flex-wrap gap-1.5">
-        {TYPE_TABS.map((t) => {
-          const active = filterType === t.key;
-          return (
-            <button
-              key={t.key || "all"}
-              onClick={() => {
-                const next = new URLSearchParams(params);
-                if (t.key) next.set("type", t.key); else next.delete("type");
-                setParams(next, { replace: true });
-              }}
-              className={
-                "rounded-full px-3.5 py-2 font-mono text-[11px] uppercase tracking-wider transition sm:py-1.5 " +
-                (active
-                  ? "border border-primary/40 bg-primary/15 text-white"
-                  : "border border-line/20 bg-white/[0.04] text-text-soft hover:border-primary/40 hover:text-white")
-              }
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+  return (
+    <div className="mx-auto w-full max-w-4xl pb-20">
+      <PageHeader
+        context="Personal"
+        title="Saved"
+        description="Everything you've starred — problems to come back to, writeups worth re-reading, roadmaps you're tracking."
+      >
+        {/* Type tabs */}
+        <SegmentedTabs
+          aria-label="Filter saved items"
+          items={TYPE_TABS.map((t) => ({
+            value: t.key,
+            label: t.label,
+            ...(t.key === filterType && !loading ? { count: data.total } : {}),
+          }))}
+          value={filterType}
+          onChange={onTab}
+        />
+      </PageHeader>
 
       {loading && (
         <div className="flex min-h-[40vh] items-center justify-center">
@@ -111,59 +99,70 @@ export default function SavedPage() {
       )}
 
       {error && (
-        <div className="rounded-2xl border border-danger/30 bg-danger/8 p-6 text-sm text-danger">
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-sm text-danger">
           {error}
         </div>
       )}
 
       {!loading && !error && data.rows.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-line/15 bg-white/[0.02] p-10 text-center">
-          <p className="font-display text-lg text-white">No saved items yet.</p>
-          <p className="mt-2 text-sm text-text-muted">
-            Hit the ☆ on any problem, writeup, or roadmap to save it here.
-          </p>
-          <Link
-            to="/problems"
-            className="mt-4 inline-block rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 font-mono text-xs uppercase tracking-wider text-white hover:bg-primary/15"
-          >
-            Browse problems →
-          </Link>
-        </div>
+        <EmptyState
+          title="No saved items yet."
+          body="Tap the star on any problem, writeup, or roadmap to save it here."
+          action={
+            <Link
+              to="/problems"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-[rgb(var(--color-obsidian))] transition hover:brightness-110"
+            >
+              Browse problems
+            </Link>
+          }
+        />
       )}
 
-      <ul className="space-y-3">
-        <AnimatePresence initial={false}>
-          {data.rows.map((row) => (
-            <SavedRow key={`${row.target_type}:${row.target_id}`} row={row} onUnsave={() => onUnsave(row)} />
-          ))}
-        </AnimatePresence>
-      </ul>
+      {!loading && (
+        <ul className="space-y-3">
+          <AnimatePresence initial={true}>
+            {data.rows.map((row, i) => (
+              <SavedRow key={`${row.target_type}:${row.target_id}`} row={row} index={i} onUnsave={() => onUnsave(row)} />
+            ))}
+          </AnimatePresence>
+        </ul>
+      )}
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────────────────── */
 
-function SavedRow({ row, onUnsave }) {
+const TYPE_ICON = { problem: Target, writeup: FileText, roadmap: MapIcon };
+
+function SavedRow({ row, index, onUnsave }) {
+  const Icon = TYPE_ICON[row.target_type] || Bookmark;
   return (
     <motion.li
       layout
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: 40, transition: { duration: 0.18 } }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="rounded-2xl border border-line/15 bg-white/[0.025] p-4"
+      initial={{ opacity: 0, y: 18, rotateX: -12 }}
+      animate={{ opacity: 1, y: 0, rotateX: 0 }}
+      exit={{ opacity: 0, x: 80, scale: 0.94, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}
+      transition={{ duration: 0.55, delay: Math.min(index * 0.05, 0.4), ease: [0.16, 1, 0.3, 1] }}
+      style={{ transformPerspective: 900 }}
+      className="lamp-panel group/row p-4 transition-colors hover:border-primary/30 sm:p-5"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3 sm:gap-4">
+        <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[0.05] text-text-muted transition-colors group-hover/row:text-primary" aria-hidden="true">
+          <Icon className="h-5 w-5" strokeWidth={1.75} />
+        </span>
         <RowContent row={row} />
-        <button
+        <motion.button
           type="button"
           onClick={onUnsave}
-          className="shrink-0 rounded-lg border border-line/20 bg-white/[0.04] px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-soft transition hover:border-warning/40 hover:text-warning sm:px-2.5 sm:py-1"
+          whileTap={{ scale: 0.85, rotate: -20 }}
+          aria-label="Unsave"
+          className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[13px] font-medium text-primary transition hover:bg-warning/10 hover:text-warning"
         >
-          <span className="sm:hidden">★</span>
-          <span className="hidden sm:inline">★ Unsave</span>
-        </button>
+          <Star className="h-4 w-4" strokeWidth={1.75} fill="currentColor" />
+          <span className="hidden sm:inline">Unsave</span>
+        </motion.button>
       </div>
     </motion.li>
   );
@@ -172,7 +171,7 @@ function SavedRow({ row, onUnsave }) {
 function RowContent({ row }) {
   if (!row.target) {
     return (
-      <p className="text-sm text-text-dim italic">
+      <p className="min-w-0 flex-1 self-center text-sm italic text-text-dim">
         This {row.target_type} is no longer available.
       </p>
     );
@@ -181,17 +180,13 @@ function RowContent({ row }) {
   if (row.target_type === "problem") {
     const p = row.target;
     return (
-      <Link to={`/problems/${p.slug || p.id}`} className="block flex-1 group">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-text-muted">
-            Problem · {p.source}
-          </span>
-          <span className="rounded-full bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-text-muted">
-            {p.difficulty}
-          </span>
+      <Link to={`/problems/${p.slug || p.id}`} className="group block min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <SourceBadge source={p.source} />
+          <DifficultyMeter level={p.difficulty} />
         </div>
-        <p className="mt-2 text-sm font-semibold text-white group-hover:text-primary transition">{p.title}</p>
-        <p className="mt-1 font-mono text-[10px] text-text-dim">
+        <p className="mt-2 text-[15px] font-semibold leading-snug text-text-primary transition group-hover:text-primary">{p.title}</p>
+        <p className="mt-1 text-xs text-text-dim">
           Saved {new Date(row.created_at).toLocaleDateString()}
         </p>
       </Link>
@@ -202,14 +197,17 @@ function RowContent({ row }) {
     const w = row.target;
     const parent = w.parent_problem;
     return (
-      <Link to={parent ? `/problems/${parent.slug || parent.id}` : "#"} className="block flex-1 group">
-        <span className="rounded-full bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-text-muted">
-          Writeup · ▲ {w.vote_count}
+      <Link to={parent ? `/problems/${parent.slug || parent.id}` : "#"} className="group block min-w-0 flex-1">
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-text-muted">
+          Writeup
+          <span className="inline-flex items-center gap-0.5 tabular-nums text-text-dim">
+            <ArrowBigUp className="h-3.5 w-3.5" strokeWidth={1.75} />{w.vote_count}
+          </span>
         </span>
-        <p className="mt-2 text-sm font-semibold text-white group-hover:text-primary transition">{w.title}</p>
+        <p className="mt-1.5 text-[15px] font-semibold leading-snug text-text-primary transition group-hover:text-primary">{w.title}</p>
         {parent && (
-          <p className="mt-1 font-mono text-[10px] text-text-dim">
-            on <span className="text-text-soft">{parent.title}</span>
+          <p className="mt-1 truncate text-xs text-text-dim">
+            on <span className="text-text-muted">{parent.title}</span>
           </p>
         )}
       </Link>
@@ -219,15 +217,13 @@ function RowContent({ row }) {
   if (row.target_type === "roadmap") {
     const r = row.target;
     return (
-      <Link to={`/roadmaps/${encodeURIComponent(r.slug)}`} className="block flex-1 group">
-        <div className="flex items-center gap-2">
-          <span aria-hidden="true" className="text-lg">{r.cover_emoji || "🧭"}</span>
-          <span className="rounded-full bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-text-muted">
-            Roadmap · {r.topic}
-          </span>
+      <Link to={`/roadmaps/${encodeURIComponent(r.slug)}`} className="group block min-w-0 flex-1">
+        <div className="flex items-center gap-2 text-[13px] font-medium text-text-muted">
+          {r.cover_emoji ? <span aria-hidden="true" className="text-base leading-none">{r.cover_emoji}</span> : null}
+          <span>Roadmap in {r.topic}</span>
         </div>
-        <p className="mt-2 text-sm font-semibold text-white group-hover:text-primary transition">{r.title}</p>
-        <p className="mt-1 text-xs text-text-soft line-clamp-2">{r.summary}</p>
+        <p className="mt-1.5 text-[15px] font-semibold leading-snug text-text-primary transition group-hover:text-primary">{r.title}</p>
+        <p className="mt-1 line-clamp-2 text-sm text-text-muted">{r.summary}</p>
       </Link>
     );
   }

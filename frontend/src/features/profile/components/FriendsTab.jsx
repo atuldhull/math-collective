@@ -24,7 +24,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { users, chat } from "@/lib/api";
-import Card from "@/components/ui/Card";
+import { Search } from "lucide-react";
+import { EmptyState } from "@/components/lamp";
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { useRelationshipStore } from "@/store/relationship-store";
@@ -119,23 +120,13 @@ export default function FriendsTab({ userId, access }) {
 
   if (hidden) {
     return (
-      <Card variant="glass" className="py-10 text-center">
-        <p className="text-3xl">🔒</p>
-        <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-          This user has hidden their friends list
-        </p>
-      </Card>
+      <EmptyState compact title="This user has hidden their friends list" />
     );
   }
 
   if (total === 0) {
     return (
-      <Card variant="glass" className="py-10 text-center">
-        <p className="text-3xl">🤝</p>
-        <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-          No friends yet
-        </p>
-      </Card>
+      <EmptyState compact title="No friends yet" body="Connections made in the arena and at events show up here." />
     );
   }
 
@@ -151,38 +142,44 @@ export default function FriendsTab({ userId, access }) {
     <div className="space-y-3">
       {/* Search + count header */}
       <div className="flex items-center justify-between gap-3">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search friends..."
-          className="flex-1 rounded-xl border border-line/15 bg-panel/70 px-4 py-2 text-sm text-white outline-none transition focus:border-primary/30"
-        />
-        <span className="font-mono text-[10px] uppercase tracking-wider text-text-dim shrink-0">
+        <label className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" strokeWidth={1.75} aria-hidden="true" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search friends..."
+            className="h-11 w-full rounded-xl border border-[rgb(var(--rule))] bg-surface/70 pl-10 pr-4 text-sm text-text-primary outline-none transition placeholder:text-text-dim focus:border-primary/40"
+          />
+        </label>
+        <span className="shrink-0 text-[13px] tabular-nums text-text-muted">
           {total} {total === 1 ? "friend" : "friends"}
         </span>
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-line/10 overflow-hidden rounded-xl border border-line/10 bg-panel/40">
+      <div data-stagger="up" className="lamp-panel divide-y divide-[rgb(var(--rule))] overflow-hidden">
         {visible.map((f) => (
-          <div key={f.id} className="flex items-center gap-3 p-3 transition hover:bg-white/[0.02]">
+          <div
+            key={f.id}
+            className="flex min-h-[60px] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-white/[0.03] sm:px-4"
+          >
             <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xl"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
               style={{ backgroundColor: f.avatar_color || "rgba(255,255,255,0.06)" }}
               aria-hidden
             >
               {f.avatar_emoji || "👤"}
             </div>
-            <Link to={`/profile/${f.id}`} className="min-w-0 flex-1 hover:underline">
-              <p className="truncate text-sm font-semibold text-white">{f.name}</p>
-              <p className="font-mono text-[10px] text-text-dim">
-                {f.title || "member"}
-                {f.isMutual && <span className="ml-2 rounded-full border border-secondary/25 bg-secondary/10 px-1.5 py-0.5 text-[9px] uppercase text-secondary">Mutual</span>}
+            <Link to={`/profile/${f.id}`} className="group min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-text-primary transition-colors group-hover:text-primary">{f.name}</p>
+              <p className="flex flex-wrap items-center gap-2 text-[12px] text-text-dim">
+                <span className="capitalize">{f.title || "member"}</span>
+                {f.isMutual && <span className="rounded-full border border-secondary/30 bg-secondary/12 px-2 py-0.5 text-[11px] text-secondary">Mutual</span>}
               </p>
             </Link>
             {typeof f.xp === "number" && (
-              <span className="math-text text-[11px] text-primary">{f.xp} XP</span>
+              <span className="shrink-0 text-[13px] tabular-nums text-primary">{f.xp} XP</span>
             )}
             {access.isSelf && (
               <Button
@@ -197,7 +194,7 @@ export default function FriendsTab({ userId, access }) {
           </div>
         ))}
         {visible.length === 0 && (
-          <p className="p-4 text-center font-mono text-[10px] text-text-dim">No matches</p>
+          <p className="p-5 text-center text-[13px] text-text-dim">No friends match that name.</p>
         )}
       </div>
 

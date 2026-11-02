@@ -36,7 +36,11 @@
 import { useState } from "react";
 import { useRelationship } from "@/hooks/useRelationship";
 import { useProfileActions } from "@/hooks/useProfileActions";
+import { Clock, UserMinus, UserPlus } from "lucide-react";
 import Button from "@/components/ui/Button";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
+
+const ICON = { className: "h-3.5 w-3.5", strokeWidth: 1.75, "aria-hidden": true };
 
 /**
  * @param {{
@@ -50,6 +54,7 @@ export default function FriendButton({ userId, size = "sm", onChange }) {
   const actions = useProfileActions(userId);
   const [busy, setBusy] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const lamp = useIsLamplight();
 
   // Hidden in any case where there's no action to offer.
   if (!userId)              return null;
@@ -100,8 +105,9 @@ export default function FriendButton({ userId, size = "sm", onChange }) {
         // accessible without a visible tooltip on mobile.
         title="Cancel request"
         aria-label="Cancel friend request"
+        leading={lamp ? <Clock {...ICON} /> : undefined}
       >
-        Requested ✓
+        {lamp ? "Requested" : "Requested ✓"}
       </Button>
     );
   }
@@ -120,6 +126,7 @@ export default function FriendButton({ userId, size = "sm", onChange }) {
           run(actions.unfriend);
         }}
         aria-label={hovered ? "Unfriend" : "Friends"}
+        leading={lamp && hovered ? <UserMinus {...ICON} /> : undefined}
       >
         {hovered ? "Unfriend" : "Friends ✓"}
       </Button>
@@ -134,8 +141,9 @@ export default function FriendButton({ userId, size = "sm", onChange }) {
       loading={busy}
       onClick={() => run(actions.sendRequest)}
       aria-label="Send friend request"
+      leading={lamp ? <UserPlus {...ICON} /> : undefined}
     >
-      + Add Friend
+      {lamp ? "Add friend" : "+ Add Friend"}
     </Button>
   );
 }

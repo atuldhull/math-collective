@@ -15,6 +15,11 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import gsap from "@/lib/gsap-setup";
+import { WorldIntro } from "@/components/lamp";
+import "./worlds.css";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
@@ -48,6 +53,48 @@ function timeUntil(d) {
   const mins = Math.floor((diff % 3600000) / 60000);
   return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 }
+
+// ── The way in: a corridor of dates, hours and event kinds ──
+
+const eventBeats = [
+  {
+    kicker: "Events & competitions",
+    title: "Every date is a *door*.",
+    body: "Live quizzes, hackathons, workshops and competitions, laid out on one timeline.",
+  },
+  {
+    kicker: "The clock",
+    title: "Mark the hour.",
+    body: "Each event has a start time, a room or a link, and a countdown that runs until the doors open.",
+  },
+  {
+    kicker: "Compete",
+    title: "Rounds, scores, standings.",
+    body: "Competitions feed the leaderboard. Workshops feed your curiosity. Both start here.",
+  },
+  {
+    kicker: "The timeline",
+    title: "Find your next *date*.",
+    body: "Filter by kind or status below, then sign in to register.",
+  },
+];
+const eventGlyphs = ["31", "07", "12:00", "∞", "Δt", "t₀", "Σ", "◷", "Mon", "Fri", "π", "∂", "24h", "λ"];
+// Real upcoming calendar days, so the corridor reads as the weeks ahead.
+const calendarFrames = (() => {
+  const kinds = ["Live quiz", "18:00 IST", "Hackathon", "Round 2", "Workshop", "Doors open"];
+  const day = 86400000;
+  const start = Date.now();
+  return kinds.flatMap((kind, i) => [
+    {
+      label: new Date(start + (i * 4 + 2) * day).toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      }),
+    },
+    { label: kind },
+  ]);
+})();
 
 // ── Main Component ───────────────────────────────────────
 
@@ -324,11 +371,111 @@ export default function EventsPage() {
     live: eventsList.filter((e) => e.status === "active").length,
   };
 
+  // ── Scroll moments (presentation only) ─────────────────
+  // The hero tips up from the floor, each card swings up into place, and
+  // a rail draws down the timeline with a lit head that reads out the
+  // date of the event you are passing.
+  const pageRef = useRef(null);
+  useGSAP(
+    () => {
+      if (loading || error) return;
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const q = gsap.utils.selector(pageRef);
+        const hero = q(".mc-data-hero")[0];
+        if (hero) {
+          gsap.from(hero.querySelectorAll(":scope > *"), {
+            rotateX: -40,
+            y: 70,
+            transformPerspective: 1000,
+            transformOrigin: "50% 0%",
+            stagger: 0.07,
+            ease: "none",
+            scrollTrigger: { trigger: hero, start: "top 96%", end: "top 35%", scrub: 0.8 },
+          });
+        }
+
+        q("[data-event-tilt]").forEach((card) => {
+          gsap.fromTo(
+            card,
+            { rotateX: 22, y: 50, transformPerspective: 1100, transformOrigin: "50% 0%" },
+            {
+              rotateX: 0,
+              y: 0,
+              ease: "none",
+              scrollTrigger: { trigger: card, start: "top bottom", end: "top 68%", scrub: 0.6 },
+            },
+          );
+        });
+
+        const track = q("[data-event-track]")[0];
+        const fill = q("[data-rail-fill]")[0];
+        const head = q("[data-rail-head]")[0];
+        const label = q("[data-rail-label]")[0];
+        if (track && fill && head) {
+          const rail = () => ({ trigger: track, start: "top 62%", end: "bottom 62%", scrub: 0.5 });
+          gsap.fromTo(fill, { scaleY: 0 }, { scaleY: 1, ease: "none", scrollTrigger: rail() });
+          gsap.fromTo(
+            head,
+            { y: 0 },
+            {
+              y: () => track.offsetHeight,
+              ease: "none",
+              immediateRender: false,
+              scrollTrigger: { ...rail(), invalidateOnRefresh: true },
+            },
+          );
+          q("[data-event-when]").forEach((item) => {
+            const dot = item.querySelector(".event-timeline-dot");
+            ScrollTrigger.create({
+              trigger: item,
+              start: "top 62%",
+              end: "bottom 62%",
+              onToggle: (self) => {
+                if (self.isActive && label) label.textContent = item.dataset.eventWhen;
+              },
+              onEnter: () => dot?.setAttribute("data-reached", ""),
+              onLeaveBack: () => dot?.removeAttribute("data-reached"),
+            });
+          });
+        }
+
+        // Created mid route transition and after data landed; measure again.
+        const refresh = gsap.delayedCall(0.9, () => ScrollTrigger.refresh());
+        return () => {
+          refresh.kill();
+          q(".event-timeline-dot[data-reached]").forEach((dot) => dot.removeAttribute("data-reached"));
+        };
+      });
+      return () => mm.revert();
+    },
+    { scope: pageRef, dependencies: [loading, error, filter, typeFilter, eventsList.length], revertOnUpdate: true },
+  );
+
   // ── Render ─────────────────────────────────────────────
+
+  // The intro renders above every state (loading, error, loaded) so it
+  // mounts once and its scroll timeline never restarts when data lands.
+  const intro = (
+    <WorldIntro
+      inset="full"
+      className="mc-world"
+      beats={eventBeats}
+      frames={calendarFrames}
+      glyphs={eventGlyphs}
+      length={4.2}
+      cta={
+        <button type="button" className="mc-button" onClick={scrollToTimeline}>
+          Find an event
+        </button>
+      }
+    />
+  );
 
   if (loading) {
     return (
-      <div style={{ position: "relative" }}>
+      <div style={{ position: "relative" }} ref={pageRef}>
+        {intro}
         <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
           <Loader variant="orbit" size="lg" label="Loading events..." />
         </div>
@@ -338,7 +485,8 @@ export default function EventsPage() {
 
   if (error) {
     return (
-      <div style={{ position: "relative" }}>
+      <div style={{ position: "relative" }} ref={pageRef}>
+        {intro}
         <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center gap-4">
           <p className="text-4xl">⚠️</p>
           <p className="text-sm text-danger">{error}</p>
@@ -351,7 +499,8 @@ export default function EventsPage() {
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative" }} ref={pageRef}>
+      {intro}
       {/* Outer wraps the whole page; inner sections set their own
           max-width. The padding here gives a consistent gutter so
           content never touches the screen edge on small viewports. */}
@@ -469,9 +618,16 @@ export default function EventsPage() {
           )}
 
           {/* Event Timeline */}
-          <div className="relative mx-auto max-w-6xl">
-            {/* Timeline vertical line */}
-            <div className="absolute left-6 top-0 hidden h-full md:block event-timeline-line" />
+          <div className="relative mx-auto max-w-6xl" data-event-track>
+            {/* Timeline rail: draws as you scroll, its head reads the date you are passing */}
+            {filtered.length > 0 && (
+              <div className="mc-event-rail" aria-hidden="true">
+                <i data-rail-fill />
+                <b data-rail-head>
+                  <span className="mc-world-label" data-rail-label />
+                </b>
+              </div>
+            )}
 
             <div className="space-y-6">
               <AnimatePresence mode="popLayout">
@@ -492,128 +648,137 @@ export default function EventsPage() {
                       exit={{ opacity: 0, x: 30 }}
                       transition={{ delay: 0.1 + i * 0.06 }}
                       id={`event-${event.id}`}
+                      data-event-when={
+                        event.starts_at || event.date ? formatDate(event.starts_at || event.date) : event.title
+                      }
                       className="relative md:pl-16"
                     >
                       {/* Timeline dot */}
-                      <div className="absolute left-4 top-8 hidden md:block">
+                      <div className="absolute left-4 top-8 z-[1] hidden md:block">
                         <span
                           className={`event-timeline-dot`}
                           data-active={status === "active" || status === "registering"}
                         />
                       </div>
 
-                      <Card variant={status === "active" ? "glow" : "glass"} spotlight>
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          {/* Left: Event info */}
-                          <div className="flex-1 min-w-0">
-                            {/* Badges row */}
-                            <div className="flex flex-wrap items-center gap-2">
-                              <EventStatusBadge status={status} />
-                              <EventTypeBadge type={event.event_type} />
-                              {event.xp_reward > 0 && (
-                                <span className="math-text rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[10px] font-bold text-primary">
-                                  +{event.xp_reward} XP
-                                </span>
-                              )}
-                              {isRegistered && !isAttended && (
-                                <span
-                                  className={`rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider ${
-                                    isWaitlisted
-                                      ? "border-warning/25 bg-warning/8 text-warning"
-                                      : "border-success/25 bg-success/8 text-success"
-                                  }`}
-                                >
-                                  {isWaitlisted ? "Waitlisted" : "Registered ✓"}
-                                </span>
-                              )}
-                              {isAttended && (
-                                <span className="rounded-full border border-success/25 bg-success/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">
-                                  Attended ✓
-                                </span>
-                              )}
-                              {/* Paid-event badges (migration 19) */}
-                              {event.is_paid && event.price_paise > 0 && (
-                                <span className="rounded-full border border-secondary/25 bg-secondary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-secondary">
-                                  ₹{(event.price_paise / 100).toFixed(0)}
-                                </span>
-                              )}
-                              {event.is_paid && isRegistered && event.user_registration?.payment_status === "paid" && (
-                                <span className="rounded-full border border-success/25 bg-success/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">
-                                  Paid ✓
-                                </span>
-                              )}
-                              {event.is_paid &&
-                                isRegistered &&
-                                event.user_registration?.payment_status === "submitted" && (
-                                  <span className="rounded-full border border-secondary/25 bg-secondary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-secondary">
-                                    Awaiting verification
+                      <div data-event-tilt>
+                        <Card variant={status === "active" ? "glow" : "glass"} spotlight>
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            {/* Left: Event info */}
+                            <div className="flex-1 min-w-0">
+                              {/* Badges row */}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <EventStatusBadge status={status} />
+                                <EventTypeBadge type={event.event_type} />
+                                {event.xp_reward > 0 && (
+                                  <span className="math-text rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[10px] font-bold text-primary">
+                                    +{event.xp_reward} XP
                                   </span>
                                 )}
-                              {event.is_paid &&
-                                isRegistered &&
-                                event.user_registration?.payment_status === "rejected" && (
-                                  <span className="rounded-full border border-danger/25 bg-danger/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-danger">
-                                    Payment rejected
-                                  </span>
-                                )}
-                            </div>
-
-                            {/* Title */}
-                            <h3 className="mt-3 font-display text-2xl font-bold tracking-[-0.03em] text-white">
-                              {event.title}
-                            </h3>
-
-                            {/* Meta row */}
-                            <div className="mt-2 flex flex-wrap gap-4 font-mono text-[11px] text-text-dim">
-                              {(event.starts_at || event.date) && (
-                                <span>📅 {formatDate(event.starts_at || event.date)}</span>
-                              )}
-                              {(event.starts_at || event.date) && (
-                                <span>🕐 {formatTime(event.starts_at || event.date)}</span>
-                              )}
-                              {event.location && <span>📍 {event.location}</span>}
-                              {event.organiser && <span>by {event.organiser}</span>}
-                              {event.venue_type && event.venue_type !== "in-person" && (
-                                <span className="text-secondary">
-                                  {event.venue_type === "online" ? "🌐 Online" : "🔄 Hybrid"}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Countdown for upcoming */}
-                            {(status === "upcoming" || status === "registering") && (event.starts_at || event.date) && (
-                              <p className="mt-1 math-text text-[11px] text-secondary">
-                                Starts in {timeUntil(event.starts_at || event.date)}
-                              </p>
-                            )}
-
-                            {/* Tags */}
-                            {event.tags?.length > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-1.5">
-                                {event.tags.map((tag) => (
+                                {isRegistered && !isAttended && (
                                   <span
-                                    key={tag}
-                                    className="rounded-full bg-primary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary/70"
+                                    className={`rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider ${
+                                      isWaitlisted
+                                        ? "border-warning/25 bg-warning/8 text-warning"
+                                        : "border-success/25 bg-success/8 text-success"
+                                    }`}
                                   >
-                                    {tag}
+                                    {isWaitlisted ? "Waitlisted" : "Registered ✓"}
                                   </span>
-                                ))}
+                                )}
+                                {isAttended && (
+                                  <span className="rounded-full border border-success/25 bg-success/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">
+                                    Attended ✓
+                                  </span>
+                                )}
+                                {/* Paid-event badges (migration 19) */}
+                                {event.is_paid && event.price_paise > 0 && (
+                                  <span className="rounded-full border border-secondary/25 bg-secondary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-secondary">
+                                    ₹{(event.price_paise / 100).toFixed(0)}
+                                  </span>
+                                )}
+                                {event.is_paid &&
+                                  isRegistered &&
+                                  event.user_registration?.payment_status === "paid" && (
+                                    <span className="rounded-full border border-success/25 bg-success/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">
+                                      Paid ✓
+                                    </span>
+                                  )}
+                                {event.is_paid &&
+                                  isRegistered &&
+                                  event.user_registration?.payment_status === "submitted" && (
+                                    <span className="rounded-full border border-secondary/25 bg-secondary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-secondary">
+                                      Awaiting verification
+                                    </span>
+                                  )}
+                                {event.is_paid &&
+                                  isRegistered &&
+                                  event.user_registration?.payment_status === "rejected" && (
+                                    <span className="rounded-full border border-danger/25 bg-danger/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-danger">
+                                      Payment rejected
+                                    </span>
+                                  )}
                               </div>
-                            )}
 
-                            {/* Description (truncated) */}
-                            {event.description && (
-                              <p className="mt-3 text-sm leading-7 text-text-muted line-clamp-3">{event.description}</p>
-                            )}
+                              {/* Title */}
+                              <h3 className="mt-3 font-display text-2xl font-bold tracking-[-0.03em] text-white">
+                                {event.title}
+                              </h3>
 
-                            {/* Capacity bar */}
-                            {(event.capacity || event.registration_count > 0) && (
-                              <div className="mt-3 max-w-xs">
-                                <CapacityBar current={event.registration_count || 0} max={event.capacity} />
+                              {/* Meta row */}
+                              <div className="mt-2 flex flex-wrap gap-4 font-mono text-[11px] text-text-dim">
+                                {(event.starts_at || event.date) && (
+                                  <span>📅 {formatDate(event.starts_at || event.date)}</span>
+                                )}
+                                {(event.starts_at || event.date) && (
+                                  <span>🕐 {formatTime(event.starts_at || event.date)}</span>
+                                )}
+                                {event.location && <span>📍 {event.location}</span>}
+                                {event.organiser && <span>by {event.organiser}</span>}
+                                {event.venue_type && event.venue_type !== "in-person" && (
+                                  <span className="text-secondary">
+                                    {event.venue_type === "online" ? "🌐 Online" : "🔄 Hybrid"}
+                                  </span>
+                                )}
                               </div>
-                            )}
 
-                            {/* QR Code — shown when registered, not yet attended,
+                              {/* Countdown for upcoming */}
+                              {(status === "upcoming" || status === "registering") &&
+                                (event.starts_at || event.date) && (
+                                  <p className="mt-1 math-text text-[11px] text-secondary">
+                                    Starts in {timeUntil(event.starts_at || event.date)}
+                                  </p>
+                                )}
+
+                              {/* Tags */}
+                              {event.tags?.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {event.tags.map((tag) => (
+                                    <span
+                                      key={tag}
+                                      className="rounded-full bg-primary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary/70"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Description (truncated) */}
+                              {event.description && (
+                                <p className="mt-3 text-sm leading-7 text-text-muted line-clamp-3">
+                                  {event.description}
+                                </p>
+                              )}
+
+                              {/* Capacity bar */}
+                              {(event.capacity || event.registration_count > 0) && (
+                                <div className="mt-3 max-w-xs">
+                                  <CapacityBar current={event.registration_count || 0} max={event.capacity} />
+                                </div>
+                              )}
+
+                              {/* QR Code — shown when registered, not yet attended,
                              AND (free event OR payment verified). Paid events
                              previously showed the QR immediately on registration
                              which was misleading: the attendance controller
@@ -621,339 +786,349 @@ export default function EventsPage() {
                              scanning would fail anyway. Gating here means the
                              QR only appears once the student is actually
                              cleared to walk through the door. */}
-                            {(() => {
-                              const reg = event.user_registration;
-                              if (!isRegistered || isAttended || !reg?.qr_token) return null;
-                              const paymentCleared =
-                                !event.is_paid ||
-                                reg.payment_status === "paid" ||
-                                reg.payment_status === "not_required";
-                              if (!paymentCleared) {
+                              {(() => {
+                                const reg = event.user_registration;
+                                if (!isRegistered || isAttended || !reg?.qr_token) return null;
+                                const paymentCleared =
+                                  !event.is_paid ||
+                                  reg.payment_status === "paid" ||
+                                  reg.payment_status === "not_required";
+                                if (!paymentCleared) {
+                                  return (
+                                    <p className="mt-4 rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2 text-xs text-warning">
+                                      Your entry QR unlocks here as soon as your payment clears.
+                                    </p>
+                                  );
+                                }
                                 return (
-                                  <p className="mt-4 rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2 text-xs text-warning">
-                                    Your entry QR unlocks here as soon as your payment clears.
-                                  </p>
+                                  <div className="mt-4">
+                                    <EventQrCode eventId={event.id} qrToken={reg.qr_token} eventTitle={event.title} />
+                                  </div>
                                 );
-                              }
-                              return (
-                                <div className="mt-4">
-                                  <EventQrCode eventId={event.id} qrToken={reg.qr_token} eventTitle={event.title} />
-                                </div>
-                              );
-                            })()}
+                              })()}
 
-                            {/* Paid-event: payment panel (migration 19).
+                              {/* Paid-event: payment panel (migration 19).
                               Only shown to registered students whose
                               payment isn't already verified. */}
-                            {event.is_paid &&
-                              isRegistered &&
-                              event.user_registration?.payment_status !== "paid" &&
-                              event.user_registration?.payment_status !== "not_required" && (
-                                <div className="mt-4 rounded-xl border border-secondary/20 bg-secondary/[0.04] p-4">
-                                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                                    <div>
-                                      <p className="font-mono text-[10px] uppercase tracking-wider text-secondary">
-                                        Payment required
-                                      </p>
-                                      <p className="mt-1 math-text text-xl font-bold text-white">
-                                        ₹{((event.price_paise || 0) / 100).toFixed(2)}
-                                      </p>
-                                    </div>
-                                    {event.payment_qr_base64 && (
-                                      <img
-                                        src={event.payment_qr_base64}
-                                        alt="Payment QR"
-                                        loading="lazy"
-                                        className="h-28 w-28 rounded-lg border border-line/15 bg-white p-1"
-                                      />
-                                    )}
-                                  </div>
-                                  {event.payment_upi_id && (
-                                    <p className="mt-2 font-mono text-[11px] text-text-muted">
-                                      UPI ID: <span className="select-all text-white">{event.payment_upi_id}</span>
-                                    </p>
-                                  )}
-                                  {event.payment_instructions && (
-                                    <p className="mt-2 text-[11px] leading-5 text-text-dim whitespace-pre-wrap">
-                                      {event.payment_instructions}
-                                    </p>
-                                  )}
-
-                                  {/* Rejection reason — shown so the student knows why and how to retry. */}
-                                  {event.user_registration?.payment_status === "rejected" &&
-                                    event.user_registration?.rejection_reason && (
-                                      <p className="mt-2 rounded-lg border border-danger/25 bg-danger/[0.06] px-3 py-2 text-[11px] text-danger">
-                                        Previous attempt rejected: {event.user_registration.rejection_reason}
-                                      </p>
-                                    )}
-
-                                  {/* Razorpay auto-verify button — primary payment path.
-                                  Hidden once status='submitted' (manual flow in progress) or while polling. */}
-                                  {event.user_registration?.payment_status !== "submitted" && (
-                                    <div className="mt-3">
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleRazorpayPay(event)}
-                                        loading={payLoading === event.id}
-                                        className="w-full sm:w-auto"
-                                      >
-                                        {event.user_registration?.payment_status === "rejected"
-                                          ? "Retry Payment"
-                                          : `Pay ₹${((event.price_paise || 0) / 100).toFixed(0)} securely`}
-                                      </Button>
-                                      <p className="mt-1.5 font-mono text-[10px] text-text-dim">
-                                        Opens Razorpay — cards, UPI, netbanking. Your registration flips to ✓
-                                        automatically once the payment clears (no admin verification needed).
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {/* Manual UPI ref fallback — shown collapsed, expands on click.
-                                  Keeps the old path available when Razorpay is down / not wired. */}
-                                  {event.user_registration?.payment_status !== "submitted" && (
-                                    <details className="mt-3">
-                                      <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-wider text-text-dim hover:text-text-muted">
-                                        Or pay manually via UPI + submit ref
-                                      </summary>
-                                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                                        <input
-                                          type="text"
-                                          placeholder="UPI Ref / Transaction ID"
-                                          value={payRefInputs[event.id] || ""}
-                                          onChange={(e) =>
-                                            setPayRefInputs((s) => ({ ...s, [event.id]: e.target.value }))
-                                          }
-                                          onKeyDown={(e) => e.key === "Enter" && handleSubmitPayment(event)}
-                                          className="w-full min-w-0 flex-1 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-secondary/40 sm:w-auto sm:min-w-[180px]"
-                                          maxLength={32}
+                              {event.is_paid &&
+                                isRegistered &&
+                                event.user_registration?.payment_status !== "paid" &&
+                                event.user_registration?.payment_status !== "not_required" && (
+                                  <div className="mt-4 rounded-xl border border-secondary/20 bg-secondary/[0.04] p-4">
+                                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                                      <div>
+                                        <p className="font-mono text-[10px] uppercase tracking-wider text-secondary">
+                                          Payment required
+                                        </p>
+                                        <p className="mt-1 math-text text-xl font-bold text-white">
+                                          ₹{((event.price_paise || 0) / 100).toFixed(2)}
+                                        </p>
+                                      </div>
+                                      {event.payment_qr_base64 && (
+                                        <img
+                                          src={event.payment_qr_base64}
+                                          alt="Payment QR"
+                                          loading="lazy"
+                                          className="h-28 w-28 rounded-lg border border-line/15 bg-white p-1"
                                         />
+                                      )}
+                                    </div>
+                                    {event.payment_upi_id && (
+                                      <p className="mt-2 font-mono text-[11px] text-text-muted">
+                                        UPI ID: <span className="select-all text-white">{event.payment_upi_id}</span>
+                                      </p>
+                                    )}
+                                    {event.payment_instructions && (
+                                      <p className="mt-2 text-[11px] leading-5 text-text-dim whitespace-pre-wrap">
+                                        {event.payment_instructions}
+                                      </p>
+                                    )}
+
+                                    {/* Rejection reason — shown so the student knows why and how to retry. */}
+                                    {event.user_registration?.payment_status === "rejected" &&
+                                      event.user_registration?.rejection_reason && (
+                                        <p className="mt-2 rounded-lg border border-danger/25 bg-danger/[0.06] px-3 py-2 text-[11px] text-danger">
+                                          Previous attempt rejected: {event.user_registration.rejection_reason}
+                                        </p>
+                                      )}
+
+                                    {/* Razorpay auto-verify button — primary payment path.
+                                  Hidden once status='submitted' (manual flow in progress) or while polling. */}
+                                    {event.user_registration?.payment_status !== "submitted" && (
+                                      <div className="mt-3">
                                         <Button
                                           size="sm"
-                                          variant="secondary"
-                                          onClick={() => handleSubmitPayment(event)}
+                                          onClick={() => handleRazorpayPay(event)}
                                           loading={payLoading === event.id}
-                                          disabled={!(payRefInputs[event.id] || "").trim()}
+                                          className="w-full sm:w-auto"
                                         >
-                                          Submit ref
+                                          {event.user_registration?.payment_status === "rejected"
+                                            ? "Retry Payment"
+                                            : `Pay ₹${((event.price_paise || 0) / 100).toFixed(0)} securely`}
+                                        </Button>
+                                        <p className="mt-1.5 font-mono text-[10px] text-text-dim">
+                                          Opens Razorpay — cards, UPI, netbanking. Your registration flips to ✓
+                                          automatically once the payment clears (no admin verification needed).
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Manual UPI ref fallback — shown collapsed, expands on click.
+                                  Keeps the old path available when Razorpay is down / not wired. */}
+                                    {event.user_registration?.payment_status !== "submitted" && (
+                                      <details className="mt-3">
+                                        <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-wider text-text-dim hover:text-text-muted">
+                                          Or pay manually via UPI + submit ref
+                                        </summary>
+                                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                                          <input
+                                            type="text"
+                                            placeholder="UPI Ref / Transaction ID"
+                                            value={payRefInputs[event.id] || ""}
+                                            onChange={(e) =>
+                                              setPayRefInputs((s) => ({ ...s, [event.id]: e.target.value }))
+                                            }
+                                            onKeyDown={(e) => e.key === "Enter" && handleSubmitPayment(event)}
+                                            className="w-full min-w-0 flex-1 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-secondary/40 sm:w-auto sm:min-w-[180px]"
+                                            maxLength={32}
+                                          />
+                                          <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => handleSubmitPayment(event)}
+                                            loading={payLoading === event.id}
+                                            disabled={!(payRefInputs[event.id] || "").trim()}
+                                          >
+                                            Submit ref
+                                          </Button>
+                                        </div>
+                                      </details>
+                                    )}
+                                    {event.user_registration?.payment_status === "submitted" && (
+                                      <p className="mt-3 font-mono text-[10px] text-text-dim">
+                                        Ref submitted:{" "}
+                                        <span className="text-text-muted">{event.user_registration.payment_ref}</span> —
+                                        an admin will verify shortly.
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+
+                              {/* Action result toast */}
+                              <AnimatePresence>
+                                {result && (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: -8, height: 0 }}
+                                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                                    exit={{ opacity: 0, y: -8, height: 0 }}
+                                    className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+                                      result.type === "success"
+                                        ? "border-success/25 bg-success/8 text-success"
+                                        : result.type === "warning"
+                                          ? "border-warning/25 bg-warning/8 text-warning"
+                                          : "border-danger/25 bg-danger/8 text-danger"
+                                    }`}
+                                  >
+                                    {result.message}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+
+                              {/* Check-in code input */}
+                              <AnimatePresence>
+                                {showCheckin === event.id && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="mt-3 flex flex-wrap items-center gap-2"
+                                  >
+                                    <input
+                                      type="text"
+                                      placeholder="Enter check-in code"
+                                      value={checkinCode}
+                                      onChange={(e) => setCheckinCode(e.target.value)}
+                                      onKeyDown={(e) => e.key === "Enter" && handleCheckin(event)}
+                                      className="w-full min-w-0 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-primary/30 sm:w-40"
+                                      autoFocus
+                                    />
+                                    <Button size="sm" onClick={() => handleCheckin(event)} loading={isActing}>
+                                      Confirm
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setShowCheckin(null);
+                                        setCheckinCode("");
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+
+                              {/* Team registration form — shown when the
+                             student clicks Register on a team event. */}
+                              <AnimatePresence>
+                                {showTeamForm === event.id && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="mt-4 rounded-xl border border-primary/30 bg-primary/[0.05] p-4"
+                                  >
+                                    <p className="mb-3 font-mono text-[11px] uppercase tracking-wider text-primary">
+                                      Team details
+                                    </p>
+                                    <div className="flex flex-wrap items-end gap-3">
+                                      <div className="flex-1 min-w-[180px]">
+                                        <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
+                                          Team name
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={teamForm.name}
+                                          onChange={(e) => setTeamForm((s) => ({ ...s, name: e.target.value }))}
+                                          placeholder="e.g. Euler's Engineers"
+                                          maxLength={80}
+                                          autoFocus
+                                          className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 text-sm text-white outline-none focus:border-primary/40"
+                                        />
+                                      </div>
+                                      <div className="w-32">
+                                        <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
+                                          Team size ({event.min_team_size || 1}–{event.max_team_size || 50})
+                                        </label>
+                                        <input
+                                          type="number"
+                                          min={event.min_team_size || 1}
+                                          max={event.max_team_size || 50}
+                                          value={teamForm.size}
+                                          onChange={(e) => setTeamForm((s) => ({ ...s, size: e.target.value }))}
+                                          className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-primary/40"
+                                        />
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          onClick={() => submitTeamRegistration(event)}
+                                          loading={isActing}
+                                        >
+                                          Confirm
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            setShowTeamForm(null);
+                                            setTeamForm({ name: "", size: "" });
+                                          }}
+                                        >
+                                          Cancel
                                         </Button>
                                       </div>
-                                    </details>
-                                  )}
-                                  {event.user_registration?.payment_status === "submitted" && (
+                                    </div>
                                     <p className="mt-3 font-mono text-[10px] text-text-dim">
-                                      Ref submitted:{" "}
-                                      <span className="text-text-muted">{event.user_registration.payment_ref}</span> —
-                                      an admin will verify shortly.
+                                      You're registering on behalf of your team. One QR + one check-in covers everyone.
                                     </p>
-                                  )}
-                                </div>
-                              )}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
 
-                            {/* Action result toast */}
-                            <AnimatePresence>
-                              {result && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: -8, height: 0 }}
-                                  animate={{ opacity: 1, y: 0, height: "auto" }}
-                                  exit={{ opacity: 0, y: -8, height: 0 }}
-                                  className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
-                                    result.type === "success"
-                                      ? "border-success/25 bg-success/8 text-success"
-                                      : result.type === "warning"
-                                        ? "border-warning/25 bg-warning/8 text-warning"
-                                        : "border-danger/25 bg-danger/8 text-danger"
-                                  }`}
-                                >
-                                  {result.message}
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-
-                            {/* Check-in code input */}
-                            <AnimatePresence>
-                              {showCheckin === event.id && (
-                                <motion.div
-                                  initial={{ opacity: 0, height: 0 }}
-                                  animate={{ opacity: 1, height: "auto" }}
-                                  exit={{ opacity: 0, height: 0 }}
-                                  className="mt-3 flex flex-wrap items-center gap-2"
-                                >
-                                  <input
-                                    type="text"
-                                    placeholder="Enter check-in code"
-                                    value={checkinCode}
-                                    onChange={(e) => setCheckinCode(e.target.value)}
-                                    onKeyDown={(e) => e.key === "Enter" && handleCheckin(event)}
-                                    className="w-full min-w-0 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-primary/30 sm:w-40"
-                                    autoFocus
-                                  />
-                                  <Button size="sm" onClick={() => handleCheckin(event)} loading={isActing}>
-                                    Confirm
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setShowCheckin(null);
-                                      setCheckinCode("");
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-
-                            {/* Team registration form — shown when the
-                             student clicks Register on a team event. */}
-                            <AnimatePresence>
-                              {showTeamForm === event.id && (
-                                <motion.div
-                                  initial={{ opacity: 0, height: 0 }}
-                                  animate={{ opacity: 1, height: "auto" }}
-                                  exit={{ opacity: 0, height: 0 }}
-                                  className="mt-4 rounded-xl border border-primary/30 bg-primary/[0.05] p-4"
-                                >
-                                  <p className="mb-3 font-mono text-[11px] uppercase tracking-wider text-primary">
-                                    Team details
-                                  </p>
-                                  <div className="flex flex-wrap items-end gap-3">
-                                    <div className="flex-1 min-w-[180px]">
-                                      <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
-                                        Team name
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={teamForm.name}
-                                        onChange={(e) => setTeamForm((s) => ({ ...s, name: e.target.value }))}
-                                        placeholder="e.g. Euler's Engineers"
-                                        maxLength={80}
-                                        autoFocus
-                                        className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 text-sm text-white outline-none focus:border-primary/40"
-                                      />
-                                    </div>
-                                    <div className="w-32">
-                                      <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
-                                        Team size ({event.min_team_size || 1}–{event.max_team_size || 50})
-                                      </label>
-                                      <input
-                                        type="number"
-                                        min={event.min_team_size || 1}
-                                        max={event.max_team_size || 50}
-                                        value={teamForm.size}
-                                        onChange={(e) => setTeamForm((s) => ({ ...s, size: e.target.value }))}
-                                        className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-primary/40"
-                                      />
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        onClick={() => submitTeamRegistration(event)}
-                                        loading={isActing}
-                                      >
-                                        Confirm
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                          setShowTeamForm(null);
-                                          setTeamForm({ name: "", size: "" });
-                                        }}
-                                      >
-                                        Cancel
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  <p className="mt-3 font-mono text-[10px] text-text-dim">
-                                    You're registering on behalf of your team. One QR + one check-in covers everyone.
-                                  </p>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-
-                          {/* Right: Action buttons. Stretch to full
+                            {/* Right: Action buttons. Stretch to full
                            width on mobile so they sit below the info
                            block cleanly; right-align at tablet+ where
                            the card goes horizontal. */}
-                          <div className="flex flex-col items-stretch gap-2 flex-shrink-0 sm:items-end">
-                            {/* Register button */}
-                            {(status === "upcoming" || status === "registering") && !isRegistered && !event.is_full && (
-                              <Button size="sm" onClick={() => handleRegister(event)} loading={isActing}>
-                                Register Now
-                              </Button>
-                            )}
+                            <div className="flex flex-col items-stretch gap-2 flex-shrink-0 sm:items-end">
+                              {/* Register button */}
+                              {(status === "upcoming" || status === "registering") &&
+                                !isRegistered &&
+                                !event.is_full && (
+                                  <Button size="sm" onClick={() => handleRegister(event)} loading={isActing}>
+                                    Register Now
+                                  </Button>
+                                )}
 
-                            {/* Full — join waitlist */}
-                            {(status === "upcoming" || status === "registering") && !isRegistered && event.is_full && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => handleRegister(event)}
-                                loading={isActing}
-                              >
-                                Join Waitlist
-                              </Button>
-                            )}
+                              {/* Full — join waitlist */}
+                              {(status === "upcoming" || status === "registering") &&
+                                !isRegistered &&
+                                event.is_full && (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleRegister(event)}
+                                    loading={isActing}
+                                  >
+                                    Join Waitlist
+                                  </Button>
+                                )}
 
-                            {/* Cancel registration */}
-                            {isRegistered && !isAttended && status !== "completed" && status !== "past" && (
-                              <Button variant="ghost" size="sm" onClick={() => handleCancel(event)} loading={isActing}>
-                                Cancel Registration
-                              </Button>
-                            )}
-
-                            {/* Check-in (for active/registering events when registered) */}
-                            {isRegistered && !isAttended && (status === "active" || status === "registering") && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => {
-                                  if (event.requires_checkin) {
-                                    setShowCheckin(event.id);
-                                  } else {
-                                    handleCheckin(event);
-                                  }
-                                }}
-                                loading={isActing && showCheckin !== event.id}
-                              >
-                                Check In
-                              </Button>
-                            )}
-
-                            {/* External registration link (fallback) */}
-                            {event.registration_form_url && !isRegistered && (
-                              <a href={event.registration_form_url} target="_blank" rel="noopener noreferrer">
-                                <Button variant="ghost" size="sm">
-                                  External Form ↗
-                                </Button>
-                              </a>
-                            )}
-
-                            {/* Online venue link */}
-                            {event.venue_link && (status === "active" || isRegistered) && (
-                              <a href={event.venue_link} target="_blank" rel="noopener noreferrer">
-                                <Button variant="ghost" size="sm">
-                                  Join Online ↗
-                                </Button>
-                              </a>
-                            )}
-
-                            {/* View leaderboard for competitions */}
-                            {(event.event_type === "competition" || event.event_type === "hackathon") &&
-                              status === "completed" && (
+                              {/* Cancel registration */}
+                              {isRegistered && !isAttended && status !== "completed" && status !== "past" && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => navigate(`/events/${event.id}/leaderboard`)}
+                                  onClick={() => handleCancel(event)}
+                                  loading={isActing}
                                 >
-                                  Leaderboard
+                                  Cancel Registration
                                 </Button>
                               )}
+
+                              {/* Check-in (for active/registering events when registered) */}
+                              {isRegistered && !isAttended && (status === "active" || status === "registering") && (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => {
+                                    if (event.requires_checkin) {
+                                      setShowCheckin(event.id);
+                                    } else {
+                                      handleCheckin(event);
+                                    }
+                                  }}
+                                  loading={isActing && showCheckin !== event.id}
+                                >
+                                  Check In
+                                </Button>
+                              )}
+
+                              {/* External registration link (fallback) */}
+                              {event.registration_form_url && !isRegistered && (
+                                <a href={event.registration_form_url} target="_blank" rel="noopener noreferrer">
+                                  <Button variant="ghost" size="sm">
+                                    External Form ↗
+                                  </Button>
+                                </a>
+                              )}
+
+                              {/* Online venue link */}
+                              {event.venue_link && (status === "active" || isRegistered) && (
+                                <a href={event.venue_link} target="_blank" rel="noopener noreferrer">
+                                  <Button variant="ghost" size="sm">
+                                    Join Online ↗
+                                  </Button>
+                                </a>
+                              )}
+
+                              {/* View leaderboard for competitions */}
+                              {(event.event_type === "competition" || event.event_type === "hackathon") &&
+                                status === "completed" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => navigate(`/events/${event.id}/leaderboard`)}
+                                  >
+                                    Leaderboard
+                                  </Button>
+                                )}
+                            </div>
                           </div>
-                        </div>
-                      </Card>
+                        </Card>
+                      </div>
                     </motion.div>
                   );
                 })}

@@ -1,19 +1,28 @@
 import { useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import Card from "@/components/ui/Card";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { CalendarClock, Plus, Trash2, UserRound } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { core } from "@/lib/api";
 import { useCoreStore } from "@/store/core-store";
 import { ModalShell, Field, INPUT_CLS } from "@/features/coreTeam/components/FormBits";
+import { EmptyState, PageHeader, SegmentedTabs } from "@/components/lamp";
 
 const STATUS = {
-  open:        { label: "Open",        cls: "border-cyan-400/40 bg-cyan-400/10 text-cyan-300" },
-  todo:        { label: "To do",       cls: "border-line/30 bg-white/5 text-text-muted" },
+  open:        { label: "Open",        cls: "border-secondary/35 bg-secondary/10 text-secondary" },
+  todo:        { label: "To do",       cls: "border-[rgb(var(--rule))] bg-white/[0.04] text-text-muted" },
   in_progress: { label: "In progress", cls: "border-warning/40 bg-warning/10 text-warning" },
-  submitted:   { label: "Submitted",   cls: "border-secondary/40 bg-secondary/10 text-secondary" },
+  submitted:   { label: "Submitted",   cls: "border-primary/40 bg-primary/10 text-primary" },
   confirmed:   { label: "Confirmed",   cls: "border-success/40 bg-success/10 text-success" },
 };
+
+// Board columns. Purely a view over the same filtered list.
+const COLUMNS = [
+  { key: "todo",      label: "To do",       statuses: ["open", "todo"], dot: "bg-secondary", empty: "Nothing waiting to be claimed." },
+  { key: "doing",     label: "In progress", statuses: ["in_progress"],  dot: "bg-warning",   empty: "No one is working on anything here." },
+  { key: "submitted", label: "Submitted",   statuses: ["submitted"],    dot: "bg-primary",   empty: "Nothing waiting for a head to confirm." },
+  { key: "done",      label: "Confirmed",   statuses: ["confirmed"],    dot: "bg-success",   empty: "Confirmed work lands here." },
+];
 
 function fmtDate(d) {
   if (!d) return null;
@@ -76,127 +85,182 @@ export default function CoreTasksPage() {
     return true;
   });
 
-  return (
-    <div className="space-y-5">
-      {/* toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`rounded-full border px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] transition ${
-                filter === f.key
-                  ? "border-primary/40 bg-primary/12 text-white"
-                  : "border-line/15 bg-white/[0.02] text-text-muted hover:text-white"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+  const countFor = (key) => tasks.filter((t) => {
+    if (key === "mine")    return t.claimer?.id === member?.id;
+    if (key === "team")    return t.team_id && t.team_id === member?.team_id;
+    if (key === "open")    return t.is_open;
+    if (key === "confirm") return t.status === "submitted" &&
+      (member?.tier === "council" || (member?.tier === "head" && t.team_id === member?.team_id));
+    return true;
+  }).length;
+
+  const confirmedShare = visible.length ? visible.filter((t) => t.status === "confirmed").length / visible.length : 0;
+
+  const renderCard = (t) => {
+    const st = STATUS[t.status] || STATUS.todo;
+    const mine = t.claimer?.id === member?.id;
+    const canClaim = !t.claimed_by && ["open", "todo"].includes(t.status) &&
+      (!t.team_id || member?.tier === "council" || t.team_id === member?.team_id);
+    const canSubmit = mine && t.status === "in_progress";
+    const canConfirm = t.status === "submitted" &&
+      (member?.tier === "council" || (member?.tier === "head" && t.team_id === member?.team_id));
+    const canDelete = member?.tier === "council" ||
+      (member?.tier === "head" && t.team_id === member?.team_id);
+    const overdue = t.deadline && t.status !== "confirmed" && new Date(t.deadline) < new Date();
+
+    return (
+      <motion.article
+        key={t.id}
+        layout
+        layoutId={`core-task-${t.id}`}
+        initial={{ opacity: 0, scale: 0.94, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+        transition={{ type: "spring", stiffness: 380, damping: 34 }}
+        className={`lamp-panel p-4 ${mine ? "border-primary/30" : ""}`}
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>
+            {st.label}
+          </span>
+          {t.is_open && (
+            <span className="rounded-full border border-secondary/30 bg-secondary/10 px-2 py-0.5 text-[11px] font-medium text-secondary">
+              Open to all
+            </span>
+          )}
+          <span className="lamp-numerals ml-auto text-sm text-primary">{t.points} pts</span>
         </div>
-        {isLead && (
-          <Button size="sm" variant="primary" magnetic={false} onClick={() => setShowNew(true)}>
-            + New Task
+        <h3 className="mt-2.5 text-base font-medium leading-snug text-text-primary">{t.title}</h3>
+        {t.description && (
+          <p className="mt-1 line-clamp-3 break-words text-[13px] leading-5 text-text-muted">{t.description}</p>
+        )}
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-text-dim">
+          {t.core_teams && <span>{t.core_teams.name}</span>}
+          {t.claimer && <span className="inline-flex items-center gap-1"><UserRound className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />{t.claimer.name}</span>}
+          {t.deadline && (
+            <span className={`inline-flex items-center gap-1 ${overdue ? "text-danger" : ""}`}>
+              <CalendarClock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+              {overdue ? "Overdue, " : "Due "}<span className="lamp-numerals">{fmtDate(t.deadline)}</span>
+            </span>
+          )}
+        </div>
+        {t.submission && (
+          <p className="mt-2.5 break-words rounded-xl border border-[rgb(var(--rule))] bg-white/[0.02] px-3 py-2 text-[12px] leading-5 text-text-muted">
+            <span className="text-text-dim">Submission: </span>{t.submission}
+          </p>
+        )}
+
+        {(canClaim || canSubmit || canConfirm || canDelete) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--rule))] pt-3">
+            {canClaim && (
+              <Button size="sm" variant="primary" magnetic={false} loading={busy === t.id}
+                onClick={() => act(() => core.claimTask(t.id), t.id)}>
+                Claim
+              </Button>
+            )}
+            {canSubmit && (
+              <Button size="sm" variant="secondary" magnetic={false}
+                onClick={() => setSubmitFor(t)}>
+                Mark done
+              </Button>
+            )}
+            {canConfirm && (
+              <Button size="sm" variant="primary" magnetic={false} loading={busy === t.id}
+                onClick={() => act(() => core.confirmTask(t.id), t.id)}>
+                Confirm
+              </Button>
+            )}
+            {canDelete && (
+              <button
+                onClick={() => act(() => core.deleteTask(t.id), t.id)}
+                aria-label={`Delete ${t.title}`}
+                className="ml-auto inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2 text-[13px] text-text-dim transition hover:bg-danger/10 hover:text-danger"
+              >
+                <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                Delete
+              </button>
+            )}
+          </div>
+        )}
+      </motion.article>
+    );
+  };
+
+  return (
+    <div className="flex flex-col">
+      <PageHeader
+        context="Core team"
+        title="Tasks"
+        description="Claim work, mark it done, and get it confirmed by your head for points."
+        progress={confirmedShare}
+        actions={isLead ? (
+          <Button size="sm" variant="primary" magnetic={false} onClick={() => setShowNew(true)} leading={<Plus className="h-4 w-4" strokeWidth={1.75} />}>
+            New Task
           </Button>
-        )}
-      </div>
+        ) : null}
+      >
+        <SegmentedTabs
+          aria-label="Filter tasks"
+          value={filter}
+          onChange={setFilter}
+          items={FILTERS.map((f) => ({ value: f.key, label: f.label, count: countFor(f.key) }))}
+        />
+      </PageHeader>
 
-      {err && (
-        <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">{err}</p>
+      <AnimatePresence>
+        {err && (
+          <motion.p key={err} role="alert" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="mb-4 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-[13px] text-danger">{err}</motion.p>
+        )}
+      </AnimatePresence>
+
+      {/* board — cards glide between columns when their status changes */}
+      {visible.length === 0 ? (
+        <EmptyState
+          title="No tasks here yet"
+          body={filter === "mine" ? "Claim an open task to start earning points." : "Try another filter, or check back once a head posts work."}
+          action={filter !== "open" ? <Button size="sm" variant="secondary" magnetic={false} onClick={() => setFilter("open")}>Show open tasks</Button> : null}
+        />
+      ) : (
+        <LayoutGroup id="core-tasks">
+          <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 scrollbar-none lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0 lg:pb-0">
+            {COLUMNS.map((col) => {
+              const items = visible.filter((t) => col.statuses.includes(t.status));
+              return (
+                <section
+                  key={col.key}
+                  data-reveal="up"
+                  aria-label={col.label}
+                  className="flex w-[82vw] max-w-[22rem] shrink-0 snap-start flex-col rounded-[1.25rem] border border-[rgb(var(--rule))] bg-white/[0.015] p-3 sm:w-[21rem] lg:w-auto lg:max-w-none"
+                >
+                  <header className="mb-3 flex items-center justify-between px-1">
+                    <h2 className="flex items-center gap-2 text-[15px] font-medium text-text-primary">
+                      <span className={`h-2 w-2 rounded-full ${col.dot}`} />
+                      {col.label}
+                    </h2>
+                    <motion.span
+                      key={items.length}
+                      initial={{ scale: 1.5, opacity: 0.4 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="lamp-numerals rounded-full bg-white/[0.05] px-2 text-[12px] text-text-muted"
+                    >
+                      {items.length}
+                    </motion.span>
+                  </header>
+                  <div className="flex min-h-[6rem] flex-1 flex-col gap-3">
+                    <AnimatePresence mode="popLayout" initial={false}>
+                      {items.map(renderCard)}
+                    </AnimatePresence>
+                    {items.length === 0 && (
+                      <p className="rounded-xl border border-dashed border-[rgb(var(--rule))] px-3 py-6 text-center text-[13px] text-text-dim">{col.empty}</p>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </LayoutGroup>
       )}
-
-      {/* list */}
-      <div className="grid gap-3">
-        {visible.length === 0 && (
-          <Card variant="solid" spotlight={false} className="text-center">
-            <p className="py-6 text-sm text-text-dim">No tasks here yet.</p>
-          </Card>
-        )}
-        {visible.map((t) => {
-          const st = STATUS[t.status] || STATUS.todo;
-          const mine = t.claimer?.id === member?.id;
-          const canClaim = !t.claimed_by && ["open", "todo"].includes(t.status) &&
-            (!t.team_id || member?.tier === "council" || t.team_id === member?.team_id);
-          const canSubmit = mine && t.status === "in_progress";
-          const canConfirm = t.status === "submitted" &&
-            (member?.tier === "council" || (member?.tier === "head" && t.team_id === member?.team_id));
-          const canDelete = member?.tier === "council" ||
-            (member?.tier === "head" && t.team_id === member?.team_id);
-          const overdue = t.deadline && t.status !== "confirmed" && new Date(t.deadline) < new Date();
-
-          return (
-            <motion.div key={t.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-              <Card variant="glass" spotlight={false} noEntrance>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-wider ${st.cls}`}>
-                        {st.label}
-                      </span>
-                      {t.is_open && (
-                        <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-cyan-300">
-                          Open · FCFS
-                        </span>
-                      )}
-                      {t.core_teams && (
-                        <span className="font-mono text-[10px] text-text-dim">{t.core_teams.name}</span>
-                      )}
-                      <span className="math-text text-xs font-bold text-primary">{t.points} pts</span>
-                    </div>
-                    <h3 className="mt-2 font-display text-lg font-semibold text-white">{t.title}</h3>
-                    {t.description && (
-                      <p className="mt-1 break-words text-sm leading-6 text-text-muted">{t.description}</p>
-                    )}
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-text-dim">
-                      {t.claimer && <span>Claimed by {t.claimer.name}</span>}
-                      {t.deadline && (
-                        <span className={overdue ? "text-danger" : ""}>
-                          {overdue ? "Overdue · " : "Due "}{fmtDate(t.deadline)}
-                        </span>
-                      )}
-                    </div>
-                    {t.submission && (
-                      <p className="mt-2 break-words rounded-lg border border-line/10 bg-black/20 px-3 py-2 text-xs text-text-muted">
-                        <span className="text-text-dim">Submission: </span>{t.submission}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex shrink-0 flex-col gap-2">
-                    {canClaim && (
-                      <Button size="sm" variant="primary" magnetic={false} loading={busy === t.id}
-                        onClick={() => act(() => core.claimTask(t.id), t.id)}>
-                        Claim
-                      </Button>
-                    )}
-                    {canSubmit && (
-                      <Button size="sm" variant="secondary" magnetic={false}
-                        onClick={() => setSubmitFor(t)}>
-                        Mark done
-                      </Button>
-                    )}
-                    {canConfirm && (
-                      <Button size="sm" variant="primary" magnetic={false} loading={busy === t.id}
-                        onClick={() => act(() => core.confirmTask(t.id), t.id)}>
-                        Confirm
-                      </Button>
-                    )}
-                    {canDelete && (
-                      <button
-                        onClick={() => act(() => core.deleteTask(t.id), t.id)}
-                        className="font-mono text-[10px] uppercase tracking-wider text-text-dim transition hover:text-danger"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </div>
 
       {/* modals */}
       <AnimatePresence>
@@ -271,9 +335,9 @@ function NewTaskModal({ member, teams, onClose, onCreated }) {
           </Field>
         </div>
         {isCouncil && (
-          <label className="flex items-center gap-2 text-sm text-text-muted">
+          <label className="flex min-h-[40px] cursor-pointer items-center gap-2 text-sm text-text-muted">
             <input type="checkbox" checked={form.isOpen}
-              onChange={(e) => setForm({ ...form, isOpen: e.target.checked })} />
+              onChange={(e) => setForm({ ...form, isOpen: e.target.checked })} className="h-4 w-4 accent-primary" />
             Open task — anyone can claim it (first come, first serve)
           </label>
         )}
@@ -286,9 +350,9 @@ function NewTaskModal({ member, teams, onClose, onCreated }) {
           </Field>
         )}
         {!isCouncil && (
-          <p className="text-xs text-text-dim">This task goes to your team: {member?.core_teams?.name}.</p>
+          <p className="text-[13px] text-text-dim">This task goes to your team: {member?.core_teams?.name}.</p>
         )}
-        {err && <p className="text-xs text-danger">{err}</p>}
+        {err && <p role="alert" className="text-[13px] text-danger">{err}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button size="sm" variant="ghost" magnetic={false} onClick={onClose}>Cancel</Button>
           <Button size="sm" variant="primary" magnetic={false} loading={busy} onClick={save}>Create</Button>
@@ -323,7 +387,7 @@ function SubmitModal({ task, onClose, onDone }) {
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} className={INPUT_CLS}
           placeholder="A short note for the head who confirms this…" />
       </Field>
-      {err && <p className="text-xs text-danger">{err}</p>}
+      {err && <p role="alert" className="text-[13px] text-danger">{err}</p>}
       <div className="flex justify-end gap-2 pt-1">
         <Button size="sm" variant="ghost" magnetic={false} onClick={onClose}>Cancel</Button>
         <Button size="sm" variant="primary" magnetic={false} loading={busy} onClick={save}>Submit</Button>

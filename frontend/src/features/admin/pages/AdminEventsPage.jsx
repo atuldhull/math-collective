@@ -10,19 +10,28 @@
  */
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGSAP } from "@gsap/react";
+import {
+  CalendarClock, CalendarDays, Check, Clock, DoorOpen, Download, IndianRupee, MapPin, Pencil, Plus, Radio,
+  RefreshCw, ScanLine, Trash2, Users, UsersRound, X,
+} from "lucide-react";
+import gsap from "@/lib/gsap-setup";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import InputField from "@/components/ui/InputField";
 import Loader from "@/components/ui/Loader";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import EventStatusBadge from "@/components/ui/EventStatusBadge";
 import EventTypeBadge from "@/components/ui/EventTypeBadge";
 import CapacityBar from "@/components/ui/CapacityBar";
 import { events as eventsApi, insights } from "@/lib/api";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { EmptyState, PageHeader, SegmentedTabs, StatTile } from "@/components/lamp";
 import UserHoverCard from "@/components/social/UserHoverCard";
+
+const LABEL = "mb-2 block text-[13px] font-medium text-text-muted";
+const FIELD = "w-full rounded-xl border border-[rgb(var(--rule))] bg-surface/70 px-4 py-3 text-sm text-text-primary outline-none transition placeholder:text-text-dim focus:border-primary/50 [color-scheme:dark]";
+const icon = (Icon) => <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />;
 
 const EMPTY_FORM = {
   title: "", description: "", location: "", date: "",
@@ -46,7 +55,7 @@ const EMPTY_FORM = {
 };
 
 export default function AdminEventsPage() {
-  useMonument("magma");
+  const root = useRef(null);
   const navigate = useNavigate();
 
   const [eventsList, setEventsList] = useState([]);
@@ -369,523 +378,583 @@ export default function AdminEventsPage() {
     : filter === "upcoming" ? eventsList.filter(e => e.status === "upcoming" || e.status === "registering")
     : eventsList.filter(e => e.status === "completed" || e.status === "past");
 
+  // Top-event bars in the insights panel grow to their share as they scroll in.
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.utils.toArray("[data-topbar]").forEach((el, i) => {
+        gsap.from(el, {
+          scaleX: 0, transformOrigin: "left center", duration: 1.2, ease: "expo.out", delay: i * 0.08,
+          scrollTrigger: { trigger: el, start: "top 95%", once: true },
+        });
+      });
+    });
+  }, { scope: root, dependencies: [adminInsights, loading], revertOnUpdate: true });
+
   if (loading) return (
-    <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.1} />
-      <div className="flex justify-center py-20"><Loader variant="orbit" size="lg" label="Loading events..." /></div>
-    </div>
+    <div className="flex justify-center py-20"><Loader variant="orbit" size="lg" label="Loading events..." /></div>
   );
 
-  return (
-    <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.1} />
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+  const filterCount = {
+    all: eventsList.length,
+    upcoming: stats.upcoming,
+    live: stats.live,
+    past: eventsList.filter(e => e.status === "completed" || e.status === "past").length,
+  };
+  const topMax = Math.max(1, ...(adminInsights?.top_events || []).map(t => t.count || 0));
 
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-white">Event Management</h2>
-          <div className="mt-1 flex gap-4 font-mono text-[11px] text-text-dim">
-            <span>{stats.total} total</span><span className="text-secondary">{stats.upcoming} upcoming</span>
-            <span className="text-success">{stats.live} live</span><span className="text-primary">{stats.totalRegs} regs</span>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => navigate("/teacher/scanner")}>QR Scanner</Button>
-          <Button size="sm" onClick={() => { setShowForm(!showForm); if (showForm) { setEditId(null); setForm({ ...EMPTY_FORM }); } }}>
-            {showForm ? "Cancel" : "Create Event"}
-          </Button>
-        </div>
-      </div>
+  return (
+    <div ref={root} className="flex flex-col">
+      <PageHeader
+        context="Admin"
+        title="Events"
+        description="Plan sessions, open registration, check people in and reconcile payments."
+        actions={(
+          <>
+            <Button size="sm" variant="secondary" onClick={() => navigate("/teacher/scanner")} leading={icon(ScanLine)}>QR Scanner</Button>
+            <Button
+              size="sm"
+              onClick={() => { setShowForm(!showForm); if (showForm) { setEditId(null); setForm({ ...EMPTY_FORM }); } }}
+              leading={icon(showForm ? X : Plus)}
+            >
+              {showForm ? "Cancel" : "Create Event"}
+            </Button>
+          </>
+        )}
+      >
+        <SegmentedTabs
+          aria-label="Filter events"
+          value={filter}
+          onChange={setFilter}
+          items={[
+            { value: "all", label: "All", count: filterCount.all },
+            { value: "upcoming", label: "Upcoming", count: filterCount.upcoming },
+            { value: "live", label: "Live", count: filterCount.live },
+            { value: "past", label: "Past", count: filterCount.past },
+          ]}
+        />
+      </PageHeader>
 
       {/* Stats */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {[
-          { label: "Total", value: stats.total, color: "text-white" },
-          { label: "Upcoming", value: stats.upcoming, color: "text-secondary" },
-          { label: "Live Now", value: stats.live, color: "text-success" },
-          { label: "Registrations", value: stats.totalRegs, color: "text-primary" },
-          { label: "Reg Open", value: stats.regOpen, color: "text-warning" },
-        ].map(s => (
-          <Card key={s.label} variant="glass" className="text-center !py-3">
-            <p className={`math-text text-2xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="font-mono text-[9px] uppercase tracking-wider text-text-dim">{s.label}</p>
-          </Card>
-        ))}
+      <div data-stagger="scale" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <StatTile label="Total" value={stats.total} icon={CalendarDays} />
+        <StatTile label="Upcoming" value={stats.upcoming} icon={CalendarClock} />
+        <StatTile label="Live now" value={stats.live} icon={Radio} tone="good" sub={stats.live ? "Happening right now" : undefined} lit={stats.live > 0} />
+        <StatTile label="Registrations" value={stats.totalRegs} icon={Users} />
+        <StatTile label="Registration open" value={stats.regOpen} icon={DoorOpen} className="col-span-2 sm:col-span-1" />
       </div>
 
       {/* Toast */}
       <AnimatePresence>
-        {msg && <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-          className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">{msg}</motion.div>}
+        {msg && (
+          <motion.div key="msg" role="status" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="mt-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">{msg}</motion.div>
+        )}
       </AnimatePresence>
 
       {/* Create / Edit Form */}
       <AnimatePresence>
         {showForm && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-            <Card variant="glow">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="font-display text-lg font-bold text-white">{editId ? "Edit Event" : "New Event"}</h3>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="sm:col-span-2"><InputField label="Title" placeholder="Event name" value={form.title} onChange={e => setField("title", e.target.value)} required /></div>
-                  <div>
-                    <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">Type</label>
-                    <select value={form.event_type} onChange={e => setField("event_type", e.target.value)}
-                      className="w-full rounded-xl border border-line/15 bg-panel/70 px-4 py-3 text-sm text-white outline-none">
-                      <option value="general">General</option><option value="hackathon">Hackathon</option>
-                      <option value="workshop">Workshop</option><option value="competition">Competition</option><option value="seminar">Seminar</option>
-                    </select>
+          <motion.div
+            key="form"
+            initial={{ opacity: 0, height: 0, rotateX: -10 }}
+            animate={{ opacity: 1, height: "auto", rotateX: 0 }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            style={{ transformPerspective: 1000, transformOrigin: "50% 0%" }}
+          >
+            <form onSubmit={handleSubmit} className="lamp-panel lamp-panel--lit mt-6 space-y-5 p-5 sm:p-6">
+              <h2 className="text-xl text-text-primary">{editId ? "Edit event" : "New event"}</h2>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="sm:col-span-2"><InputField label="Title" placeholder="Event name" value={form.title} onChange={e => setField("title", e.target.value)} required /></div>
+                <div>
+                  <label htmlFor="ev-type" className={LABEL}>Type</label>
+                  <select id="ev-type" value={form.event_type} onChange={e => setField("event_type", e.target.value)} className={FIELD}>
+                    <option value="general">General</option><option value="hackathon">Hackathon</option>
+                    <option value="workshop">Workshop</option><option value="competition">Competition</option><option value="seminar">Seminar</option>
+                  </select>
+                </div>
+              </div>
+              <InputField label="Description" placeholder="Event details" value={form.description} onChange={e => setField("description", e.target.value)} multiline />
+              <div className="grid gap-4 sm:grid-cols-3">
+                <InputField label="Location" placeholder="Campus / Online" value={form.location} onChange={e => setField("location", e.target.value)} />
+                <div>
+                  <label htmlFor="ev-venue" className={LABEL}>Venue</label>
+                  <select id="ev-venue" value={form.venue_type} onChange={e => setField("venue_type", e.target.value)} className={FIELD}>
+                    <option value="in-person">In-Person</option><option value="online">Online</option><option value="hybrid">Hybrid</option>
+                  </select>
+                </div>
+                {(form.venue_type === "online" || form.venue_type === "hybrid") && (
+                  <InputField label="Meeting Link" placeholder="https://meet.google.com/..." value={form.venue_link} onChange={e => setField("venue_link", e.target.value)} />
+                )}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div><label htmlFor="ev-start" className={LABEL}>Start</label>
+                  <input id="ev-start" type="datetime-local" value={form.starts_at || form.date} onChange={e => { setField("starts_at", e.target.value); setField("date", e.target.value); }} className={FIELD} /></div>
+                <div><label htmlFor="ev-end" className={LABEL}>End</label>
+                  <input id="ev-end" type="datetime-local" value={form.ends_at} onChange={e => setField("ends_at", e.target.value)} className={FIELD} /></div>
+                <div><label htmlFor="ev-deadline" className={LABEL}>Registration deadline</label>
+                  <input id="ev-deadline" type="datetime-local" value={form.registration_deadline} onChange={e => setField("registration_deadline", e.target.value)} className={FIELD} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <InputField label="Capacity" placeholder="∞" type="number" value={form.capacity} onChange={e => setField("capacity", e.target.value)} />
+                <InputField label="XP Reward" placeholder="0" type="number" value={form.xp_reward} onChange={e => setField("xp_reward", e.target.value)} />
+                <InputField label="Early Bird XP" placeholder="0" type="number" value={form.xp_bonus_first} onChange={e => setField("xp_bonus_first", e.target.value)} />
+                <InputField label="Winner XP" placeholder="0" type="number" value={form.xp_bonus_winner} onChange={e => setField("xp_bonus_winner", e.target.value)} />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <InputField label="Organiser" placeholder="Dept of AI&ML" value={form.organiser} onChange={e => setField("organiser", e.target.value)} />
+                <InputField label="Tags (comma)" placeholder="math, hackathon" value={form.tags} onChange={e => setField("tags", e.target.value)} />
+                <div>
+                  <p className={LABEL}>Check-in</p>
+                  <div className="flex min-h-[48px] flex-wrap items-center gap-3">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-text-muted">
+                      <input type="checkbox" checked={form.requires_checkin} onChange={e => setField("requires_checkin", e.target.checked)} className="h-4 w-4 accent-primary" />
+                      Require code
+                    </label>
+                    {form.requires_checkin && (
+                      <input type="text" aria-label="Check-in code" placeholder="6-digit" value={form.checkin_code} onChange={e => setField("checkin_code", e.target.value)} maxLength={6}
+                        className="w-28 rounded-xl border border-[rgb(var(--rule))] bg-surface/70 px-3 py-2 font-mono text-sm tracking-widest text-text-primary outline-none focus:border-primary/50" />
+                    )}
                   </div>
                 </div>
-                <InputField label="Description" placeholder="Event details" value={form.description} onChange={e => setField("description", e.target.value)} multiline />
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <InputField label="Location" placeholder="Campus / Online" value={form.location} onChange={e => setField("location", e.target.value)} />
-                  <div>
-                    <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">Venue</label>
-                    <select value={form.venue_type} onChange={e => setField("venue_type", e.target.value)}
-                      className="w-full rounded-xl border border-line/15 bg-panel/70 px-4 py-3 text-sm text-white outline-none">
-                      <option value="in-person">In-Person</option><option value="online">Online</option><option value="hybrid">Hybrid</option>
-                    </select>
-                  </div>
-                  {(form.venue_type === "online" || form.venue_type === "hybrid") && (
-                    <InputField label="Meeting Link" placeholder="https://meet.google.com/..." value={form.venue_link} onChange={e => setField("venue_link", e.target.value)} />
-                  )}
-                </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div><label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">Start</label>
-                    <input type="datetime-local" value={form.starts_at || form.date} onChange={e => { setField("starts_at", e.target.value); setField("date", e.target.value); }}
-                      className="w-full rounded-xl border border-line/15 bg-panel/70 px-4 py-3 text-sm text-white outline-none" /></div>
-                  <div><label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">End</label>
-                    <input type="datetime-local" value={form.ends_at} onChange={e => setField("ends_at", e.target.value)}
-                      className="w-full rounded-xl border border-line/15 bg-panel/70 px-4 py-3 text-sm text-white outline-none" /></div>
-                  <div><label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">Reg Deadline</label>
-                    <input type="datetime-local" value={form.registration_deadline} onChange={e => setField("registration_deadline", e.target.value)}
-                      className="w-full rounded-xl border border-line/15 bg-panel/70 px-4 py-3 text-sm text-white outline-none" /></div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-4">
-                  <InputField label="Capacity" placeholder="∞" type="number" value={form.capacity} onChange={e => setField("capacity", e.target.value)} />
-                  <InputField label="XP Reward" placeholder="0" type="number" value={form.xp_reward} onChange={e => setField("xp_reward", e.target.value)} />
-                  <InputField label="Early Bird XP" placeholder="0" type="number" value={form.xp_bonus_first} onChange={e => setField("xp_bonus_first", e.target.value)} />
-                  <InputField label="Winner XP" placeholder="0" type="number" value={form.xp_bonus_winner} onChange={e => setField("xp_bonus_winner", e.target.value)} />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <InputField label="Organiser" placeholder="Dept of AI&ML" value={form.organiser} onChange={e => setField("organiser", e.target.value)} />
-                  <InputField label="Tags (comma)" placeholder="math, hackathon" value={form.tags} onChange={e => setField("tags", e.target.value)} />
-                  <div>
-                    <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">Check-in</label>
-                    <div className="flex items-center gap-3 mt-1">
-                      <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
-                        <input type="checkbox" checked={form.requires_checkin} onChange={e => setField("requires_checkin", e.target.checked)} className="accent-primary" />
-                        Require code
-                      </label>
-                      {form.requires_checkin && (
-                        <input type="text" placeholder="6-digit" value={form.checkin_code} onChange={e => setField("checkin_code", e.target.value)} maxLength={6}
-                          className="w-24 rounded-lg border border-line/15 bg-black/15 px-2 py-1 font-mono text-sm text-white outline-none" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {/* ── Team Event (migration 22) ── */}
-                <div className="rounded-xl border border-line/15 bg-panel/40 p-4">
-                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
-                    <input type="checkbox" checked={form.is_team_event} onChange={e => setField("is_team_event", e.target.checked)} className="accent-primary" />
-                    <span className="font-semibold">This is a team event</span>
-                    <span className="font-mono text-[10px] text-text-dim">(one leader registers on behalf of the team)</span>
-                  </label>
+              </div>
+              {/* ── Team Event (migration 22) ── */}
+              <div className={`rounded-2xl border p-4 transition-colors ${form.is_team_event ? "border-secondary/35 bg-secondary/[0.06]" : "border-[rgb(var(--rule))] bg-white/[0.02]"}`}>
+                <label className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-primary">
+                  <input type="checkbox" checked={form.is_team_event} onChange={e => setField("is_team_event", e.target.checked)} className="h-4 w-4 accent-primary" />
+                  <UsersRound className="h-4 w-4 text-secondary" strokeWidth={1.75} aria-hidden="true" />
+                  <span className="font-medium">This is a team event</span>
+                  <span className="text-[13px] text-text-dim">(one leader registers on behalf of the team)</span>
+                </label>
+                <AnimatePresence initial={false}>
                   {form.is_team_event && (
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <InputField
-                        label="Min team size"
-                        type="number"
-                        value={form.min_team_size}
-                        onChange={e => setField("min_team_size", e.target.value)}
-                        placeholder="2"
-                      />
-                      <InputField
-                        label="Max team size"
-                        type="number"
-                        value={form.max_team_size}
-                        onChange={e => setField("max_team_size", e.target.value)}
-                        placeholder="5"
-                      />
-                    </div>
-                  )}
-                  {form.is_team_event && (
-                    <p className="mt-3 font-mono text-[10px] text-text-dim">
-                      Students will be asked for a team name and team size at registration. The size is validated against the range above. One QR / one check-in per team.
-                    </p>
-                  )}
-                </div>
-                {/* ── Paid Event (migration 19) ── */}
-                <div className="rounded-xl border border-line/15 bg-panel/40 p-4">
-                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
-                    <input type="checkbox" checked={form.is_paid} onChange={e => setField("is_paid", e.target.checked)} className="accent-primary" />
-                    <span className="font-semibold">This is a paid event</span>
-                    <span className="font-mono text-[10px] text-text-dim">(manual UPI / QR)</span>
-                  </label>
-                  {form.is_paid && (
-                    <div className="mt-3 space-y-3">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <InputField label="Price (₹)" placeholder="50" type="number" value={form.price_rupees} onChange={e => setField("price_rupees", e.target.value)} />
-                        <InputField label="UPI ID (VPA)" placeholder="name@okhdfcbank" value={form.payment_upi_id} onChange={e => setField("payment_upi_id", e.target.value)} />
+                    <motion.div key="team" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <InputField label="Min team size" type="number" value={form.min_team_size} onChange={e => setField("min_team_size", e.target.value)} placeholder="2" />
+                        <InputField label="Max team size" type="number" value={form.max_team_size} onChange={e => setField("max_team_size", e.target.value)} placeholder="5" />
                       </div>
-                      <div>
-                        <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">QR Image (PNG/JPEG, &lt;50KB ideal)</label>
-                        <input type="file" accept="image/png,image/jpeg" onChange={e => handleQrFile(e.target.files?.[0])}
-                          className="w-full rounded-xl border border-line/15 bg-panel/70 px-4 py-3 text-sm text-white outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-primary/20 file:px-3 file:py-1 file:text-white" />
-                        {form.payment_qr_base64 && (
-                          <div className="mt-2 flex items-start gap-2">
-                            <img src={form.payment_qr_base64} alt="QR preview" loading="lazy" decoding="async" width="96" height="96" className="h-24 w-24 rounded-lg border border-line/15 bg-white p-1" />
-                            <button type="button" onClick={() => setField("payment_qr_base64", "")}
-                              className="font-mono text-[10px] text-danger hover:underline">remove</button>
-                          </div>
-                        )}
-                      </div>
-                      <InputField label="Instructions (shown to students)" placeholder="Include your USN in the transaction note"
-                        value={form.payment_instructions} onChange={e => setField("payment_instructions", e.target.value)} multiline />
-                      <p className="font-mono text-[10px] text-text-dim">
-                        Students will see the QR + UPI ID on the event page, pay from their UPI app, and submit the 12-digit reference number. You verify in your own bank app and mark them paid from the Payments panel on each event.
+                      <p className="mt-3 text-[13px] leading-6 text-text-dim">
+                        Students will be asked for a team name and team size at registration. The size is validated against the range above. One QR / one check-in per team.
                       </p>
-                    </div>
+                    </motion.div>
                   )}
-                </div>
+                </AnimatePresence>
+              </div>
+              {/* ── Paid Event (migration 19) ── */}
+              <div className={`rounded-2xl border p-4 transition-colors ${form.is_paid ? "border-primary/35 bg-primary/[0.05]" : "border-[rgb(var(--rule))] bg-white/[0.02]"}`}>
+                <label className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-primary">
+                  <input type="checkbox" checked={form.is_paid} onChange={e => setField("is_paid", e.target.checked)} className="h-4 w-4 accent-primary" />
+                  <IndianRupee className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden="true" />
+                  <span className="font-medium">This is a paid event</span>
+                  <span className="text-[13px] text-text-dim">(manual UPI / QR)</span>
+                </label>
+                <AnimatePresence initial={false}>
+                  {form.is_paid && (
+                    <motion.div key="paid" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                      <div className="mt-3 space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <InputField label="Price (₹)" placeholder="50" type="number" value={form.price_rupees} onChange={e => setField("price_rupees", e.target.value)} />
+                          <InputField label="UPI ID (VPA)" placeholder="name@okhdfcbank" value={form.payment_upi_id} onChange={e => setField("payment_upi_id", e.target.value)} />
+                        </div>
+                        <div>
+                          <label htmlFor="ev-qr" className={LABEL}>QR image <span className="text-text-dim">(PNG or JPEG, under 50KB is ideal)</span></label>
+                          <input id="ev-qr" type="file" accept="image/png,image/jpeg" onChange={e => handleQrFile(e.target.files?.[0])}
+                            className={`${FIELD} file:mr-3 file:rounded-lg file:border-0 file:bg-primary/20 file:px-3 file:py-1 file:text-text-primary`} />
+                          {form.payment_qr_base64 && (
+                            <div className="mt-2 flex items-start gap-3">
+                              <img src={form.payment_qr_base64} alt="QR preview" loading="lazy" decoding="async" width="96" height="96" className="h-24 w-24 rounded-xl border border-[rgb(var(--rule))] bg-white p-1" />
+                              <button type="button" onClick={() => setField("payment_qr_base64", "")}
+                                className="min-h-[36px] rounded-lg px-2 text-[13px] text-danger hover:bg-danger/10">remove</button>
+                            </div>
+                          )}
+                        </div>
+                        <InputField label="Instructions (shown to students)" placeholder="Include your USN in the transaction note"
+                          value={form.payment_instructions} onChange={e => setField("payment_instructions", e.target.value)} multiline />
+                        <p className="text-[13px] leading-6 text-text-dim">
+                          Students will see the QR + UPI ID on the event page, pay from their UPI app, and submit the 12-digit reference number. You verify in your own bank app and mark them paid from the Payments panel on each event.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
-                <div className="flex gap-3">
-                  <Button type="submit" loading={saving} size="sm">{editId ? "Update Event" : "Create Event"}</Button>
-                  {editId && <Button variant="ghost" size="sm" onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM }); setShowForm(false); }}>Cancel Edit</Button>}
-                </div>
-              </form>
-            </Card>
+              <div className="flex flex-wrap gap-3">
+                <Button type="submit" loading={saving} size="sm">{editId ? "Update Event" : "Create Event"}</Button>
+                {editId && <Button variant="ghost" size="sm" onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM }); setShowForm(false); }}>Cancel Edit</Button>}
+              </div>
+            </form>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        {[{ key: "all", label: "All" }, { key: "upcoming", label: "Upcoming" }, { key: "live", label: "Live" }, { key: "past", label: "Past" }].map(f => (
-          <Button key={f.key} variant={filter === f.key ? "primary" : "ghost"} size="sm" onClick={() => setFilter(f.key)}>{f.label}</Button>
-        ))}
-      </div>
-
       {/* Event List */}
-      <div className="space-y-4">
-        {filtered.length === 0 && <p className="py-8 text-center text-text-dim">No events found</p>}
-        {filtered.map(ev => (
-          <div key={ev.id}>
-            <Card variant={ev.status === "active" ? "glow" : "glass"}>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <EventStatusBadge status={ev.status} />
-                    <EventTypeBadge type={ev.event_type} />
-                    <button onClick={() => handleToggleReg(ev.id)}
-                      className={`rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase transition ${ev.registration_open ? "border-success/20 bg-success/8 text-success" : "border-danger/20 bg-danger/8 text-danger"}`}>
-                      Reg: {ev.registration_open ? "Open" : "Closed"}
-                    </button>
-                    {ev.xp_reward > 0 && <span className="math-text text-[10px] text-primary">+{ev.xp_reward} XP</span>}
-                  </div>
-                  <h3 className="mt-2 font-display text-lg font-bold text-white">{ev.title}</h3>
-                  <div className="mt-1 flex flex-wrap gap-3 font-mono text-[10px] text-text-dim">
-                    {(ev.starts_at || ev.date) && <span>{new Date(ev.starts_at || ev.date).toLocaleString()}</span>}
-                    {ev.location && <span>{ev.location}</span>}
-                    {ev.organiser && <span>by {ev.organiser}</span>}
-                  </div>
-                  {ev.description && <p className="mt-2 text-xs text-text-muted line-clamp-2">{ev.description}</p>}
-                  {(ev.capacity || ev.registration_count > 0) && (
-                    <div className="mt-2 max-w-xs"><CapacityBar current={ev.registration_count || 0} max={ev.capacity} /></div>
+      <div className="mt-8 space-y-4">
+        {filtered.length === 0 && (
+          <EmptyState compact title="No events found" body="Nothing matches this filter. Switch tabs or create an event." />
+        )}
+        <AnimatePresence mode="popLayout" initial={false}>
+          {filtered.map(ev => {
+            const live = ev.status === "active";
+            return (
+              <motion.div
+                key={ev.id}
+                layout="position"
+                initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+                transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <article className={`lamp-panel relative overflow-hidden p-5 sm:p-6 ${live ? "lamp-panel--lit" : ""}`}>
+                  {ev.banner_color && (
+                    <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={{ background: ev.banner_color }} />
                   )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <Button variant="ghost" size="sm" onClick={() => viewRegistrations(ev.id)}>
-                    {expandedRegs === ev.id ? "Hide" : `Regs (${ev.registration_count || 0})`}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => viewAttendance(ev.id)}>
-                    {expandedAtt === ev.id ? "Hide" : "Attendance"}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => viewHealth(ev.id)}>
-                    {expandedHealth === ev.id ? "Hide" : "Health"}
-                  </Button>
-                  {ev.is_paid && (
-                    <Button variant="ghost" size="sm" onClick={() => viewPayments(ev.id)}>
-                      {expandedPayments === ev.id ? "Hide" : "Payments"}
-                    </Button>
-                  )}
-                  <Button variant="secondary" size="sm" onClick={() => handleEdit(ev)}>Edit</Button>
-                  <Button variant="danger" size="sm" onClick={() => handleDelete(ev.id)}>Delete</Button>
-                </div>
-              </div>
-            </Card>
-
-            {/* Registrations Panel */}
-            <AnimatePresence>
-              {expandedRegs === ev.id && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                  <Card variant="solid" className="mt-1 ml-4 border-l-2 border-l-primary/30">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Registrations</p>
-                      {regsData.length > 0 && <Button variant="ghost" size="sm" onClick={() => exportCSV(regsData, `regs-${ev.title}`)}>Export CSV</Button>}
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <EventStatusBadge status={ev.status} />
+                        <EventTypeBadge type={ev.event_type} />
+                        <motion.button whileTap={{ scale: 0.92 }} onClick={() => handleToggleReg(ev.id)}
+                          aria-label={`Registration is ${ev.registration_open ? "open" : "closed"} — toggle`}
+                          className={`min-h-[28px] rounded-full border px-2.5 py-0.5 text-[12px] font-medium transition ${ev.registration_open ? "border-success/30 bg-success/10 text-success" : "border-danger/30 bg-danger/10 text-danger"}`}>
+                          Reg: {ev.registration_open ? "Open" : "Closed"}
+                        </motion.button>
+                        {ev.xp_reward > 0 && <span className="lamp-numerals text-[12px] text-primary">+{ev.xp_reward} XP</span>}
+                      </div>
+                      <h3 className="mt-3 text-xl text-text-primary">{ev.title}</h3>
+                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-text-muted">
+                        {(ev.starts_at || ev.date) && (
+                          <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-text-dim" strokeWidth={1.75} aria-hidden="true" /><span className="lamp-numerals">{new Date(ev.starts_at || ev.date).toLocaleString()}</span></span>
+                        )}
+                        {ev.location && <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-text-dim" strokeWidth={1.75} aria-hidden="true" />{ev.location}</span>}
+                        {ev.organiser && <span>by {ev.organiser}</span>}
+                      </div>
+                      {ev.description && <p className="mt-2 line-clamp-2 max-w-[70ch] text-sm text-text-muted">{ev.description}</p>}
+                      {(ev.capacity || ev.registration_count > 0) && (
+                        <div className="mt-3 max-w-xs"><CapacityBar current={ev.registration_count || 0} max={ev.capacity} /></div>
+                      )}
                     </div>
-                    {regsLoading ? <Loader variant="dots" size="sm" /> : regsData.length === 0 ? (
-                      <p className="text-xs text-text-dim">No registrations yet</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead><tr className="border-b border-line/10 font-mono text-[9px] uppercase tracking-wider text-text-dim">
-                            <th className="px-2 py-2">Student</th><th className="px-2 py-2">Email</th><th className="px-2 py-2">Status</th><th className="px-2 py-2">Date</th><th className="px-2 py-2">Team</th>
-                          </tr></thead>
-                          <tbody>
-                            {regsData.map(r => (
-                              <tr key={r.id} className="border-b border-line/5 hover:bg-white/[0.02]">
-                                <td className="px-2 py-2 text-white">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 lg:max-w-[22rem] lg:justify-end">
+                      <Button variant={expandedRegs === ev.id ? "secondary" : "ghost"} size="sm" onClick={() => viewRegistrations(ev.id)} aria-expanded={expandedRegs === ev.id}>
+                        {expandedRegs === ev.id ? "Hide" : `Regs (${ev.registration_count || 0})`}
+                      </Button>
+                      <Button variant={expandedAtt === ev.id ? "secondary" : "ghost"} size="sm" onClick={() => viewAttendance(ev.id)} aria-expanded={expandedAtt === ev.id}>
+                        {expandedAtt === ev.id ? "Hide" : "Attendance"}
+                      </Button>
+                      <Button variant={expandedHealth === ev.id ? "secondary" : "ghost"} size="sm" onClick={() => viewHealth(ev.id)} aria-expanded={expandedHealth === ev.id}>
+                        {expandedHealth === ev.id ? "Hide" : "Health"}
+                      </Button>
+                      {ev.is_paid && (
+                        <Button variant={expandedPayments === ev.id ? "secondary" : "ghost"} size="sm" onClick={() => viewPayments(ev.id)} aria-expanded={expandedPayments === ev.id}>
+                          {expandedPayments === ev.id ? "Hide" : "Payments"}
+                        </Button>
+                      )}
+                      <Button variant="secondary" size="sm" onClick={() => handleEdit(ev)} leading={icon(Pencil)}>Edit</Button>
+                      <Button variant="danger" size="sm" onClick={() => handleDelete(ev.id)} leading={icon(Trash2)}>Delete</Button>
+                    </div>
+                  </div>
+                </article>
+
+                {/* Registrations Panel */}
+                <AnimatePresence>
+                  {expandedRegs === ev.id && (
+                    <SubPanel key="regs" accent="border-l-primary/50" title="Registrations" tone="text-primary"
+                      action={regsData.length > 0 && <Button variant="ghost" size="sm" onClick={() => exportCSV(regsData, `regs-${ev.title}`)} leading={icon(Download)}>Export CSV</Button>}>
+                      {regsLoading ? <Loader variant="dots" size="sm" /> : regsData.length === 0 ? (
+                        <p className="text-[13px] text-text-dim">No registrations yet</p>
+                      ) : (
+                        <ScrollTable minWidth="min-w-[620px]" head={["Student", "Email", "Status", "Date", "Team"]}>
+                          {regsData.map(r => (
+                            <tr key={r.id} className="border-b border-[rgb(var(--rule))] last:border-b-0 hover:bg-white/[0.02]">
+                              <td className="px-3 py-2.5 text-text-primary">
+                                {r.user_id
+                                  ? <UserHoverCard userId={r.user_id}>{r.students?.name || "—"}</UserHoverCard>
+                                  : (r.students?.name || "—")}
+                              </td>
+                              <td className="px-3 py-2.5 text-text-muted">{r.students?.email || "—"}</td>
+                              <td className="px-3 py-2.5"><Pill tone={
+                                r.status === "attended" ? "good" : r.status === "registered" ? "violet" : r.status === "waitlisted" ? "warn" : "bad"
+                              }>{r.status}</Pill></td>
+                              <td className="lamp-numerals px-3 py-2.5 text-text-muted">{r.registered_at ? new Date(r.registered_at).toLocaleDateString() : "—"}</td>
+                              <td className="px-3 py-2.5 text-text-muted">{r.team_name || "—"}</td>
+                            </tr>
+                          ))}
+                        </ScrollTable>
+                      )}
+                    </SubPanel>
+                  )}
+                </AnimatePresence>
+
+                {/* Attendance Panel */}
+                <AnimatePresence>
+                  {expandedAtt === ev.id && (
+                    <SubPanel key="att" accent="border-l-success/50" title="Attendance" tone="text-success"
+                      action={attData.length > 0 && <Button variant="ghost" size="sm" onClick={() => exportCSV(attData, `attendance-${ev.title}`)} leading={icon(Download)}>Export CSV</Button>}>
+                      {attLoading ? <Loader variant="dots" size="sm" /> : attData.length === 0 ? (
+                        <p className="text-[13px] text-text-dim">No attendance yet</p>
+                      ) : (
+                        <ScrollTable minWidth="min-w-[560px]" head={["Student", "Method", "Time", "XP", "Session"]} numericCols={[3]}>
+                          {attData.map(a => (
+                            <tr key={a.id} className="border-b border-[rgb(var(--rule))] last:border-b-0 hover:bg-white/[0.02]">
+                              <td className="px-3 py-2.5 text-text-primary">
+                                {a.user_id
+                                  ? <UserHoverCard userId={a.user_id}>{a.students?.name || "—"}</UserHoverCard>
+                                  : (a.students?.name || "—")}
+                              </td>
+                              <td className="px-3 py-2.5"><Pill tone={a.checkin_method === "qr" ? "lamp" : a.checkin_method === "code" ? "violet" : "muted"}>{a.checkin_method}</Pill></td>
+                              <td className="lamp-numerals px-3 py-2.5 text-text-muted">{a.checkin_time ? new Date(a.checkin_time).toLocaleString() : "—"}</td>
+                              <td className="lamp-numerals px-3 py-2.5 text-right text-primary">{a.xp_awarded || 0}</td>
+                              <td className="px-3 py-2.5 text-text-muted">{a.session_label || "—"}</td>
+                            </tr>
+                          ))}
+                        </ScrollTable>
+                      )}
+                    </SubPanel>
+                  )}
+                </AnimatePresence>
+
+                {/* Payments Panel (migration 19) */}
+                <AnimatePresence>
+                  {expandedPayments === ev.id && ev.is_paid && (
+                    <SubPanel key="pay" accent="border-l-secondary/50" title="Payments" tone="text-secondary"
+                      sub={paymentsData.event && <span className="lamp-numerals">₹{((paymentsData.event.price_paise || 0) / 100).toFixed(2)} per seat</span>}
+                      action={(
+                        <div className="flex flex-wrap gap-2">
+                          {paymentsData.registrations.length > 0 && (
+                            <Button variant="ghost" size="sm" onClick={() => exportCSV(paymentsData.registrations, `payments-${ev.title}`)} leading={icon(Download)}>Export CSV</Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => refreshPayments(ev.id)} leading={icon(RefreshCw)}>Refresh</Button>
+                        </div>
+                      )}>
+                      {paymentsLoading ? <Loader variant="dots" size="sm" /> : paymentsData.registrations.length === 0 ? (
+                        <p className="text-[13px] text-text-dim">No registrations yet</p>
+                      ) : (
+                        <ScrollTable minWidth="min-w-[760px]" head={["Student", "Email", "UPI Ref", "Status", "Paid At", "Actions"]}>
+                          {paymentsData.registrations.map(r => {
+                            const ps = r.payment_status || "pending";
+                            const busy = reconcilingId === r.id;
+                            return (
+                              <tr key={r.id} className="border-b border-[rgb(var(--rule))] last:border-b-0 hover:bg-white/[0.02]">
+                                <td className="px-3 py-2.5 text-text-primary">
                                   {r.user_id
                                     ? <UserHoverCard userId={r.user_id}>{r.students?.name || "—"}</UserHoverCard>
                                     : (r.students?.name || "—")}
                                 </td>
-                                <td className="px-2 py-2 text-text-dim">{r.students?.email || "—"}</td>
-                                <td className="px-2 py-2"><span className={`rounded-full px-2 py-0.5 font-mono text-[8px] uppercase ${
-                                  r.status === "attended" ? "bg-success/10 text-success" : r.status === "registered" ? "bg-secondary/10 text-secondary" :
-                                  r.status === "waitlisted" ? "bg-warning/10 text-warning" : "bg-danger/10 text-danger"
-                                }`}>{r.status}</span></td>
-                                <td className="px-2 py-2 text-text-dim">{r.registered_at ? new Date(r.registered_at).toLocaleDateString() : "—"}</td>
-                                <td className="px-2 py-2 text-text-dim">{r.team_name || "—"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Attendance Panel */}
-            <AnimatePresence>
-              {expandedAtt === ev.id && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                  <Card variant="solid" className="mt-1 ml-4 border-l-2 border-l-success/30">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="font-mono text-[10px] uppercase tracking-wider text-success">Attendance</p>
-                      {attData.length > 0 && <Button variant="ghost" size="sm" onClick={() => exportCSV(attData, `attendance-${ev.title}`)}>Export CSV</Button>}
-                    </div>
-                    {attLoading ? <Loader variant="dots" size="sm" /> : attData.length === 0 ? (
-                      <p className="text-xs text-text-dim">No attendance yet</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead><tr className="border-b border-line/10 font-mono text-[9px] uppercase tracking-wider text-text-dim">
-                            <th className="px-2 py-2">Student</th><th className="px-2 py-2">Method</th><th className="px-2 py-2">Time</th><th className="px-2 py-2">XP</th><th className="px-2 py-2">Session</th>
-                          </tr></thead>
-                          <tbody>
-                            {attData.map(a => (
-                              <tr key={a.id} className="border-b border-line/5 hover:bg-white/[0.02]">
-                                <td className="px-2 py-2 text-white">
-                                  {a.user_id
-                                    ? <UserHoverCard userId={a.user_id}>{a.students?.name || "—"}</UserHoverCard>
-                                    : (a.students?.name || "—")}
+                                <td className="px-3 py-2.5 text-text-muted">{r.students?.email || "—"}</td>
+                                <td className="px-3 py-2.5 font-mono text-[12px] text-text-muted">{r.payment_ref || "—"}</td>
+                                <td className="px-3 py-2.5"><Pill tone={
+                                  ps === "paid" ? "good" : ps === "submitted" ? "violet" : ps === "rejected" ? "bad" : ps === "pending" ? "warn" : "muted"
+                                }>{ps.replace("_", " ")}</Pill></td>
+                                <td className="lamp-numerals px-3 py-2.5 text-text-muted">{r.paid_at ? new Date(r.paid_at).toLocaleDateString() : "—"}</td>
+                                <td className="px-3 py-2.5">
+                                  {ps === "submitted" && (
+                                    <div className="flex gap-1.5">
+                                      <Button variant="primary" size="sm" loading={busy} onClick={() => handleMarkPaid(ev.id, r.id)}>Mark paid</Button>
+                                      <Button variant="danger" size="sm" loading={busy} onClick={() => handleRejectPayment(ev.id, r.id)}>Reject</Button>
+                                    </div>
+                                  )}
+                                  {ps === "rejected" && r.rejection_reason && (
+                                    <span className="text-[12px] text-danger">{r.rejection_reason}</span>
+                                  )}
+                                  {ps === "paid" && (
+                                    <span className="inline-flex items-center gap-1 text-[12px] text-success"><Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />verified</span>
+                                  )}
+                                  {(ps === "pending" || ps === "not_required") && (
+                                    <span className="text-[12px] text-text-dim">awaiting ref</span>
+                                  )}
                                 </td>
-                                <td className="px-2 py-2"><span className={`rounded px-1.5 py-0.5 font-mono text-[8px] uppercase ${
-                                  a.checkin_method === "qr" ? "bg-primary/10 text-primary" : a.checkin_method === "code" ? "bg-secondary/10 text-secondary" : "bg-white/5 text-text-dim"
-                                }`}>{a.checkin_method}</span></td>
-                                <td className="px-2 py-2 text-text-dim">{a.checkin_time ? new Date(a.checkin_time).toLocaleString() : "—"}</td>
-                                <td className="px-2 py-2 math-text text-primary">{a.xp_awarded || 0}</td>
-                                <td className="px-2 py-2 text-text-dim">{a.session_label || "—"}</td>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {/* Payments Panel (migration 19) */}
-            <AnimatePresence>
-              {expandedPayments === ev.id && ev.is_paid && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                  <Card variant="solid" className="mt-1 ml-4 border-l-2 border-l-secondary/30">
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                      <div>
-                        <p className="font-mono text-[10px] uppercase tracking-wider text-secondary">Payments</p>
-                        {paymentsData.event && (
-                          <p className="mt-0.5 font-mono text-[10px] text-text-dim">
-                            ₹{((paymentsData.event.price_paise || 0) / 100).toFixed(2)} per seat
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        {paymentsData.registrations.length > 0 && (
-                          <Button variant="ghost" size="sm" onClick={() => exportCSV(paymentsData.registrations, `payments-${ev.title}`)}>Export CSV</Button>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => refreshPayments(ev.id)}>Refresh</Button>
-                      </div>
-                    </div>
-                    {paymentsLoading ? <Loader variant="dots" size="sm" /> : paymentsData.registrations.length === 0 ? (
-                      <p className="text-xs text-text-dim">No registrations yet</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead><tr className="border-b border-line/10 font-mono text-[9px] uppercase tracking-wider text-text-dim">
-                            <th className="px-2 py-2">Student</th><th className="px-2 py-2">Email</th><th className="px-2 py-2">UPI Ref</th><th className="px-2 py-2">Status</th><th className="px-2 py-2">Paid At</th><th className="px-2 py-2">Actions</th>
-                          </tr></thead>
-                          <tbody>
-                            {paymentsData.registrations.map(r => {
-                              const ps = r.payment_status || "pending";
-                              const busy = reconcilingId === r.id;
-                              return (
-                                <tr key={r.id} className="border-b border-line/5 hover:bg-white/[0.02]">
-                                  <td className="px-2 py-2 text-white">
-                                    {r.user_id
-                                      ? <UserHoverCard userId={r.user_id}>{r.students?.name || "—"}</UserHoverCard>
-                                      : (r.students?.name || "—")}
-                                  </td>
-                                  <td className="px-2 py-2 text-text-dim">{r.students?.email || "—"}</td>
-                                  <td className="px-2 py-2 font-mono text-text-muted">{r.payment_ref || "—"}</td>
-                                  <td className="px-2 py-2"><span className={`rounded-full px-2 py-0.5 font-mono text-[8px] uppercase ${
-                                    ps === "paid" ? "bg-success/10 text-success" :
-                                    ps === "submitted" ? "bg-secondary/10 text-secondary" :
-                                    ps === "rejected" ? "bg-danger/10 text-danger" :
-                                    ps === "pending" ? "bg-warning/10 text-warning" :
-                                    "bg-white/5 text-text-dim"
-                                  }`}>{ps.replace("_", " ")}</span></td>
-                                  <td className="px-2 py-2 text-text-dim">{r.paid_at ? new Date(r.paid_at).toLocaleDateString() : "—"}</td>
-                                  <td className="px-2 py-2">
-                                    {ps === "submitted" && (
-                                      <div className="flex gap-1">
-                                        <Button variant="primary" size="sm" loading={busy} onClick={() => handleMarkPaid(ev.id, r.id)}>Mark paid</Button>
-                                        <Button variant="danger" size="sm" loading={busy} onClick={() => handleRejectPayment(ev.id, r.id)}>Reject</Button>
-                                      </div>
-                                    )}
-                                    {ps === "rejected" && r.rejection_reason && (
-                                      <span className="font-mono text-[10px] text-danger">{r.rejection_reason}</span>
-                                    )}
-                                    {ps === "paid" && (
-                                      <span className="font-mono text-[10px] text-success">✓ verified</span>
-                                    )}
-                                    {(ps === "pending" || ps === "not_required") && (
-                                      <span className="font-mono text-[10px] text-text-dim">awaiting ref</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                            );
+                          })}
+                        </ScrollTable>
+                      )}
+                    </SubPanel>
+                  )}
+                </AnimatePresence>
 
-            {/* Health Metrics Panel */}
-            <AnimatePresence>
-              {expandedHealth === ev.id && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                  <Card variant="solid" className="mt-1 ml-4 border-l-2 border-l-warning/30">
-                    <p className="font-mono text-[10px] uppercase tracking-wider text-warning">Event Health</p>
-                    {healthLoading ? <Loader variant="dots" size="sm" /> : !healthData ? (
-                      <p className="mt-2 text-xs text-text-dim">No data</p>
-                    ) : (
-                      <div className="mt-3 grid gap-4 sm:grid-cols-3">
-                        <div className="space-y-2">
-                          <p className="font-mono text-[9px] uppercase text-text-dim">Registration</p>
-                          <div className="grid grid-cols-2 gap-2 text-center">
-                            <div><p className="math-text text-lg font-bold text-white">{healthData.registration?.total || 0}</p><p className="text-[8px] text-text-dim">Total</p></div>
-                            <div><p className="math-text text-lg font-bold text-success">{healthData.registration?.attended || 0}</p><p className="text-[8px] text-text-dim">Attended</p></div>
-                            <div><p className="math-text text-lg font-bold text-danger">{healthData.registration?.cancelled || 0}</p><p className="text-[8px] text-text-dim">Cancelled</p></div>
-                            <div><p className="math-text text-lg font-bold text-warning">{healthData.registration?.waitlisted || 0}</p><p className="text-[8px] text-text-dim">Waitlisted</p></div>
+                {/* Health Metrics Panel */}
+                <AnimatePresence>
+                  {expandedHealth === ev.id && (
+                    <SubPanel key="health" accent="border-l-warning/50" title="Event health" tone="text-warning">
+                      {healthLoading ? <Loader variant="dots" size="sm" /> : !healthData ? (
+                        <p className="text-[13px] text-text-dim">No data</p>
+                      ) : (
+                        <div className="grid gap-6 sm:grid-cols-3">
+                          <div>
+                            <p className="mb-3 text-[13px] font-medium text-text-muted">Registration</p>
+                            <dl className="grid grid-cols-2 gap-3">
+                              {[
+                                { label: "Total", val: healthData.registration?.total || 0, cls: "text-text-primary" },
+                                { label: "Attended", val: healthData.registration?.attended || 0, cls: "text-success" },
+                                { label: "Cancelled", val: healthData.registration?.cancelled || 0, cls: "text-danger" },
+                                { label: "Waitlisted", val: healthData.registration?.waitlisted || 0, cls: "text-warning" },
+                              ].map(s => (
+                                <div key={s.label} className="rounded-xl bg-white/[0.025] px-3 py-2">
+                                  <dd className={`lamp-numerals text-xl ${s.cls}`}><AnimatedNumber value={s.val} duration={1} /></dd>
+                                  <dt className="text-[12px] text-text-dim">{s.label}</dt>
+                                </div>
+                              ))}
+                            </dl>
                           </div>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="font-mono text-[9px] uppercase text-text-dim">Rates</p>
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-text-dim">Fill Rate</span>
-                              <span className="math-text text-white">{healthData.rates?.fill_rate ?? "∞"}%</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-text-dim">Attendance</span>
-                              <span className={`math-text ${healthData.rates?.attendance_rate >= 70 ? "text-success" : healthData.rates?.attendance_rate >= 40 ? "text-warning" : "text-danger"}`}>
-                                {healthData.rates?.attendance_rate || 0}%
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-text-dim">Cancel Rate</span>
-                              <span className={`math-text ${healthData.rates?.cancel_rate <= 10 ? "text-success" : "text-danger"}`}>
-                                {healthData.rates?.cancel_rate || 0}%
-                              </span>
+                          <div>
+                            <p className="mb-3 text-[13px] font-medium text-text-muted">Rates</p>
+                            <div className="space-y-3">
+                              <RateBar label="Fill rate" value={healthData.rates?.fill_rate} display={`${healthData.rates?.fill_rate ?? "∞"}%`} tone="bg-primary" text="text-text-primary" />
+                              <RateBar
+                                label="Attendance"
+                                value={healthData.rates?.attendance_rate || 0}
+                                display={`${healthData.rates?.attendance_rate || 0}%`}
+                                tone={healthData.rates?.attendance_rate >= 70 ? "bg-success" : healthData.rates?.attendance_rate >= 40 ? "bg-warning" : "bg-danger"}
+                                text={healthData.rates?.attendance_rate >= 70 ? "text-success" : healthData.rates?.attendance_rate >= 40 ? "text-warning" : "text-danger"}
+                              />
+                              <RateBar
+                                label="Cancel rate"
+                                value={healthData.rates?.cancel_rate || 0}
+                                display={`${healthData.rates?.cancel_rate || 0}%`}
+                                tone={healthData.rates?.cancel_rate <= 10 ? "bg-success" : "bg-danger"}
+                                text={healthData.rates?.cancel_rate <= 10 ? "text-success" : "text-danger"}
+                              />
                             </div>
                           </div>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="font-mono text-[9px] uppercase text-text-dim">Check-in Methods</p>
-                          <div className="space-y-1">
-                            {[
-                              { label: "QR Scan", val: healthData.attendance?.qr || 0, color: "text-primary" },
-                              { label: "Code", val: healthData.attendance?.code || 0, color: "text-secondary" },
-                              { label: "Manual", val: healthData.attendance?.manual || 0, color: "text-text-dim" },
-                            ].map(m => (
-                              <div key={m.label} className="flex justify-between text-xs">
-                                <span className="text-text-dim">{m.label}</span>
-                                <span className={`math-text ${m.color}`}>{m.val}</span>
+                          <div>
+                            <p className="mb-3 text-[13px] font-medium text-text-muted">Check-in methods</p>
+                            <dl className="space-y-1.5 text-sm">
+                              {[
+                                { label: "QR Scan", val: healthData.attendance?.qr || 0, color: "text-primary" },
+                                { label: "Code", val: healthData.attendance?.code || 0, color: "text-secondary" },
+                                { label: "Manual", val: healthData.attendance?.manual || 0, color: "text-text-muted" },
+                              ].map(m => (
+                                <div key={m.label} className="flex justify-between">
+                                  <dt className="text-text-dim">{m.label}</dt>
+                                  <dd className={`lamp-numerals ${m.color}`}>{m.val}</dd>
+                                </div>
+                              ))}
+                              <div className="mt-2 flex justify-between border-t border-[rgb(var(--rule))] pt-2">
+                                <dt className="text-text-dim">Total XP awarded</dt>
+                                <dd className="lamp-numerals text-primary">{healthData.xp?.total_awarded || 0}</dd>
                               </div>
-                            ))}
-                          </div>
-                          <div className="mt-2 flex justify-between text-xs border-t border-line/10 pt-2">
-                            <span className="text-text-dim">Total XP Awarded</span>
-                            <span className="math-text text-primary">{healthData.xp?.total_awarded || 0}</span>
+                            </dl>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        ))}
+                      )}
+                    </SubPanel>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
 
       {/* Platform Insights */}
       {adminInsights && (
-        <Card variant="glass">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">Platform Insights</p>
-          <h3 className="mt-2 font-display text-lg font-bold text-white">Overview</h3>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="text-center">
-              <p className="math-text text-2xl font-bold text-primary">{adminInsights.registrations?.active_users || 0}</p>
-              <p className="font-mono text-[9px] text-text-dim">Active Users</p>
-            </div>
-            <div className="text-center">
-              <p className="math-text text-2xl font-bold text-success">{adminInsights.registrations?.attendance_rate || 0}%</p>
-              <p className="font-mono text-[9px] text-text-dim">Attendance Rate</p>
-            </div>
-            <div className="text-center">
-              <p className="math-text text-2xl font-bold text-warning">{adminInsights.achievements?.total_unlocks || 0}</p>
-              <p className="font-mono text-[9px] text-text-dim">Achievements Unlocked</p>
-            </div>
-            <div className="text-center">
-              <p className="math-text text-2xl font-bold text-secondary">{adminInsights.registrations?.total || 0}</p>
-              <p className="font-mono text-[9px] text-text-dim">Total Registrations</p>
-            </div>
-          </div>
+        <section data-reveal="tilt" className="lamp-panel mt-8 p-5 sm:p-6">
+          <h2 className="text-xl text-text-primary">Platform insights</h2>
+          <dl data-stagger="up" className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[
+              { label: "Active users", val: adminInsights.registrations?.active_users || 0, cls: "text-primary" },
+              { label: "Attendance rate", val: adminInsights.registrations?.attendance_rate || 0, suffix: "%", cls: "text-success" },
+              { label: "Achievements unlocked", val: adminInsights.achievements?.total_unlocks || 0, cls: "text-warning" },
+              { label: "Total registrations", val: adminInsights.registrations?.total || 0, cls: "text-secondary" },
+            ].map(s => (
+              <div key={s.label} className="border-l border-[rgb(var(--rule))] pl-4">
+                <dd className={`lamp-numerals text-[1.75rem] leading-none ${s.cls}`}><AnimatedNumber value={s.val} suffix={s.suffix || ""} /></dd>
+                <dt className="mt-1.5 text-[13px] text-text-muted">{s.label}</dt>
+              </div>
+            ))}
+          </dl>
           {adminInsights.top_events?.length > 0 && (
-            <div className="mt-4">
-              <p className="font-mono text-[9px] uppercase text-text-dim mb-2">Top Events by Registration</p>
-              {adminInsights.top_events.map((ev, i) => (
-                <div key={ev.id} className="flex items-center gap-3 py-1.5">
-                  <span className="math-text w-6 text-xs text-text-dim text-right">{i + 1}.</span>
-                  <span className="flex-1 text-xs text-white truncate">{ev.title}</span>
-                  <span className="rounded px-1.5 py-0.5 font-mono text-[8px] uppercase bg-white/5 text-text-dim">{ev.type}</span>
-                  <span className="math-text text-xs text-primary">{ev.count}</span>
-                </div>
-              ))}
+            <div className="mt-7">
+              <p className="mb-3 text-[13px] font-medium text-text-muted">Top events by registration</p>
+              <ol className="space-y-1.5">
+                {adminInsights.top_events.map((ev, i) => (
+                  <li key={ev.id} className="relative flex items-center gap-3 overflow-hidden rounded-xl px-3 py-2">
+                    <span data-topbar aria-hidden="true" className="absolute inset-y-0 left-0 rounded-xl bg-primary/[0.08]" style={{ width: `${Math.max(4, ((ev.count || 0) / topMax) * 100)}%` }} />
+                    <span className="lamp-numerals relative w-6 text-right text-[13px] text-text-dim">{i + 1}</span>
+                    <span className="relative min-w-0 flex-1 truncate text-sm text-text-primary">{ev.title}</span>
+                    <span className="relative hidden rounded-full bg-white/[0.05] px-2 py-0.5 text-[11px] text-text-muted sm:inline">{ev.type}</span>
+                    <span className="lamp-numerals relative text-sm text-primary">{ev.count}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
           )}
-        </Card>
+        </section>
       )}
+    </div>
+  );
+}
+
+/* ── Presentational helpers ───────────────────────────── */
+
+const PILL_TONES = {
+  good: "border-success/30 bg-success/10 text-success",
+  bad: "border-danger/30 bg-danger/10 text-danger",
+  warn: "border-warning/30 bg-warning/10 text-warning",
+  violet: "border-secondary/30 bg-secondary/10 text-secondary",
+  lamp: "border-primary/30 bg-primary/10 text-primary",
+  muted: "border-[rgb(var(--rule))] bg-white/[0.04] text-text-muted",
+};
+
+function Pill({ tone = "muted", children }) {
+  return <span className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium ${PILL_TONES[tone]}`}>{children}</span>;
+}
+
+function SubPanel({ accent, title, tone, sub, action, children }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0, y: -8 }}
+      animate={{ opacity: 1, height: "auto", y: 0 }}
+      exit={{ opacity: 0, height: 0, y: -8 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="overflow-hidden"
+    >
+      <div className={`lamp-panel mt-2 border-l-2 p-4 sm:ml-5 sm:p-5 ${accent}`}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h4 className={`text-[15px] font-medium ${tone}`}>{title}</h4>
+            {sub ? <p className="mt-0.5 text-[13px] text-text-dim">{sub}</p> : null}
+          </div>
+          {action || null}
+        </div>
+        {children}
+      </div>
     </motion.div>
+  );
+}
+
+function ScrollTable({ head, minWidth, numericCols = [], children }) {
+  return (
+    <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <table className={`w-full text-left text-[13px] ${minWidth}`}>
+        <thead>
+          <tr className="border-b border-[rgb(var(--rule))] text-[12px] text-text-dim">
+            {head.map((h, i) => <th key={h} className={`px-3 py-2 font-medium ${numericCols.includes(i) ? "text-right" : ""}`}>{h}</th>)}
+          </tr>
+        </thead>
+        <tbody data-stagger="fade">{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function RateBar({ label, value, display, tone, text }) {
+  const pct = typeof value === "number" ? Math.min(100, Math.max(0, value)) : 100;
+  return (
+    <div>
+      <div className="flex justify-between text-sm">
+        <span className="text-text-dim">{label}</span>
+        <span className={`lamp-numerals ${text}`}>{display}</span>
+      </div>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.05]">
+        <motion.div
+          className={`h-full origin-left rounded-full ${tone}`}
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: pct / 100 }}
+          transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+        />
+      </div>
     </div>
   );
 }

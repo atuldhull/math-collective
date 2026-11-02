@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { bot } from "@/lib/api";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 const panelVariants = {
   hidden: {
@@ -40,6 +41,10 @@ const childVariants = {
 };
 
 export default function ChatBot() {
+  // Not currently mounted anywhere (PANDA replaced it), but kept skin-aware
+  // so it matches whichever route it lands on if it is re-enabled.
+  const lamp = useIsLamplight();
+  const t = (a, b) => (lamp ? a : b);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
     { role: "assistant", content: "Hey! I'm **ΣBot** — your dramatic math genius 🧮✨\n\nCalculus? Linear Algebra? Probability? Number Theory?\n\nHit me with your best shot!" },
@@ -107,8 +112,8 @@ export default function ChatBot() {
           onClick={() => setOpen(!open)}
           whileHover={{ scale: 1.12, rotate: open ? 0 : 15 }}
           whileTap={{ scale: 0.85 }}
-          className="relative flex h-[68px] w-[68px] items-center justify-center rounded-full bg-gradient-to-br from-primary via-secondary to-glow text-white shadow-[0_10px_50px_rgba(131,82,255,0.5)]"
-          style={{ border: "3px solid rgba(255,255,255,0.15)" }}
+          className={t("relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgb(var(--lamp)/0.4)] bg-[rgb(var(--color-surface)/0.9)] text-primary shadow-[0_16px_40px_-14px_rgb(var(--lamp)/0.7)]", "relative flex h-[68px] w-[68px] items-center justify-center rounded-full bg-gradient-to-br from-primary via-secondary to-glow text-white shadow-[0_10px_50px_rgba(131,82,255,0.5)]")}
+          style={lamp ? undefined : { border: "3px solid rgba(255,255,255,0.15)" }}
           aria-label="Toggle ΣBot"
         >
           <AnimatePresence mode="wait">
@@ -125,7 +130,7 @@ export default function ChatBot() {
                 transition={{ type: "spring", bounce: 0.5 }}
                 className="flex flex-col items-center">
                 <span className="font-display text-2xl font-extrabold leading-none">Σ</span>
-                <span className="mt-0.5 font-mono text-[7px] uppercase tracking-widest opacity-80">Bot</span>
+                <span className={t("mt-0.5 text-[10px] font-medium opacity-80", "mt-0.5 font-mono text-[7px] uppercase tracking-widest opacity-80")}>Bot</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -140,14 +145,14 @@ export default function ChatBot() {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed bottom-[108px] right-7 z-50 flex flex-col overflow-hidden border-2 border-primary/15 shadow-[0_40px_120px_rgba(0,0,0,0.65)]"
+            className={t("fixed bottom-[108px] right-7 z-50 flex flex-col overflow-hidden border border-[rgb(var(--lamp)/0.28)] shadow-[0_40px_100px_-30px_rgba(0,0,0,0.85)]", "fixed bottom-[108px] right-7 z-50 flex flex-col overflow-hidden border-2 border-primary/15 shadow-[0_40px_120px_rgba(0,0,0,0.65)]")}
             style={{
               width: "min(480px, calc(100vw - 2rem))",
               height: "min(680px, calc(100dvh - 10rem))",
             }}
           >
             {/* Glass bg */}
-            <div className="absolute inset-0 bg-obsidian/95 backdrop-blur-3xl" />
+            <div className={t("absolute inset-0 bg-[rgb(var(--color-surface)/0.95)] backdrop-blur-3xl", "absolute inset-0 bg-obsidian/95 backdrop-blur-3xl")} />
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(131,82,255,0.06),transparent_60%),radial-gradient(ellipse_at_bottom_right,rgba(35,193,255,0.04),transparent_50%)]" />
 
             {/* Animated top border glow */}
@@ -170,16 +175,22 @@ export default function ChatBot() {
                 </motion.div>
               </motion.div>
               <div className="flex-1">
-                <p className="text-lg font-bold text-white">ΣBot</p>
+                <p className={t("lamp-display text-lg text-text-primary", "text-lg font-bold text-white")}>ΣBot</p>
                 <div className="flex items-center gap-2">
                   <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
                     className="h-2 w-2 rounded-full bg-success shadow-[0_0_6px_rgba(45,212,191,0.6)]" />
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-success">Online</span>
-                  <span className="font-mono text-[10px] text-text-dim">&middot; Math AI</span>
+                  {lamp ? (
+                    <span className="text-[12px] text-text-muted">Math assistant, online</span>
+                  ) : (
+                    <>
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-success">Online</span>
+                      <span className="font-mono text-[10px] text-text-dim">&middot; Math AI</span>
+                    </>
+                  )}
                 </div>
               </div>
               <button onClick={() => setMessages([{ role: "assistant", content: "Fresh start! 🧮 What math problem are we conquering?" }])}
-                className="rounded-xl border border-line/15 bg-white/5 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-dim transition hover:bg-white/10 hover:text-white">
+                className={t("h-9 rounded-xl border border-[rgb(var(--rule))] px-3 text-[13px] text-text-muted transition hover:border-[rgb(var(--lamp)/0.4)] hover:text-text-primary", "rounded-xl border border-line/15 bg-white/5 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-dim transition hover:bg-white/10 hover:text-white")}>
                 Clear
               </button>
             </motion.div>
@@ -202,8 +213,8 @@ export default function ChatBot() {
                   <div
                     className={`max-w-[82%] break-words rounded-2xl px-4 py-3 text-[13.5px] leading-[1.7] ${
                       msg.role === "user"
-                        ? "rounded-br-sm bg-gradient-to-br from-primary/30 to-primary/15 text-white shadow-[0_4px_16px_rgba(131,82,255,0.15)]"
-                        : "rounded-bl-sm border border-line/10 bg-surface/80 text-text-muted"
+                        ? t("rounded-br-md border border-[rgb(var(--lamp)/0.3)] bg-[rgb(var(--lamp)/0.14)] text-text-primary", "rounded-br-sm bg-gradient-to-br from-primary/30 to-primary/15 text-white shadow-[0_4px_16px_rgba(131,82,255,0.15)]")
+                        : t("rounded-bl-md border border-[rgb(var(--rule))] bg-panel/80 text-text-muted", "rounded-bl-sm border border-line/10 bg-surface/80 text-text-muted")
                     }`}
                     dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }}
                   />
@@ -242,7 +253,7 @@ export default function ChatBot() {
                     onKeyDown={handleKeyDown}
                     placeholder="Ask anything about math..."
                     rows={1}
-                    className="max-h-28 min-h-[50px] w-full resize-none rounded-2xl border border-line/15 bg-panel/60 px-5 py-3.5 text-sm text-white outline-none placeholder:text-text-dim focus:border-primary/40 focus:shadow-[0_0_0_4px_rgba(131,82,255,0.08)]"
+                    className={t("max-h-28 min-h-[48px] w-full resize-none rounded-xl border border-[rgb(var(--rule))] bg-[rgb(var(--color-obsidian)/0.6)] px-4 py-3 text-sm text-text-primary outline-none placeholder:text-text-dim focus:border-[rgb(var(--lamp)/0.5)] focus:shadow-[0_0_0_3px_rgb(var(--lamp)/0.12)]", "max-h-28 min-h-[50px] w-full resize-none rounded-2xl border border-line/15 bg-panel/60 px-5 py-3.5 text-sm text-white outline-none placeholder:text-text-dim focus:border-primary/40 focus:shadow-[0_0_0_4px_rgba(131,82,255,0.08)]")}
                   />
                 </div>
                 <motion.button
@@ -250,16 +261,21 @@ export default function ChatBot() {
                   disabled={!input.trim() || loading}
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.9 }}
-                  className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white shadow-[0_6px_24px_rgba(131,82,255,0.35)] transition disabled:opacity-25 disabled:shadow-none"
+                  aria-label="Send"
+                  className={t("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-[rgb(var(--color-obsidian))] shadow-[0_10px_26px_-10px_rgb(var(--lamp)/0.85)] transition disabled:opacity-30 disabled:shadow-none", "flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white shadow-[0_6px_24px_rgba(131,82,255,0.35)] transition disabled:opacity-25 disabled:shadow-none")}
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                   </svg>
                 </motion.button>
               </div>
-              <p className="mt-3 text-center font-mono text-[8px] uppercase tracking-[0.2em] text-text-dim">
-                ΣBot AI &middot; Guides with hints, never spoils the answer
-              </p>
+              {lamp ? (
+                <p className="mt-3 text-center text-[11px] text-text-dim">Guides with hints. Never spoils the answer.</p>
+              ) : (
+                <p className="mt-3 text-center font-mono text-[8px] uppercase tracking-[0.2em] text-text-dim">
+                  ΣBot AI &middot; Guides with hints, never spoils the answer
+                </p>
+              )}
             </motion.div>
           </motion.div>
         )}

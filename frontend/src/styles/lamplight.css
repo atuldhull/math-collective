@@ -1,0 +1,300 @@
+@import url("https://fonts.googleapis.com/css2?family=Creepster&display=swap");
+
+/* ══════════════════════════════════════════════════════════════════
+   MEMBER SKIN ("lamplight")
+   ──────────────────────────────────────────────────────────────────
+   Signed-out visitors get the public tree (features/guest) and its own
+   themes. Once a member signs in, every screen except their "/" home
+   wears this skin, which carries the public site's design language
+   into the app: graphite paper, lavender + ice accents, Outfit, and the
+   same four themes (Obsidian, Arctic, Emerald, Nebula), picked with
+   data-member-theme on <html> and shared with the visitor's choice.
+
+   Token names: --lamp is the theme's accent and
+   --violet its second accent. Most pages style themselves through the
+   shared RGB-triplet tokens (bg-surface, text-primary, border-line/15),
+   so re-pointing them here restyles the whole app in one place.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root[data-skin="lamplight"] {
+  --fog-ink: 242 241 247; --fog-muted: 167 170 184; --fog-accent: 182 160 255;
+  --color-obsidian: 16 17 20;
+  --color-surface: 25 27 33;
+  --color-panel: 32 34 43;
+  --color-line: 80 83 100;
+  --color-primary: 182 160 255;
+  --color-secondary: 139 215 237;
+  --color-glow: 139 215 237;
+  --color-success: 126 222 174;
+  --color-warning: 236 201 130;
+  --color-danger: 255 151 166;
+  --color-text-primary: 242 241 247;
+  --color-text-muted: 167 170 184;
+  --color-text-dim: 132 135 150;
+  --lamp: 182 160 255;
+  --violet: 139 215 237;
+  --rule: 52 55 66;
+  --fog: 9 10 14;
+  color-scheme: dark;
+
+  --radius-sm: 0.5rem; --radius-md: 0.75rem; --radius-lg: 1rem; --radius-xl: 1.25rem;
+  --shadow-orbit: 0 30px 80px -40px rgb(var(--lamp)/0.35), 0 0 0 1px rgb(var(--lamp)/0.10);
+  --shadow-panel: 0 24px 60px -34px rgb(0 0 0/0.6);
+  --shadow-pulse: 0 0 0 1px rgb(var(--lamp)/0.18), 0 16px 45px -10px rgb(var(--lamp)/0.25);
+
+  /* The original site cut panels into notches, hexes and diamonds via
+     these clip-paths. In this skin they all become soft rounded rects,
+     which restyles every page that references them without touching
+     the pages themselves. */
+  --clip-hex: inset(0 round 0.6rem);
+  --clip-para: inset(0 round 0.6rem);
+  --clip-notch: inset(0 round 1rem);
+  --clip-diamond: inset(0 round 0.6rem);
+
+  --ease-lamp: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-body: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --font-accent: Georgia, "Times New Roman", serif;
+  --dock-offset: 0px;
+}
+
+:root[data-skin="lamplight"][data-member-theme="arctic"] {
+  --fog-ink: 237 244 255; --fog-muted: 181 196 213; --fog-accent: 165 215 255;
+  --color-obsidian: 247 248 245;
+  --color-surface: 255 255 255;
+  --color-panel: 236 238 239;
+  --color-line: 150 162 175;
+  --color-primary: 36 95 181;
+  --color-secondary: 47 113 141;
+  --color-glow: 47 113 141;
+  --color-success: 22 116 82;
+  --color-warning: 145 89 22;
+  --color-danger: 186 46 59;
+  --color-text-primary: 27 37 48;
+  --color-text-muted: 92 105 117;
+  --color-text-dim: 112 122 134;
+  --lamp: 36 95 181;
+  --violet: 47 113 141;
+  --rule: 211 217 221;
+  --fog: 21 37 56;
+  color-scheme: light;
+  --shadow-panel: 0 18px 40px -26px rgb(37 62 90/0.25);
+}
+:root[data-skin="lamplight"][data-member-theme="emerald"] {
+  --fog-ink: 230 247 237; --fog-muted: 160 188 176; --fog-accent: 166 237 117;
+  --color-obsidian: 7 23 19;
+  --color-surface: 16 38 31;
+  --color-panel: 22 48 39;
+  --color-line: 70 108 89;
+  --color-primary: 166 237 117;
+  --color-secondary: 102 224 181;
+  --color-glow: 102 224 181;
+  --color-success: 126 222 174;
+  --color-warning: 236 201 130;
+  --color-danger: 255 151 166;
+  --color-text-primary: 230 247 237;
+  --color-text-muted: 160 188 176;
+  --color-text-dim: 126 154 142;
+  --lamp: 166 237 117;
+  --violet: 102 224 181;
+  --rule: 44 74 62;
+  --fog: 3 12 10;
+  color-scheme: dark;
+}
+:root[data-skin="lamplight"][data-member-theme="nebula"] {
+  --fog-ink: 246 237 255; --fog-muted: 191 176 207; --fog-accent: 239 161 232;
+  --color-obsidian: 21 16 34;
+  --color-surface: 36 25 52;
+  --color-panel: 48 32 63;
+  --color-line: 108 75 132;
+  --color-primary: 239 161 232;
+  --color-secondary: 126 221 231;
+  --color-glow: 126 221 231;
+  --color-success: 126 222 174;
+  --color-warning: 236 201 130;
+  --color-danger: 255 151 166;
+  --color-text-primary: 246 237 255;
+  --color-text-muted: 191 176 207;
+  --color-text-dim: 156 142 172;
+  --lamp: 239 161 232;
+  --violet: 126 221 231;
+  --rule: 76 53 95;
+  --fog: 10 6 18;
+  color-scheme: dark;
+}
+
+/* body carries data-monument, whose rules re-point --page-accent per
+   route. The skin wants one lamp everywhere, so pin it on body with a
+   selector that outranks [data-monument="…"]. */
+:root[data-skin="lamplight"] body {
+  --page-accent: rgb(var(--lamp));
+  --page-glow: rgb(var(--lamp)/0.16);
+  --ui-overlay-bg: transparent;
+  background: rgb(var(--color-obsidian));
+  color: rgb(var(--color-text-primary));
+  font-family: var(--font-body);
+}
+
+@media (max-width: 1023px) {
+  :root[data-skin="lamplight"] { --dock-offset: calc(76px + env(safe-area-inset-bottom, 0px)); }
+}
+
+:root[data-skin="lamplight"] ::selection { background: rgb(var(--lamp)/0.35); color: rgb(var(--color-text-primary)); }
+
+/* Text fields draw their own lamp ring (InputField), so they are left out. */
+:root[data-skin="lamplight"] :focus-visible:not(input):not(textarea):not(select) {
+  outline: 2px solid rgb(var(--lamp));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Headings pick up the display face everywhere in the skin. */
+:root[data-skin="lamplight"] h1,
+:root[data-skin="lamplight"] h2,
+:root[data-skin="lamplight"] h3 { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.03em; }
+
+/* Small tracked-out mono capitals were the old site's label voice. In
+   the reading room labels are quiet sentence-case body text. Only the
+   small sizes are softened, so large mono (quiz join codes, scores)
+   keeps its character. */
+:root[data-skin="lamplight"] :is(.text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs).font-mono.uppercase {
+  font-family: var(--font-body);
+  text-transform: none;
+  letter-spacing: 0.005em;
+  font-weight: 500;
+  font-size: 12.5px;
+}
+:root[data-skin="lamplight"] .kicker {
+  font-family: var(--font-body);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgb(var(--lamp));
+}
+:root[data-skin="lamplight"] .token-chip {
+  font-family: var(--font-body);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8125rem;
+}
+:root[data-skin="lamplight"] .section-shell,
+:root[data-skin="lamplight"] .glass-panel {
+  border-radius: var(--radius-lg);
+  border-color: rgb(var(--rule));
+  background: rgb(var(--color-surface) / 0.72);
+}
+
+/* Floating Panda + chat buttons sit above the phone dock. */
+:root[data-skin="lamplight"] .lamp-float { bottom: calc(var(--dock-offset) + 1.25rem); }
+
+/* ── Shared lamp surfaces ─────────────────────────────────────────── */
+/* Zero specificity so a Tailwind fixed/absolute/sticky on the same
+   element always wins. */
+:where(.lamp-panel) { position: relative; }
+.lamp-panel {
+  border: 1px solid rgb(var(--rule));
+  background: linear-gradient(180deg, rgb(var(--color-surface) / 0.86), rgb(var(--color-surface) / 0.7));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(18px);
+}
+.lamp-panel--lit {
+  border-color: rgb(var(--lamp)/0.28);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgb(var(--lamp)/0.14), transparent 55%),
+    linear-gradient(180deg, rgb(var(--color-surface) / 0.9), rgb(var(--color-surface) / 0.75));
+}
+.lamp-spot {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.4s var(--ease-lamp);
+  background: radial-gradient(380px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgb(var(--lamp)/0.13), transparent 60%);
+}
+.lamp-tilt:hover > .lamp-spot { opacity: 1; }
+
+.lamp-display { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.035em; }
+/* The public home's signature: one Georgia-italic word in the accent. */
+.lamp-accent { font-family: var(--font-accent); font-style: italic; font-weight: 400; color: rgb(var(--lamp)); letter-spacing: -0.01em; }
+.lamp-numerals { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 500; letter-spacing: -0.02em; }
+
+/* Word-mask used by PageHeader / WorldIntro title reveals. */
+.lamp-word { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.lamp-word > span { display: inline-block; will-change: transform; }
+
+/* Scrollbars */
+:root[data-skin="lamplight"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+:root[data-skin="lamplight"] ::-webkit-scrollbar-thumb { background: rgb(var(--rule)); border-radius: 999px; border: 3px solid rgb(var(--color-obsidian)); }
+:root[data-skin="lamplight"] ::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lamp-spot { display: none; }
+}
+:root[data-skin="lamplight"] .lamp-float-panel { bottom: calc(var(--dock-offset) + 96px); }
+/* The chat button floats bottom-left, which is where the desktop rail's
+   account chip lives; clear the rail. */
+@media (min-width: 1024px) {
+  :root[data-skin="lamplight"] .lamp-float.left-5 { left: calc(var(--rail-w, 256px) + 1.25rem); transition: left 0.5s var(--ease-lamp); }
+}
+
+/* Some shared pages (verify, portfolio, 404) also render inside the
+   public tree for visitors. Give them the kit's accent triplets there,
+   mapped from the public themes' own colours. */
+.mc-public-theme { --lamp: 182 160 255; --violet: 139 215 237; --rule: 52 55 66; --fog: 9 10 14; }
+.mc-public-theme[data-public-theme="arctic"] { --lamp: 36 95 181; --violet: 47 113 141; --rule: 211 217 221; --fog: 21 37 56; }
+.mc-public-theme[data-public-theme="emerald"] { --lamp: 166 237 117; --violet: 102 224 181; --rule: 44 74 62; --fog: 3 12 10; }
+.mc-public-theme[data-public-theme="nebula"] { --lamp: 239 161 232; --violet: 126 221 231; --rule: 76 53 95; --fog: 10 6 18; }
+.mc-public-theme[data-public-theme="haunted"] { --lamp: 255 122 26; --violet: 132 235 98; --rule: 58 30 44; --fog: 4 2 6; }
+
+/* ══════════════════════════════════════════════════════════════════
+   THEME: HAUNTED (Halloween)
+   Pitch black, pumpkin orange, toxic green, bone-white type. It is the
+   default theme while the haunted season runs (see season.js), but any
+   theme a member picks wins; the season itself only adds the effects.
+   ══════════════════════════════════════════════════════════════════ */
+:root[data-skin="lamplight"][data-member-theme="haunted"] {
+  --color-obsidian: 9 6 10;
+  --color-surface: 20 12 20;
+  --color-panel: 30 17 28;
+  --color-line: 110 60 80;
+  --color-primary: 255 122 26;
+  --color-secondary: 132 235 98;
+  --color-glow: 132 235 98;
+  --color-success: 132 235 98;
+  --color-warning: 255 190 60;
+  --color-danger: 230 40 56;
+  --color-text-primary: 246 236 222;
+  --color-text-muted: 186 168 160;
+  --color-text-dim: 138 118 116;
+  --lamp: 255 122 26;
+  --violet: 132 235 98;
+  --rule: 58 30 44;
+  --fog: 4 2 6;
+  --fog-ink: 246 236 222; --fog-muted: 186 168 160; --fog-accent: 255 122 26;
+  --blood: 176 12 28;
+  --font-horror: "Creepster", "Outfit", system-ui, sans-serif;
+  color-scheme: dark;
+}
+/* The graph paper and asymptote plot are the maths season's backdrop. */
+:root[data-season="haunted"] [data-grid],
+:root[data-season="haunted"] [data-plot],
+:root[data-member-theme="haunted"] [data-grid],
+:root[data-member-theme="haunted"] [data-plot] { display: none; }
+/* Page titles drip in a horror face; body copy stays readable. */
+:root[data-season="haunted"] [data-page-title],
+:root[data-member-theme="haunted"] [data-page-title],
+[data-haunted] [data-world-title] {
+  font-family: var(--font-horror, "Creepster", "Outfit", system-ui, sans-serif);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 22px rgb(var(--lamp)/0.45), 0 2px 0 rgb(var(--blood, 150 8 22)/0.8);
+}
+:root[data-season="haunted"] [data-page-title] .lamp-accent,
+:root[data-member-theme="haunted"] [data-page-title] .lamp-accent {
+  font-family: var(--font-horror);
+  font-style: normal;
+  color: rgb(var(--lamp));
+}

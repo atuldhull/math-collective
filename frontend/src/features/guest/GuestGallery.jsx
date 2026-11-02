@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { cloudinaryImg, cloudinaryVideoPoster } from "@/lib/cloudinary";
+import { WorldIntro } from "@/components/lamp";
 import useGalleryReveals from "./useGalleryReveals";
 import "./gallery.css";
+import "./worlds.css";
 import { treasureFiles, inaugurationFiles } from "./galleryMedia";
 
 const groups = [
@@ -9,6 +11,36 @@ const groups = [
   { title: "Inauguration", subtitle: "Where it all began. Our first chapter, together.", files: inaugurationFiles },
 ];
 const images = groups.flatMap(({ files }) => files.filter(({ type }) => type === "img"));
+
+// The corridor into the archive: real club photos at a small rendition,
+// alternating hunt and inauguration so both chapters fly past.
+const corridorFrames = [0, 16, 3, 18, 6, 19, 9, 20, 12, 21, 14, 23].map((index) => {
+  const { url, label } = images[index % images.length];
+  return { src: cloudinaryImg(url, 360, { quality: "low" }), label };
+});
+const corridorBeats = [
+  {
+    kicker: "Life at Asymptotes",
+    title: "Step into the *archive*.",
+    body: "Twenty-nine moments from the club's first chapters, hung in the dark like problems waiting for you.",
+  },
+  {
+    kicker: "Chapter one",
+    title: "Twenty clues. One mark.",
+    body: "A campus-wide treasure hunt where every clue was a puzzle and every team found its own pace.",
+  },
+  {
+    kicker: "Chapter two",
+    title: "The night it began.",
+    body: "The stage, the first address, the first cheers. The inauguration that started the collective.",
+  },
+  {
+    kicker: "The gallery",
+    title: "Now look *closer*.",
+    body: "Every photo and film is just past the portal. Select any frame to see it full size.",
+  },
+];
+const corridorGlyphs = ["∑", "π", "∞", "✕", "∫", "φ", "N 12°", "∂", "√2", "Δ", "λ", "e", "?", "θ"];
 
 export default function GuestGallery() {
   const [selected, setSelected] = useState(null);
@@ -22,6 +54,19 @@ export default function GuestGallery() {
   const move = (direction) => setSelected((index) => (index + direction + images.length) % images.length);
   return (
     <div className="mc-gallery-editorial" ref={collection}>
+      <WorldIntro
+        inset="full"
+        className="mc-world"
+        beats={corridorBeats}
+        frames={corridorFrames}
+        glyphs={corridorGlyphs}
+        length={4.4}
+        cta={
+          <a className="mc-button" href="#gallery-0">
+            Open the collection
+          </a>
+        }
+      />
       <header className="mc-gallery-heading">
         <p className="mc-eyebrow">LIFE AT ASYMPTOTES</p>
         <h1>
@@ -48,6 +93,7 @@ export default function GuestGallery() {
               <h2>{title}</h2>
             </div>
             <p>{subtitle}</p>
+            <span className="mc-gallery-veil-line" aria-hidden="true" />
           </div>
           <div className="mc-gallery-grid">
             {files.map((file, mediaIndex) => (

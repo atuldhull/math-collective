@@ -1,16 +1,36 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useNavigationType } from "react-router-dom";
+import useHaunted from "@/components/lamp/useHaunted";
 import "./navigation-motion.css";
 
 const publicPaths = new Set(["/", "/events", "/leaderboard", "/gallery", "/contact", "/verify"]);
 const isPublic = (path) => publicPaths.has(path) || path.startsWith("/u/");
 
+// Glyphs that streak past the camera while one page dives and the next arrives.
+const STREAK = ["∑", "π", "∞", "∫", "φ", "∂", "√", "Δ", "λ", "e", "θ", "ℝ", "∇", "i"];
+// The Halloween treatment swaps the maths for things that go bump.
+const HAUNTED_STREAK = ["🦇", "👻", "🎃", "🕷️", "💀", "🦇", "🕯️", "👻", "🦇", "🎃", "🕸️", "💀", "🦇", "👻"];
+const LENS = "perspective(1600px)";
+
+/** Hinge the 3D move on the middle of what the visitor can see, not the
+ * middle of a page that may be many screens tall. */
+function originFor(element) {
+  if (!element) return "50% 50%";
+  const top = element.getBoundingClientRect().top;
+  return `50% ${Math.round(window.innerHeight / 2 - top)}px`;
+}
+
 /** Retain the outgoing Routes tree for the exit, including for browser POP.
  * No click interception, browser snapshot dependency, or duplicated page trees.
  * Auth/protected routes always render immediately through their existing guards.
+ *
+ * Every 3D move runs as a Web Animation on #mc-main without fill at rest, so
+ * once it finishes or is cancelled no transform, perspective or filter is left
+ * on an ancestor of the page (sticky and position:fixed children keep working).
  */
 export default function PublicNavigationMotion({ location, children }) {
   const navigationType = useNavigationType();
+  const haunted = useHaunted();
   const [displayed, setDisplayed] = useState(location);
   const shown = useRef(location);
   const veil = useRef(null);
@@ -57,19 +77,30 @@ export default function PublicNavigationMotion({ location, children }) {
     }
 
     const destination = location.pathname.slice(1) || "home";
+    const back = navigationType === "POP";
     root.dataset.mcTransition = destination;
     veil.current.dataset.phase = "exit";
-    const duration = 240;
+    const duration = 300;
     const easing = "cubic-bezier(.22,.7,.2,1)";
+    const dive = "cubic-bezier(.55,.05,.7,.25)";
+    const arrive = "cubic-bezier(.16,1,.3,1)";
+
+    // The outgoing page tips back and falls away into depth.
+    const leaving = content.current?.querySelector("#mc-main");
+    const exitOrigin = originFor(leaving);
     const exitAnimation = animate(
-      content.current?.querySelector("#mc-main"),
+      leaving,
       [
-        { opacity: 1, transform: "none" },
-        { opacity: 0.12, transform: "translateY(-14px) scale(.965)" },
+        { opacity: 1, transform: `${LENS} translate3d(0, 0, 0) rotateX(0deg)`, transformOrigin: exitOrigin },
+        {
+          opacity: 0.18,
+          transform: `${LENS} translate3d(0, ${back ? 4 : -4}vh, -460px) rotateX(${back ? -14 : 16}deg)`,
+          transformOrigin: exitOrigin,
+        },
       ],
-      { duration, easing, fill: "forwards" },
+      { duration, easing: dive, fill: "forwards" },
     );
-    animate(veil.current, [{ opacity: 0 }, { opacity: 0.96 }], { duration, easing, fill: "forwards" });
+    animate(veil.current, [{ opacity: 0 }, { opacity: 0.94 }], { duration, easing, fill: "forwards" });
     animate(
       veil.current?.querySelector("svg"),
       [
@@ -78,6 +109,20 @@ export default function PublicNavigationMotion({ location, children }) {
       ],
       { duration: 360, easing, fill: "forwards" },
     );
+    // A streak of glyphs rushes outward past the camera across both phases.
+    veil.current?.querySelectorAll(".mc-route-streak > span").forEach((glyph, index, all) => {
+      const angle = (index / all.length) * 360 + (index % 3) * 9;
+      const reach = 46 + (index % 4) * 9;
+      animate(
+        glyph,
+        [
+          { transform: `rotate(${angle}deg) translateX(3vmin) scale(.25)`, opacity: 0 },
+          { opacity: 1, offset: 0.35 },
+          { transform: `rotate(${angle}deg) translateX(${reach}vmax) scale(1.7)`, opacity: 0 },
+        ],
+        { duration: 760, delay: (index % 5) * 34, easing: "cubic-bezier(.5,0,.9,.4)", fill: "backwards" },
+      );
+    });
 
     timers.push(
       window.setTimeout(() => {
@@ -89,18 +134,21 @@ export default function PublicNavigationMotion({ location, children }) {
           if (!main || shown.current !== location || main.dataset.mcRoute !== location.pathname) return;
           observer?.disconnect();
           exitAnimation?.cancel();
-          animate(
-            main,
-            [
-              {
-                opacity: 0,
-                transform: destination === "home" ? "scale(1.045)" : "translateY(24px) scale(.98)",
-                clipPath: destination === "gallery" ? "inset(0 8% 12%)" : "inset(3% 0 0)",
-              },
-              { opacity: 1, transform: "none", clipPath: "inset(0)" },
-            ],
-            { duration: 460, easing },
-          );
+          const origin = originFor(main);
+          // The home page keeps its own established entrance.
+          const from3d =
+            destination === "home"
+              ? { opacity: 0, transform: "scale(1.045)" }
+              : {
+                  opacity: 0,
+                  transform: `${LENS} translate3d(0, ${back ? -6 : 6}vh, -680px) rotateX(${back ? 10 : -12}deg)`,
+                  transformOrigin: origin,
+                };
+          const to3d =
+            destination === "home"
+              ? { opacity: 1, transform: "none" }
+              : { opacity: 1, transform: `${LENS} translate3d(0, 0, 0) rotateX(0deg)`, transformOrigin: origin };
+          animate(main, [from3d, to3d], { duration: destination === "home" ? 460 : 640, easing: arrive });
           const heading = main.querySelector("h1");
           animate(
             heading,
@@ -110,13 +158,13 @@ export default function PublicNavigationMotion({ location, children }) {
             ],
             { duration: 380, delay: destination === "leaderboard" ? 90 : 55, fill: "backwards", easing },
           );
-          animate(veil.current, [{ opacity: 0.96 }, { opacity: 0 }], { duration: 420, easing, fill: "forwards" });
+          animate(veil.current, [{ opacity: 0.94 }, { opacity: 0 }], { duration: 460, easing, fill: "forwards" });
           animate(
             veil.current?.querySelector("svg"),
-            [{ transform: "scale(1) rotate(0deg)" }, { transform: "scale(1.6) rotate(16deg)" }],
-            { duration: 420, easing },
+            [{ transform: "scale(1) rotate(0deg)" }, { transform: "scale(1.9) rotate(16deg)" }],
+            { duration: 460, easing },
           );
-          timers.push(window.setTimeout(clear, 480));
+          timers.push(window.setTimeout(clear, 700));
         };
         observer = new window.MutationObserver(enter);
         observer.observe(content.current, { childList: true, subtree: true });
@@ -124,7 +172,7 @@ export default function PublicNavigationMotion({ location, children }) {
       }, duration),
     );
     // A slow chunk or render failure must never leave an opaque overlay.
-    timers.push(window.setTimeout(clear, 1000));
+    timers.push(window.setTimeout(clear, 1500));
     const preference = () => {
       if (reduced.matches) settle();
     };
@@ -151,6 +199,11 @@ export default function PublicNavigationMotion({ location, children }) {
             <circle cx="500" cy="300" r="56" />
           </g>
         </svg>
+        <div className="mc-route-streak">
+          {(haunted ? HAUNTED_STREAK : STREAK).map((glyph, index) => (
+            <span key={index}>{glyph}</span>
+          ))}
+        </div>
       </div>
     </>
   );

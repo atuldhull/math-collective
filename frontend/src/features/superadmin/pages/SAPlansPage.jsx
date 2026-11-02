@@ -1,11 +1,14 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import { superAdmin } from "@/lib/api";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { PageHeader, SegmentedTabs, TiltPanel } from "@/components/lamp";
+
+const LABEL = "mb-2 block text-[13px] font-medium text-text-muted";
+const FIELD = "w-full rounded-xl border border-[rgb(var(--rule))] bg-surface/70 px-4 py-2.5 text-sm text-text-primary outline-none transition focus:border-primary/50";
 
 // SaaS pricing model — Super Admin manages these, Orgs (Admins) subscribe
 const SAAS_PLANS = [
@@ -49,7 +52,6 @@ const SAAS_PLANS = [
 ];
 
 export default function SAPlansPage() {
-  useMonument("magma");
   const [dbPlans, setDbPlans] = useState([]);
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -105,107 +107,123 @@ export default function SAPlansPage() {
     return saved > 0 ? saved : 0;
   };
 
-  if (loading) return <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.08} /><div className="flex justify-center py-20"><Loader variant="orbit" size="lg" /></div></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader variant="orbit" size="lg" /></div>;
+
+  const CYCLES = [
+    { key: "monthly", label: "Monthly" },
+    { key: "yearly", label: "Yearly", badge: "Save 17%" },
+    { key: "3year", label: "3 Years", badge: "Save 30%" },
+  ];
+  const activeCycle = CYCLES.find((c) => c.key === billingCycle);
 
   return (
-    <div style={{ position: "relative" }}>
-    <MonumentBackground monument="magma" intensity={0.08} />
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-      <div>
-        <h2 className="font-display text-2xl font-bold text-white">Plans & Revenue</h2>
-        <p className="text-sm text-text-muted">Manage SaaS subscription plans for organisations</p>
-      </div>
+    <div className="flex flex-col">
+      <PageHeader
+        context="Super admin"
+        title="Plans and revenue"
+        description="Manage SaaS subscription plans for organisations"
+      />
 
-      {msg && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">{msg}</motion.div>}
+      <AnimatePresence>
+        {msg && (
+          <motion.div key="msg" role="status" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="mb-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">{msg}</motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Billing cycle toggle */}
-      <div className="flex items-center justify-center gap-1 rounded-full border border-line/15 bg-surface/50 p-1 w-fit mx-auto">
-        {[
-          { key: "monthly", label: "Monthly" },
-          { key: "yearly", label: "Yearly", badge: "Save 17%" },
-          { key: "3year", label: "3 Years", badge: "Save 30%" },
-        ].map((c) => (
-          <button key={c.key} onClick={() => setBillingCycle(c.key)}
-            className={`relative rounded-full px-4 py-2 font-mono text-[10px] uppercase tracking-wider transition ${
-              billingCycle === c.key ? "bg-primary/20 text-white" : "text-text-dim hover:text-white"
-            }`}>
-            {c.label}
-            {c.badge && billingCycle === c.key && (
-              <span className="absolute -right-1 -top-2 rounded-full bg-success px-1.5 py-0.5 text-[7px] font-bold text-black">{c.badge}</span>
+      <div className="mb-8 flex flex-col items-center gap-2">
+        <SegmentedTabs
+          aria-label="Billing cycle"
+          value={billingCycle}
+          onChange={setBillingCycle}
+          items={CYCLES.map((c) => ({ value: c.key, label: c.label }))}
+        />
+        <div className="h-6">
+          <AnimatePresence mode="wait">
+            {activeCycle?.badge && (
+              <motion.span
+                key={activeCycle.key}
+                initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="inline-block rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 text-[12px] font-medium text-success"
+              >
+                {activeCycle.badge}
+              </motion.span>
             )}
-          </button>
-        ))}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Plan cards */}
-      <div className="grid gap-5 lg:grid-cols-3">
-        {SAAS_PLANS.map((plan, i) => (
-          <motion.div key={plan.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
-            <Card variant={plan.highlight ? "glow" : "solid"} className={`relative ${plan.highlight ? "ring-1 ring-primary/30" : ""}`}>
+      <div data-stagger="tilt" className="grid gap-5 lg:grid-cols-3">
+        {SAAS_PLANS.map((plan) => (
+          <TiltPanel key={plan.id} lit={plan.highlight} className="relative flex flex-col p-6">
+            <div className="relative flex items-center justify-between gap-3">
+              <h2 className="text-xl text-text-primary">{plan.name}</h2>
               {plan.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
-                  Most Popular
+                <span className="rounded-full bg-primary px-3 py-1 text-[12px] font-medium text-[rgb(var(--color-obsidian))]">
+                  Most popular
                 </span>
               )}
+            </div>
 
-              <p className="font-display text-xl font-bold text-white">{plan.name}</p>
-
-              <div className="mt-4">
-                <div className="flex items-baseline gap-1">
-                  <span className="font-display text-4xl font-extrabold text-white">${getPerMonth(plan)}</span>
-                  <span className="font-mono text-xs text-text-dim">/mo</span>
-                </div>
+            <div className="relative mt-5">
+              <div className="flex items-baseline gap-1">
+                <span className="lamp-numerals text-[2.75rem] leading-none text-text-primary">
+                  <AnimatedNumber value={Number(getPerMonth(plan))} prefix="$" duration={0.8} />
+                </span>
+                <span className="text-sm text-text-dim">/mo</span>
+              </div>
+              <div className="mt-2 min-h-[20px]">
                 {billingCycle !== "monthly" && (
-                  <p className="mt-1 font-mono text-[10px] text-text-dim">
-                    ${getPrice(plan)} billed {billingCycle === "yearly" ? "annually" : "every 3 years"}
-                    {getSavings(plan) > 0 && <span className="ml-1 text-success">Save ${getSavings(plan)}</span>}
+                  <p className="text-[13px] text-text-muted">
+                    <span className="lamp-numerals">${getPrice(plan)}</span> billed {billingCycle === "yearly" ? "annually" : "every 3 years"}
+                    {getSavings(plan) > 0 && <span className="lamp-numerals ml-1.5 text-success">Save ${getSavings(plan)}</span>}
                   </p>
                 )}
               </div>
+            </div>
 
-              <div className="mt-5 space-y-2 border-t border-line/10 pt-5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-dim">Users</span>
-                  <span className="text-white">{plan.maxUsers === -1 ? "Unlimited" : `Up to ${plan.maxUsers}`}</span>
+            <dl className="relative mt-5 space-y-2 border-t border-[rgb(var(--rule))] pt-5 text-[13px]">
+              {[
+                ["Users", plan.maxUsers],
+                ["Challenges", plan.maxChallenges],
+                ["Events", plan.maxEvents],
+              ].map(([label, v]) => (
+                <div key={label} className="flex justify-between">
+                  <dt className="text-text-dim">{label}</dt>
+                  <dd className="lamp-numerals text-text-primary">{v === -1 ? "Unlimited" : `Up to ${v}`}</dd>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-dim">Challenges</span>
-                  <span className="text-white">{plan.maxChallenges === -1 ? "Unlimited" : `Up to ${plan.maxChallenges}`}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-dim">Events</span>
-                  <span className="text-white">{plan.maxEvents === -1 ? "Unlimited" : `Up to ${plan.maxEvents}`}</span>
-                </div>
-              </div>
+              ))}
+            </dl>
 
-              <div className="mt-4 space-y-1.5">
-                {plan.features.map((f) => (
-                  <div key={f} className="flex items-center gap-2 text-xs text-text-muted">
-                    <span className="text-success">✓</span> {f}
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </motion.div>
+            <ul className="relative mt-5 space-y-2">
+              {plan.features.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-[13px] text-text-muted">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" strokeWidth={1.75} aria-hidden="true" /> {f}
+                </li>
+              ))}
+            </ul>
+          </TiltPanel>
         ))}
       </div>
 
       {/* Assign plan to org */}
-      <Card variant="glass">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">Assign Plan to Organisation</p>
+      <section data-reveal="up" className="lamp-panel mt-8 p-5 sm:p-6">
+        <h2 className="text-lg text-text-primary">Assign a plan to an organisation</h2>
         <div className="mt-4 flex flex-wrap items-end gap-3">
-          <div className="w-full min-w-0 sm:flex-1 sm:min-w-[180px]">
-            <label className="mb-1 block text-[10px] text-text-dim">Organisation</label>
-            <select value={assignOrg} onChange={(e) => setAssignOrg(e.target.value)}
-              className="w-full rounded-xl border border-line/15 bg-black/15 px-3 py-2.5 text-sm text-white outline-none">
+          <div className="w-full min-w-0 sm:min-w-[180px] sm:flex-1">
+            <label htmlFor="assign-org" className={LABEL}>Organisation</label>
+            <select id="assign-org" value={assignOrg} onChange={(e) => setAssignOrg(e.target.value)} className={FIELD}>
               <option value="">Select org...</option>
               {orgs.map((o) => <option key={o.id} value={o.id}>{o.name} ({o.plan_name || "free"})</option>)}
             </select>
           </div>
-          <div className="w-full min-w-0 sm:flex-1 sm:min-w-[160px]">
-            <label className="mb-1 block text-[10px] text-text-dim">Plan</label>
-            <select value={assignPlan} onChange={(e) => setAssignPlan(e.target.value)}
-              className="w-full rounded-xl border border-line/15 bg-black/15 px-3 py-2.5 text-sm text-white outline-none">
+          <div className="w-full min-w-0 sm:min-w-[160px] sm:flex-1">
+            <label htmlFor="assign-plan" className={LABEL}>Plan</label>
+            <select id="assign-plan" value={assignPlan} onChange={(e) => setAssignPlan(e.target.value)} className={FIELD}>
               <option value="">Select plan...</option>
               {dbPlans.map((p) => <option key={p.name} value={p.name}>{p.display_name || p.name} (${p.price_monthly}/mo)</option>)}
               <option value="starter">Starter ($29/mo)</option>
@@ -213,71 +231,71 @@ export default function SAPlansPage() {
               <option value="enterprise">Enterprise ($199/mo)</option>
             </select>
           </div>
-          <Button size="sm" onClick={handleAssign} loading={assigning} disabled={!assignOrg || !assignPlan}>
+          <Button size="sm" onClick={handleAssign} loading={assigning} disabled={!assignOrg || !assignPlan} className="w-full sm:w-auto">
             Assign Plan
           </Button>
         </div>
-      </Card>
+      </section>
 
       {/* Current org subscriptions */}
-      <Card variant="solid">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-warning">Active Subscriptions</p>
-        <div className="mt-4 space-y-2">
-          {orgs.length === 0 && <p className="py-3 text-center text-xs text-text-dim">No organisations</p>}
+      <section data-reveal="up" className="lamp-panel mt-6 p-5 sm:p-6">
+        <h2 className="text-lg text-text-primary">Active subscriptions</h2>
+        <ul data-stagger="left" className="mt-4 divide-y divide-[rgb(var(--rule))]">
+          {orgs.length === 0 && <li className="py-4 text-center text-[13px] text-text-dim">No organisations</li>}
           {orgs.map((org) => (
-            <div key={org.id} className="flex items-center justify-between rounded-xl border border-line/10 bg-black/10 px-4 py-3">
-              <div>
-                <p className="text-sm text-white">{org.name}</p>
-                <p className="font-mono text-[10px] text-text-dim">{org.slug}</p>
+            <li key={org.id} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm text-text-primary">{org.name}</p>
+                <p className="truncate font-mono text-[12px] text-text-dim">{org.slug}</p>
               </div>
-              <div className="text-right">
-                <span className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase ${
-                  org.plan_name === "enterprise" ? "bg-warning/10 text-warning" :
-                  org.plan_name === "professional" ? "bg-primary/10 text-primary" :
-                  "bg-white/5 text-text-dim"
+              <div className="shrink-0 text-right">
+                <span className={`rounded-full border px-2.5 py-0.5 text-[12px] font-medium capitalize ${
+                  org.plan_name === "enterprise" ? "border-secondary/30 bg-secondary/10 text-secondary" :
+                  org.plan_name === "professional" ? "border-primary/30 bg-primary/10 text-primary" :
+                  "border-[rgb(var(--rule))] bg-white/[0.04] text-text-muted"
                 }`}>
                   {org.plan_name || "free"}
                 </span>
-                <p className="mt-0.5 font-mono text-[9px] text-text-dim">{org.status}</p>
+                <p className="mt-1 text-[12px] text-text-dim">{org.status}</p>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
-      </Card>
+        </ul>
+      </section>
 
       {/* Revenue from DB plans */}
       {dbPlans.length > 0 && (
-        <Card variant="glass">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Database Plans (Current Config)</p>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+        <section data-reveal="up" className="lamp-panel mt-6 p-5 sm:p-6">
+          <h2 className="text-lg text-text-primary">Plans in the database</h2>
+          <p className="mt-1 text-[13px] text-text-muted">The configuration organisations are actually billed against.</p>
+          <div className="-mx-5 mt-4 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+            <table className="w-full min-w-[560px] text-left text-[13px]">
               <thead>
-                <tr className="border-b border-line/10 font-mono text-[9px] uppercase tracking-wider text-text-dim">
-                  <th className="px-3 py-2">Plan</th>
-                  <th className="px-3 py-2">Monthly</th>
-                  <th className="px-3 py-2">Yearly</th>
-                  <th className="px-3 py-2">Users</th>
-                  <th className="px-3 py-2">Challenges</th>
-                  <th className="px-3 py-2">Events</th>
+                <tr className="border-b border-[rgb(var(--rule))] text-[12px] text-text-dim">
+                  <th className="px-3 py-2 font-medium">Plan</th>
+                  <th className="px-3 py-2 text-right font-medium">Monthly</th>
+                  <th className="px-3 py-2 text-right font-medium">Yearly</th>
+                  <th className="px-3 py-2 text-right font-medium">Users</th>
+                  <th className="px-3 py-2 text-right font-medium">Challenges</th>
+                  <th className="px-3 py-2 text-right font-medium">Events</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody data-stagger="fade">
                 {dbPlans.map((p) => (
-                  <tr key={p.name} className="border-b border-line/5">
-                    <td className="px-3 py-2 font-medium text-white">{p.display_name || p.name}</td>
-                    <td className="px-3 py-2 text-success">${p.price_monthly || 0}</td>
-                    <td className="px-3 py-2 text-success">${p.price_yearly || 0}</td>
-                    <td className="px-3 py-2 text-text-muted">{p.max_users || "—"}</td>
-                    <td className="px-3 py-2 text-text-muted">{p.max_challenges || "—"}</td>
-                    <td className="px-3 py-2 text-text-muted">{p.max_events || "—"}</td>
+                  <tr key={p.name} className="border-b border-[rgb(var(--rule))] last:border-b-0 hover:bg-white/[0.02]">
+                    <td className="px-3 py-2.5 font-medium text-text-primary">{p.display_name || p.name}</td>
+                    <td className="lamp-numerals px-3 py-2.5 text-right text-success">${p.price_monthly || 0}</td>
+                    <td className="lamp-numerals px-3 py-2.5 text-right text-success">${p.price_yearly || 0}</td>
+                    <td className="lamp-numerals px-3 py-2.5 text-right text-text-muted">{p.max_users || "—"}</td>
+                    <td className="lamp-numerals px-3 py-2.5 text-right text-text-muted">{p.max_challenges || "—"}</td>
+                    <td className="lamp-numerals px-3 py-2.5 text-right text-text-muted">{p.max_events || "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </Card>
+        </section>
       )}
-    </motion.div>
     </div>
   );
 }

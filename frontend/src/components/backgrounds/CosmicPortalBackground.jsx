@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 const RING_COUNT = 8;
 const PARTICLE_COUNT = 100;
 
-export default function CosmicPortalBackground() {
+function CosmicPortalBackgroundScene() {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
 
@@ -257,4 +258,10 @@ export default function CosmicPortalBackground() {
       style={{ background: "transparent" }}
     />
   );
+}
+
+// Off the home page the Lamplight shell paints one shared backdrop
+// (LampBackdrop), so the per-page scenes step aside there.
+export default function CosmicPortalBackground(props) {
+  return useIsLamplight() ? null : <CosmicPortalBackgroundScene {...props} />;
 }

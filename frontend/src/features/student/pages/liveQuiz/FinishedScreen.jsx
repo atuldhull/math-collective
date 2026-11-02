@@ -1,152 +1,173 @@
-import { motion } from "framer-motion";
-import SpaceBackground from "@/components/backgrounds/SpaceBackground";
-import Card from "@/components/ui/Card";
+import { useRef } from "react";
+import { useGSAP } from "@gsap/react";
+import { Crown, RotateCcw } from "lucide-react";
+import gsap from "@/lib/gsap-setup";
+import { cn } from "@/lib/cn";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import Button from "@/components/ui/Button";
+import LiveStage from "./LiveStage";
 
-function medalForRank(rank) {
-  if (rank === 1) return { icon: "1st", color: "text-warning", bg: "bg-warning/15 border-warning/30" };
-  if (rank === 2) return { icon: "2nd", color: "text-text-muted", bg: "bg-white/5 border-line/20" };
-  if (rank === 3) return { icon: "3rd", color: "text-[#cd7f32]", bg: "bg-[#cd7f32]/10 border-[#cd7f32]/20" };
-  return { icon: `#${rank}`, color: "text-text-dim", bg: "bg-white/[0.03] border-line/10" };
-}
+// Podium blocks, left to right: 2nd, 1st, 3rd.
+const STEPS = [
+  { place: 1, label: "2nd", height: "h-24 sm:h-32", avatar: "h-12 w-12 text-lg", block: "border-text-primary/25 bg-[linear-gradient(180deg,rgb(var(--color-text-primary)/0.12),rgb(var(--color-text-primary)/0.02))]", ring: "border-text-primary/40 bg-panel text-text-primary", score: "text-text-primary" },
+  { place: 0, label: "1st", height: "h-36 sm:h-48", avatar: "h-16 w-16 text-2xl", block: "border-[rgb(var(--lamp)/0.45)] bg-[linear-gradient(180deg,rgb(var(--lamp)/0.28),rgb(var(--lamp)/0.04))] shadow-[0_-20px_60px_-20px_rgb(var(--lamp)/0.6)]", ring: "border-primary bg-primary/15 text-primary shadow-[0_0_30px_-4px_rgb(var(--lamp)/0.7)]", score: "text-primary" },
+  { place: 2, label: "3rd", height: "h-16 sm:h-24", avatar: "h-12 w-12 text-lg", block: "border-secondary/35 bg-[linear-gradient(180deg,rgb(var(--violet)/0.22),rgb(var(--violet)/0.03))]", ring: "border-secondary/50 bg-panel text-secondary", score: "text-secondary" },
+];
+
+const CONFETTI = 28;
 
 export default function FinishedScreen({ leaderboard, playerName, onLeave }) {
+  const root = useRef(null);
+  const podium = STEPS.filter((s) => leaderboard[s.place]);
+
+  // The finale: the title rises, the podium is built from the ground up
+  // (3rd, then 2nd, then 1st), each player drops onto their step, the
+  // crown lands on the winner and confetti goes up. Then the full table
+  // slides in underneath.
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const q = gsap.utils.selector(root);
+      const tl = gsap.timeline({ defaults: { ease: "expo.out" } });
+      tl.from(q("[data-title-word]"), { yPercent: 115, rotate: 4, duration: 1.1, stagger: 0.08 })
+        .from(q("[data-sub]"), { y: 14, autoAlpha: 0, duration: 0.7 }, 0.2);
+
+      ["2", "1", "0"].forEach((place, i) => {
+        const at = 0.45 + i * 0.35;
+        tl.from(q(`[data-step="${place}"] [data-block]`), { scaleY: 0, transformOrigin: "50% 100%", duration: 0.9, ease: "power4.out" }, at)
+          .from(q(`[data-step="${place}"] [data-player]`), { y: -140, autoAlpha: 0, duration: 0.8, ease: "bounce.out" }, at + 0.25);
+      });
+
+      tl.from(q("[data-crown]"), { y: -60, rotate: -30, scale: 0.4, autoAlpha: 0, duration: 0.9, ease: "back.out(3)" }, ">-0.2")
+        .addLabel("party", "<");
+
+      q("[data-confetti]").forEach((c) => {
+        tl.fromTo(c,
+          { x: 0, y: 0, rotate: 0, autoAlpha: 1 },
+          {
+            x: gsap.utils.random(-220, 220),
+            y: gsap.utils.random(-260, -90),
+            rotate: gsap.utils.random(-540, 540),
+            autoAlpha: 0,
+            duration: gsap.utils.random(1.4, 2.2),
+            ease: "power3.out",
+          }, `party+=${gsap.utils.random(0, 0.15)}`);
+      });
+
+      tl.from(q("[data-board-row]"), { x: -30, autoAlpha: 0, duration: 0.6, stagger: 0.06 }, "party")
+        .from(q("[data-again]"), { y: 20, autoAlpha: 0, scale: 0.9, duration: 0.7, ease: "back.out(2)" }, "<0.3");
+    });
+    return () => mm.revert();
+  }, { scope: root });
+
   return (
-    <>
-      <SpaceBackground />
-      <div className="relative z-10 space-y-8 pb-16">
-        <motion.section
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="text-center"
-        >
-          <p className="font-mono text-xs uppercase tracking-[0.3em] text-warning">
-            Final Results
-          </p>
-          <h1 className="mt-3 font-display text-5xl font-extrabold tracking-[-0.06em] text-white sm:text-6xl">
-            Quiz Complete!
+    <LiveStage tone="lamp">
+      <div ref={root} className="mx-auto max-w-3xl space-y-10">
+        <section className="pt-4 text-center">
+          <p data-sub className="text-[13px] font-medium text-primary">Final results</p>
+          <h1 className="lamp-display mt-3 text-5xl leading-none text-text-primary sm:text-6xl">
+            <span className="lamp-word"><span data-title-word>Quiz&nbsp;</span></span>
+            <span className="lamp-word"><span data-title-word>complete!</span></span>
           </h1>
-        </motion.section>
+        </section>
 
-        {/* Top 3 podium */}
-        {leaderboard.length >= 3 && (
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mx-auto flex max-w-lg items-end justify-center gap-2 sm:gap-3"
-          >
-            {/* 2nd place */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="flex w-24 flex-col items-center sm:w-28"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-line/20 bg-white/5 text-lg font-bold text-text-muted">
-                {leaderboard[1].name.charAt(0).toUpperCase()}
-              </div>
-              <div className="mt-2 w-full rounded-t-2xl border border-line/15 bg-white/[0.03] px-3 pb-4 pt-6 text-center">
-                <p className="truncate text-sm font-medium text-white">{leaderboard[1].name}</p>
-                <p className="mt-1 font-mono text-lg font-bold text-text-muted">{leaderboard[1].score}</p>
-                <p className="font-mono text-[10px] uppercase tracking-wider text-text-dim">2nd</p>
-              </div>
-            </motion.div>
-
-            {/* 1st place */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="flex w-28 flex-col items-center sm:w-32"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-warning/40 bg-warning/15 text-2xl font-bold text-warning shadow-orbit">
-                {leaderboard[0].name.charAt(0).toUpperCase()}
-              </div>
-              <div className="mt-2 w-full rounded-t-2xl border border-warning/20 bg-warning/5 px-3 pb-4 pt-8 text-center">
-                <p className="truncate text-sm font-bold text-white">{leaderboard[0].name}</p>
-                <p className="mt-1 font-mono text-2xl font-bold text-warning">{leaderboard[0].score}</p>
-                <p className="font-mono text-[10px] uppercase tracking-wider text-warning">1st</p>
-              </div>
-            </motion.div>
-
-            {/* 3rd place */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="flex w-24 flex-col items-center sm:w-28"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#cd7f32]/20 bg-[#cd7f32]/10 text-lg font-bold text-[#cd7f32]">
-                {leaderboard[2].name.charAt(0).toUpperCase()}
-              </div>
-              <div className="mt-2 w-full rounded-t-2xl border border-[#cd7f32]/15 bg-[#cd7f32]/5 px-3 pb-4 pt-5 text-center">
-                <p className="truncate text-sm font-medium text-white">{leaderboard[2].name}</p>
-                <p className="mt-1 font-mono text-lg font-bold text-[#cd7f32]">{leaderboard[2].score}</p>
-                <p className="font-mono text-[10px] uppercase tracking-wider text-text-dim">3rd</p>
-              </div>
-            </motion.div>
-          </motion.div>
+        {/* Podium */}
+        {podium.length > 0 && (
+          <section aria-label="Podium" className="relative mx-auto flex max-w-xl items-end justify-center gap-2 sm:gap-4">
+            {podium.map((step) => {
+              const entry = leaderboard[step.place];
+              const isMe = entry.name === playerName;
+              const first = step.place === 0;
+              return (
+                <div key={step.place} data-step={step.place} className={cn("relative flex flex-col items-center", first ? "w-[38%] max-w-[11rem]" : "w-[31%] max-w-[9rem]")}>
+                  <div data-player className="relative flex flex-col items-center">
+                    {first && (
+                      <>
+                        <Crown data-crown className="mb-1 h-8 w-8 text-primary drop-shadow-[0_0_10px_rgb(var(--lamp)/0.8)]" strokeWidth={1.75} aria-hidden="true" />
+                        {Array.from({ length: CONFETTI }).map((_, i) => (
+                          <span
+                            key={i}
+                            data-confetti
+                            aria-hidden="true"
+                            className={cn(
+                              "pointer-events-none absolute left-1/2 top-6 h-2.5 w-1.5 rounded-[2px] opacity-0",
+                              ["bg-primary", "bg-secondary", "bg-success", "bg-text-primary"][i % 4],
+                            )}
+                          />
+                        ))}
+                      </>
+                    )}
+                    <span className={cn("flex items-center justify-center rounded-full border-2 font-semibold", step.avatar, step.ring)}>
+                      {entry.name.charAt(0).toUpperCase()}
+                    </span>
+                    <p className={cn("mt-2 max-w-full truncate px-1 text-sm", first ? "font-semibold text-text-primary" : "font-medium text-text-muted")}>
+                      {entry.name}
+                      {isMe && <span className="sr-only"> (you)</span>}
+                    </p>
+                    <p className={cn("lamp-numerals mt-0.5", first ? "text-2xl" : "text-lg", step.score)}>
+                      <AnimatedNumber value={entry.score} duration={1.8} />
+                    </p>
+                  </div>
+                  <div
+                    data-block
+                    className={cn(
+                      "mt-3 flex w-full items-start justify-center rounded-t-2xl border border-b-0 pt-3",
+                      step.height,
+                      step.block,
+                      isMe && "ring-2 ring-primary/40",
+                    )}
+                  >
+                    <span className={cn("lamp-display", first ? "text-3xl text-primary" : "text-xl text-text-muted")}>{step.label}</span>
+                  </div>
+                </div>
+              );
+            })}
+            <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgb(var(--lamp)/0.6),transparent)]" />
+          </section>
         )}
 
         {/* Full leaderboard */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-          className="mx-auto max-w-lg"
-        >
-          <Card variant="solid">
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">
-              Full Leaderboard
-            </p>
+        <section className="lamp-panel mx-auto max-w-xl p-5 sm:p-7">
+          <h2 className="text-lg text-text-primary">Full leaderboard</h2>
+          <ol className="mt-4 space-y-2">
+            {leaderboard.map((entry) => {
+              const isMe = entry.name === playerName;
+              return (
+                <li
+                  key={entry.rank}
+                  data-board-row
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl border px-4 py-3",
+                    entry.rank === 1 ? "border-[rgb(var(--lamp)/0.35)] bg-[rgb(var(--lamp)/0.08)]" : "border-[rgb(var(--rule))] bg-surface/40",
+                    isMe && "ring-1 ring-primary/40",
+                  )}
+                >
+                  <span className={cn("lamp-numerals w-7 shrink-0 text-sm", entry.rank === 1 ? "text-primary" : entry.rank <= 3 ? "text-text-primary" : "text-text-dim")}>
+                    {entry.rank}
+                  </span>
+                  <span className={cn("min-w-0 flex-1 truncate text-sm font-medium", isMe ? "text-text-primary" : "text-text-muted")}>
+                    {entry.name}
+                    {isMe && (
+                      <span className="ml-2 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[12px] text-primary">
+                        You
+                      </span>
+                    )}
+                  </span>
+                  <span className="lamp-numerals shrink-0 text-sm text-text-primary">
+                    {entry.score} pts
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
 
-            <div className="mt-5 space-y-2">
-              {leaderboard.map((entry, i) => {
-                const medal = medalForRank(entry.rank);
-                const isMe = entry.name === playerName;
-
-                return (
-                  <motion.div
-                    key={entry.rank}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.8 + i * 0.06 }}
-                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${medal.bg} ${
-                      isMe ? "ring-1 ring-primary/30" : ""
-                    }`}
-                  >
-                    <span className={`font-mono text-sm font-bold ${medal.color}`}>
-                      {medal.icon}
-                    </span>
-                    <span className={`flex-1 text-sm font-medium ${isMe ? "text-white" : "text-text-muted"}`}>
-                      {entry.name}
-                      {isMe && (
-                        <span className="ml-2 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary">
-                          You
-                        </span>
-                      )}
-                    </span>
-                    <span className="font-mono text-sm font-bold text-white">
-                      {entry.score} pts
-                    </span>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="text-center"
-        >
-          <Button onClick={onLeave}>Play Again</Button>
-        </motion.div>
+        <div data-again className="text-center">
+          <Button size="lg" onClick={onLeave} leading={<RotateCcw className="h-4 w-4" strokeWidth={1.75} />}>
+            Play again
+          </Button>
+        </div>
       </div>
-    </>
+    </LiveStage>
   );
 }

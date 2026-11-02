@@ -1,42 +1,54 @@
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import MonumentHero from "@/components/monument/MonumentHero";
-import { useMonument } from "@/hooks/useMonument";
+import { useGSAP } from "@gsap/react";
+import {
+  ArrowUpRight, Award, Bell, Check, CheckCircle2, Megaphone, Target, Users, X, Zap,
+} from "lucide-react";
+import gsap from "@/lib/gsap-setup";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { PageHeader, StatTile, SegmentedTabs, AsymptoteCurve } from "@/components/lamp";
+import { ScrollCurve } from "@/components/motion/ScrollFx";
 import { user, arena, announcements as announcementsApi, notifications as notifApi, chat, achievements as achievementsApi } from "@/lib/api";
 import AchievementBadge from "@/components/ui/AchievementBadge";
 import UserHoverCard from "@/components/social/UserHoverCard";
 import DailyProblemCard from "@/features/dashboard/components/DailyProblemCard";
 import SprintWidget from "@/features/sprints/components/SprintWidget";
 
-// Ambient math glyphs scattered across the page background — same
-// visual signature as the auth pages, anchors the logged-in surfaces
-// to the same family of decoration. Pyramid-themed coloring nods to
-// the monument backdrop. Pointer-events-none so nothing is clickable.
-function DashboardAmbientGlyphs() {
+const ICON = { strokeWidth: 1.75 };
+
+/** "Monday evening" — the context line above the welcome. */
+function timeContext(now = new Date()) {
+  const day = now.toLocaleDateString(undefined, { weekday: "long" });
+  const h = now.getHours();
+  const part = h < 5 ? "night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 21 ? "evening" : "night";
+  return `${day} ${part}`;
+}
+
+/** Small section heading used inside panels. */
+function PanelTitle({ icon: Icon, children, aside }) {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
-      <span className="math-text absolute left-[3%] top-[12%] text-[9rem] text-warning/[0.04]">π</span>
-      <span className="math-text absolute right-[5%] top-[20%] text-[8rem] text-white/[0.03]">∫</span>
-      <span className="math-text absolute left-[10%] top-[55%] text-[6rem] text-white/[0.03]">Σ</span>
-      <span className="math-text absolute right-[8%] bottom-[15%] text-[7rem] text-primary/[0.04]">∞</span>
-      <span className="math-text absolute left-[45%] top-[70%] text-[5rem] text-white/[0.025]">√</span>
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-2 text-lg text-text-primary">
+        {Icon ? <Icon className="h-4 w-4 text-text-dim" aria-hidden="true" {...ICON} /> : null}
+        {children}
+      </h2>
+      {aside}
     </div>
   );
 }
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-  }),
-};
+function Avatar({ person, size = "h-9 w-9" }) {
+  return (
+    <div
+      className={`flex ${size} shrink-0 items-center justify-center rounded-full text-sm`}
+      style={{ background: person.avatar_color || "linear-gradient(135deg, rgb(var(--violet)), rgb(var(--lamp)/0.8))" }}
+    >
+      {person.avatar_emoji || person.name?.charAt(0) || "?"}
+    </div>
+  );
+}
 
 /** Friends card — shows friends list + pending requests + search */
 function FriendsCard() {
@@ -66,57 +78,52 @@ function FriendsCard() {
     try { const { data } = await chat.searchUsers(q); setResults(data || []); } catch { setResults([]); }
   };
 
+  const rowClass = "flex min-h-[48px] items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-white/[0.04]";
+
   return (
-    <Card variant="solid">
-      <div className="flex items-center justify-between">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-glow">
-          Friends {friends.length > 0 && <span className="text-white">({friends.length})</span>}
-        </p>
-        {pending.length > 0 && (
-          <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">{pending.length} new</span>
-        )}
-      </div>
+    <section data-reveal="up" className="lamp-panel p-5">
+      <PanelTitle
+        icon={Users}
+        aside={pending.length > 0 ? (
+          <span className="rounded-full bg-secondary/15 px-2 py-0.5 text-[12px] font-medium text-secondary">{pending.length} new</span>
+        ) : null}
+      >
+        Friends {friends.length > 0 && <span className="text-text-dim">{friends.length}</span>}
+      </PanelTitle>
       {loadError && (
-        <p className="mt-2 text-xs text-text-dim">
+        <p className="mt-2 text-[13px] text-text-dim">
           Couldn&apos;t load friends.{" "}
           <button onClick={loadFriendsData} className="text-primary hover:underline">Retry</button>
         </p>
       )}
 
-      {/* Tabs */}
-      <div className="mt-3 flex gap-1 rounded-lg bg-white/[0.03] p-0.5">
-        {[
-          { key: "friends", label: "Friends" },
-          { key: "pending", label: `Requests${pending.length ? ` (${pending.length})` : ""}` },
-          { key: "search", label: "Find" },
-        ].map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-medium transition ${
-              tab === t.key ? "bg-primary/15 text-white" : "text-text-dim hover:text-white"
-            }`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs
+        size="sm"
+        aria-label="Friends view"
+        className="mt-4 flex w-full [&>button]:flex-1"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { value: "friends", label: "Friends" },
+          { value: "pending", label: "Requests", count: pending.length || undefined },
+          { value: "search", label: "Find" },
+        ]}
+      />
 
-      <div className="mt-3 max-h-48 space-y-2 overflow-y-auto">
+      <div className="mt-3 max-h-56 space-y-1 overflow-y-auto">
         {/* Friends list */}
         {tab === "friends" && (
           friends.length === 0 ? (
-            <p className="py-4 text-center text-xs text-text-dim">No friends yet. Search to add!</p>
+            <p className="py-5 text-center text-[13px] text-text-dim">No friends yet. Use Find to add classmates.</p>
           ) : (
             friends.map((f) => (
-              <Link key={f.user_id} to={`/profile/${f.user_id}`}
-                className="flex items-center gap-2.5 rounded-lg border border-line/5 bg-black/10 px-3 py-2 transition hover:border-primary/20">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full text-xs"
-                  style={{ background: f.avatar_color || "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
-                  {f.avatar_emoji || f.name?.charAt(0) || "?"}
-                </div>
+              <Link key={f.user_id} to={`/profile/${f.user_id}`} className={rowClass}>
+                <Avatar person={f} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-white">
+                  <p className="truncate text-sm text-text-primary">
                     <UserHoverCard userId={f.user_id}>{f.name}</UserHoverCard>
                   </p>
-                  <p className="text-[9px] text-text-dim">{f.title || "Student"}</p>
+                  <p className="text-[12px] text-text-dim">{f.title || "Student"}</p>
                 </div>
               </Link>
             ))
@@ -126,12 +133,12 @@ function FriendsCard() {
         {/* Pending requests */}
         {tab === "pending" && (
           pending.length === 0 ? (
-            <p className="py-4 text-center text-xs text-text-dim">No pending requests</p>
+            <p className="py-5 text-center text-[13px] text-text-dim">No pending requests</p>
           ) : (
             pending.map((req) => (
-              <div key={req.id} className="flex items-center gap-2 rounded-lg border border-line/5 bg-black/10 px-3 py-2">
+              <div key={req.id} className={rowClass}>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-white">
+                  <p className="truncate text-sm text-text-primary">
                     {req.requester?.user_id
                       ? <UserHoverCard userId={req.requester.user_id}>{req.requester?.name || "User"}</UserHoverCard>
                       : (req.requester?.name || "User")}
@@ -141,11 +148,11 @@ function FriendsCard() {
                   await chat.respondRequest(req.id, true);
                   setPending((p) => p.filter((r) => r.id !== req.id));
                   chat.getFriends().then((r) => setFriends(r.data || []));
-                }} className="rounded-lg bg-success/15 px-3 py-2 text-[11px] text-success hover:bg-success/25">Accept</button>
+                }} className="h-10 rounded-xl bg-success/15 px-3 text-[13px] font-medium text-success transition hover:bg-success/25">Accept</button>
                 <button onClick={async () => {
                   await chat.respondRequest(req.id, false);
                   setPending((p) => p.filter((r) => r.id !== req.id));
-                }} className="rounded-lg bg-danger/15 px-3 py-2 text-[11px] text-danger hover:bg-danger/25">Decline</button>
+                }} className="h-10 rounded-xl bg-danger/10 px-3 text-[13px] font-medium text-danger transition hover:bg-danger/20">Decline</button>
               </div>
             ))
           )
@@ -156,20 +163,17 @@ function FriendsCard() {
           <>
             <input value={search} onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search name or email..."
-              className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-1.5 text-xs text-white outline-none focus:border-primary/30" />
+              className="mb-1 h-11 w-full rounded-xl border border-[rgb(var(--rule))] bg-obsidian/40 px-3 text-sm text-text-primary outline-none transition placeholder:text-text-dim focus:border-primary/40" />
             {results.map((u) => (
-              <div key={u.user_id} className="flex items-center gap-2 rounded-lg border border-line/5 bg-black/10 px-3 py-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full text-xs"
-                  style={{ background: u.avatar_color || "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
-                  {u.avatar_emoji || u.name?.charAt(0) || "?"}
-                </div>
+              <div key={u.user_id} className={rowClass}>
+                <Avatar person={u} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-white">
+                  <p className="truncate text-sm text-text-primary">
                     <UserHoverCard userId={u.user_id}>{u.name}</UserHoverCard>
                   </p>
-                  <p className="text-[9px] text-text-dim">{u.xp || 0} XP</p>
+                  <p className="text-[12px] tabular-nums text-text-dim">{u.xp || 0} XP</p>
                 </div>
-                <Link to={`/profile/${u.user_id}`} className="rounded-lg bg-primary/15 px-3 py-2 text-[11px] text-primary hover:bg-primary/25">
+                <Link to={`/profile/${u.user_id}`} className="flex h-10 items-center rounded-xl bg-primary/10 px-3 text-[13px] font-medium text-primary transition hover:bg-primary/20">
                   View
                 </Link>
               </div>
@@ -177,12 +181,108 @@ function FriendsCard() {
           </>
         )}
       </div>
-    </Card>
+    </section>
+  );
+}
+
+/**
+ * XP progress — the asymptote as a meter. The dot parks at the share
+ * of the way from the current title to the next one; the ladder below
+ * lights rung by rung up to where the viewer stands.
+ */
+function ProgressPanel({ xp, ladder, currentTitle }) {
+  const root = useRef(null);
+  const rungs = useMemo(
+    () => (Array.isArray(ladder) ? [...ladder].sort((a, b) => (a.minXp || 0) - (b.minXp || 0)) : []),
+    [ladder],
+  );
+  const currentIdx = Math.max(0, rungs.reduce((acc, t, i) => (xp >= (t.minXp || 0) ? i : acc), 0));
+  const cur = rungs[currentIdx];
+  const next = rungs[currentIdx + 1];
+  const span = next ? Math.max(1, next.minXp - (cur?.minXp || 0)) : 1;
+  const progress = next ? Math.min(1, Math.max(0, (xp - (cur?.minXp || 0)) / span)) : 1;
+  const toGo = next ? Math.max(0, next.minXp - xp) : 0;
+
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const tl = gsap.timeline({
+        scrollTrigger: { trigger: root.current, start: "top 82%", once: true },
+        defaults: { ease: "expo.out" },
+      });
+      tl.fromTo("[data-fill]", { scaleX: 0 }, { scaleX: progress, duration: 1.6 })
+        .from("[data-rung]", { x: -18, autoAlpha: 0, duration: 0.7, stagger: 0.07 }, 0.15)
+        .from("[data-rung-dot][data-on='true']", { scale: 0, duration: 0.5, stagger: 0.08, ease: "back.out(3)" }, 0.4);
+    });
+    mm.add("(prefers-reduced-motion: reduce)", () => {
+      gsap.set("[data-fill]", { scaleX: progress });
+    });
+    return () => mm.revert();
+  }, { scope: root, dependencies: [progress], revertOnUpdate: true });
+
+  return (
+    <section ref={root} className="lamp-panel p-5 sm:p-7">
+      <PanelTitle icon={Zap}>Your progress</PanelTitle>
+
+      <div className="mt-5 grid items-end gap-6 sm:grid-cols-[1fr_auto]">
+        <div className="min-w-0">
+          <p className="text-[13px] text-text-muted">
+            {next ? <>Toward <span className="text-text-primary">{next.title}</span></> : "Top of the ladder"}
+          </p>
+          <p className="lamp-numerals mt-1 text-4xl leading-none text-text-primary sm:text-5xl">
+            <AnimatedNumber value={xp} duration={1.6} />
+            <span className="ml-2 text-base text-text-dim">XP</span>
+          </p>
+          <p className="mt-2 text-[13px] text-primary">
+            {next ? `${toGo.toLocaleString()} XP to go` : "Every title unlocked"}
+          </p>
+        </div>
+        <AsymptoteCurve progress={progress} className="h-20 w-full max-w-[300px] sm:w-64" />
+      </div>
+
+      <div className="relative mt-5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+        <div
+          data-fill
+          className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-[linear-gradient(90deg,rgb(var(--violet)),rgb(var(--lamp)))]"
+          style={{ transform: `scaleX(${progress})` }}
+        />
+      </div>
+
+      {rungs.length > 0 && (
+        <ol className="mt-6 grid gap-1 sm:grid-cols-2">
+          {rungs.map((t, i) => {
+            const isCurrent = t.title === currentTitle || (!currentTitle && i === currentIdx);
+            const reached = i <= currentIdx;
+            return (
+              <li
+                key={t.title}
+                data-rung
+                className={`flex min-h-[44px] items-center justify-between gap-3 rounded-xl px-3 py-2 ${
+                  isCurrent ? "bg-primary/10 ring-1 ring-primary/30" : ""
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span
+                    data-rung-dot
+                    data-on={reached ? "true" : "false"}
+                    className={`h-2 w-2 rounded-full ${reached ? "bg-primary shadow-[0_0_8px_rgb(var(--lamp)/0.8)]" : "bg-white/15"}`}
+                  />
+                  <span className={`text-sm ${isCurrent ? "font-medium text-text-primary" : reached ? "text-text-muted" : "text-text-dim"}`}>
+                    {t.title}
+                  </span>
+                  {isCurrent && <span className="text-[12px] text-primary">You</span>}
+                </span>
+                <span className="text-[12px] tabular-nums text-text-dim">{t.minXp} XP</span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
   );
 }
 
 export default function DashboardPage() {
-  useMonument("pyramid");
   const [profile, setProfile] = useState(null);
   const [stats, setStats] = useState(null);
   const [arenaStats, setArenaStats] = useState(null);
@@ -212,201 +312,177 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="pyramid" intensity={0.15} />
-        <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
+      <div className="pb-16">
+        <div className="flex min-h-[60vh] items-center justify-center">
           <Loader variant="orbit" size="lg" label="Loading dashboard..." />
         </div>
       </div>
     );
   }
 
-  const statCards = [
-    { label: "Total XP", value: stats?.xp || profile?.xp || 0, icon: "⚡", change: `Rank #${stats?.rank || "—"}` },
-    { label: "Problems Solved", value: stats?.solved || arenaStats?.correct || 0, icon: "✅", change: `of ${stats?.total || arenaStats?.total || 0} attempted` },
-    { label: "Accuracy", value: `${stats?.accuracy || arenaStats?.accuracy || 0}%`, icon: "🎯", change: `${arenaStats?.correct || 0} correct` },
-    { label: "Title", value: stats?.title || profile?.title || "Novice", icon: "🏆", change: stats?.nextTitle ? `Next: ${stats.nextTitle}` : "Max rank!" },
-  ];
+  const firstName = profile?.name ? profile.name.split(" ")[0] : "";
+  const xp = Number(stats?.xp || profile?.xp || 0);
+  const accuracy = Number.parseFloat(stats?.accuracy || arenaStats?.accuracy || 0) || 0;
+  const currentTitle = stats?.title || profile?.title;
 
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="pyramid" intensity={0.15} />
-      <DashboardAmbientGlyphs />
-      <div className="relative z-10 space-y-8 pb-16">
-        {/* Welcome */}
-        <MonumentHero
-          monument="pyramid"
-          title={`Welcome${profile?.name ? `, ${profile.name.split(" ")[0]}` : " back"}`}
-          subtitle="Control Panel"
-        >
+    <div className="pb-16">
+      <PageHeader
+        context={timeContext()}
+        title={firstName ? `Welcome back, *${firstName}*.` : "Welcome back."}
+        description={currentTitle ? `You're standing at ${currentTitle}. Here's what's on the desk today.` : "Here's what's on the desk today."}
+        actions={(
           <Link to="/profile">
-            <Button variant="secondary" size="sm">View Profile</Button>
+            <Button variant="secondary" size="sm">View profile</Button>
           </Link>
-        </MonumentHero>
+        )}
+      />
 
-        {/* Stats Grid — numerical values use AnimatedNumber so they
-            count up on first render. Non-numeric (Title) just renders
-            the string. The numericValue field tells us which is which
-            without needing to parse the display string. */}
-        <motion.section initial="hidden" animate="visible" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {statCards.map((stat, i) => (
-            <motion.div key={stat.label} custom={i + 1} variants={fadeUp}>
-              <Card variant="glass" interactive className="text-center">
-                <span className="text-2xl">{stat.icon}</span>
-                <p className="math-text mt-3 text-3xl font-bold tracking-tight text-white">
-                  {typeof stat.value === "number"
-                    ? <AnimatedNumber value={stat.value} duration={1.2} />
-                    : stat.value}
-                </p>
-                <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-text-dim">{stat.label}</p>
-                <p className="math-text mt-2 text-xs text-success">{stat.change}</p>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.section>
+      {/* Stats — tiles count up on first render. */}
+      <section data-stagger="fog" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <StatTile label="Total XP" value={xp} icon={Zap} sub={`Rank #${stats?.rank || "—"}`} tone="lamp" />
+        <StatTile
+          label="Problems solved"
+          value={Number(stats?.solved || arenaStats?.correct || 0)}
+          icon={CheckCircle2}
+          sub={`of ${stats?.total || arenaStats?.total || 0} attempted`}
+        />
+        <StatTile label="Accuracy" value={accuracy} suffix="%" icon={Target} sub={`${arenaStats?.correct || 0} correct`} tone="good" />
+        <StatTile
+          label="Title"
+          value={stats?.title || profile?.title || "Novice"}
+          icon={Award}
+          sub={stats?.nextTitle ? `Next: ${stats.nextTitle}` : "Highest title reached"}
+          tone="warn"
+        />
+      </section>
 
-        <div className="grid gap-8 xl:grid-cols-[1fr_380px]">
-          <div className="space-y-8">
-            {/* XP Progress */}
-            {stats?.xpTitles && (
-              <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-                <Card variant="solid">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Progression</p>
-                  <h2 className="mt-2 font-display text-2xl font-bold text-white">XP Title Ladder</h2>
-                  <div className="mt-4 space-y-2">
-                    {(Array.isArray(stats.xpTitles) ? stats.xpTitles : []).map((t) => {
-                      const isCurrent = t.title === (stats.title || profile?.title);
-                      return (
-                        <div key={t.title} className={`flex items-center justify-between rounded-xl border px-4 py-2 ${
-                          isCurrent ? "border-primary/30 bg-primary/10" : "border-line/10 bg-black/10"
-                        }`}>
-                          <span className={`text-sm ${isCurrent ? "font-bold text-white" : "text-text-muted"}`}>
-                            {t.title} {isCurrent && "← You"}
-                          </span>
-                          <span className="math-text text-xs text-text-dim">{t.minXp} XP</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Card>
-              </motion.section>
-            )}
+      {/* The asymptote draws itself as you scroll down onto the desk. */}
+      <div className="relative mt-6">
+        <ScrollCurve className="relative h-10 sm:h-14" start="top 92%" end="top 35%" />
+      </div>
 
-            {/* Recent Activity */}
-            <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-              <Card variant="glass">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">Activity Log</p>
-                    <h2 className="mt-2 font-display text-2xl font-bold text-white">Recent Attempts</h2>
-                  </div>
-                  <Link to="/history" className="font-mono text-[11px] text-primary hover:text-secondary transition">
-                    View all
-                  </Link>
-                </div>
-                <div className="mt-5 space-y-3">
-                  {history.length === 0 && (
-                    <p className="py-4 text-center text-sm text-text-dim">No attempts yet. Start solving!</p>
-                  )}
-                  {history.map((item, i) => (
-                    <motion.div
-                      key={item.id || i}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.7 + i * 0.05 }}
-                      className="flex items-center gap-4 rounded-2xl border border-line/10 bg-black/10 px-4 py-3"
-                    >
-                      <span className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold ${
-                        item.is_correct || item.correct ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-8">
+        <div className="min-w-0 space-y-6">
+          {/* The lit panel: today's problem. */}
+          <DailyProblemCard />
+
+          {stats?.xpTitles && (
+            <div data-reveal="up">
+              <ProgressPanel xp={xp} ladder={stats.xpTitles} currentTitle={currentTitle} />
+            </div>
+          )}
+
+          {/* Recent attempts */}
+          <section data-reveal="up" className="lamp-panel p-5 sm:p-7">
+            <PanelTitle
+              icon={Target}
+              aside={(
+                <Link to="/history" className="inline-flex h-10 items-center gap-1 text-[13px] font-medium text-primary transition hover:text-text-primary">
+                  View all <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" {...ICON} />
+                </Link>
+              )}
+            >
+              Recent attempts
+            </PanelTitle>
+            {history.length === 0 ? (
+              <div className="mt-4 rounded-xl border border-dashed border-[rgb(var(--rule))] px-4 py-8 text-center">
+                <p className="text-sm text-text-muted">No attempts yet.</p>
+                <Link to="/arena" className="mt-2 inline-block text-sm font-medium text-primary hover:underline">Solve your first challenge in the arena</Link>
+              </div>
+            ) : (
+              <ul data-stagger="left" className="mt-4 divide-y divide-[rgb(var(--rule))]">
+                {history.map((item, i) => {
+                  const ok = item.is_correct || item.correct;
+                  const earned = item.xp_earned || item.points_earned || 0;
+                  return (
+                    <li key={item.id || i} className="flex items-center gap-3 py-3 sm:gap-4">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                        ok ? "bg-success/12 text-success" : "bg-danger/10 text-danger"
                       }`}>
-                        {item.is_correct || item.correct ? "✓" : "×"}
+                        {ok ? <Check className="h-4 w-4" aria-label="Correct" {...ICON} /> : <X className="h-4 w-4" aria-label="Incorrect" {...ICON} />}
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white truncate">{item.challenge_title || item.title || "Challenge"}</p>
-                        <p className="font-mono text-[10px] text-text-dim">
-                          {item.difficulty || ""} · {item.created_at ? new Date(item.created_at).toLocaleDateString() : ""}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-text-primary">{item.challenge_title || item.title || "Challenge"}</p>
+                        <p className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-text-dim">
+                          {item.difficulty ? <span className="capitalize">{item.difficulty}</span> : null}
+                          {item.created_at ? <span>{new Date(item.created_at).toLocaleDateString()}</span> : null}
                         </p>
                       </div>
-                      <span className={`math-text text-sm font-bold ${
-                        (item.xp_earned || item.points_earned || 0) > 0 ? "text-success" : "text-text-dim"
-                      }`}>
-                        +{item.xp_earned || item.points_earned || 0}
+                      <span className={`lamp-numerals text-sm ${earned > 0 ? "text-success" : "text-text-dim"}`}>
+                        +{earned}
                       </span>
-                    </motion.div>
-                  ))}
-                </div>
-              </Card>
-            </motion.section>
-          </div>
-
-          {/* Sidebar */}
-          <motion.aside
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.5 }}
-            className="space-y-6"
-          >
-            {/* Solution Sprint — weekly featured problem with a
-                window-scoped leaderboard. Drives focused engagement
-                on a single problem at a time. */}
-            <SprintWidget />
-
-            {/* Daily problem of the day — rotating widget that drives
-                daily return visits. Streak badge sits in the header. */}
-            <DailyProblemCard />
-
-            {/* Announcements */}
-            <Card variant="glow">
-              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-glow">Announcements</p>
-              <div className="mt-4 space-y-4">
-                {announcements.length === 0 && (
-                  <p className="py-2 text-center text-sm text-text-dim">No announcements</p>
-                )}
-                {announcements.map((ann, i) => (
-                  <div key={ann.id || i} className="rounded-2xl border border-line/10 bg-black/15 p-4">
-                    <p className="text-sm font-medium text-white">{ann.title}</p>
-                    <p className="mt-2 text-xs leading-5 text-text-muted">{ann.content || ann.body}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Notifications preview */}
-            <Card variant="solid">
-              <div className="flex items-center justify-between">
-                <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">Notifications</p>
-                <Link to="/notifications" className="font-mono text-[10px] text-primary hover:text-secondary transition">View all</Link>
-              </div>
-              <div className="mt-4 space-y-2">
-                {notifs.length === 0 && <p className="py-2 text-center text-xs text-text-dim">All caught up!</p>}
-                {notifs.map((n, i) => (
-                  <div key={n.id || i} className="flex items-start gap-2 rounded-xl border border-line/10 bg-black/10 px-3 py-2">
-                    <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${n.is_read ? "bg-text-dim" : "bg-primary"}`} />
-                    <p className="text-xs text-text-muted line-clamp-2">{n.body || n.title}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Friends */}
-            <FriendsCard />
-
-            {/* Recent Achievements */}
-            <RecentAchievements />
-
-            {/* Quick actions */}
-            <Card variant="glass">
-              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Quick Actions</p>
-              <div className="mt-4 grid gap-3">
-                <Link to="/arena"><Button size="sm" className="w-full justify-center">Enter Arena</Button></Link>
-                <Link to="/live-quiz"><Button variant="secondary" size="sm" className="w-full justify-center">Join Live Quiz</Button></Link>
-                <Link to="/certificates"><Button variant="ghost" size="sm" className="w-full justify-center">View Certificates</Button></Link>
-                <Link to="/projects"><Button variant="ghost" size="sm" className="w-full justify-center">Browse Projects</Button></Link>
-                <Link to="/referrals"><Button variant="ghost" size="sm" className="w-full justify-center">Invite Friends</Button></Link>
-              </div>
-            </Card>
-          </motion.aside>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
         </div>
+
+        {/* Sidebar */}
+        <aside className="min-w-0 space-y-6">
+          {/* Solution Sprint — weekly featured problem with a
+              window-scoped leaderboard. */}
+          <div data-reveal="right"><SprintWidget /></div>
+
+          {/* Announcements */}
+          <section data-reveal="right" className="lamp-panel p-5">
+            <PanelTitle icon={Megaphone}>Announcements</PanelTitle>
+            {announcements.length === 0 ? (
+              <p className="mt-3 text-[13px] text-text-dim">Nothing new from the team.</p>
+            ) : (
+              <div data-stagger="up" className="mt-4 space-y-4">
+                {announcements.map((ann, i) => (
+                  <article key={ann.id || i} className="border-l-2 border-primary/50 pl-3">
+                    <p className="text-sm font-medium text-text-primary">{ann.title}</p>
+                    <p className="mt-1 text-[13px] leading-5 text-text-muted">{ann.content || ann.body}</p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Notifications preview */}
+          <section data-reveal="right" className="lamp-panel p-5">
+            <PanelTitle
+              icon={Bell}
+              aside={<Link to="/notifications" className="inline-flex h-10 items-center text-[13px] font-medium text-primary transition hover:text-text-primary">View all</Link>}
+            >
+              Notifications
+            </PanelTitle>
+            {notifs.length === 0 ? (
+              <p className="mt-3 text-[13px] text-text-dim">All caught up.</p>
+            ) : (
+              <ul data-stagger="up" className="mt-3 space-y-1">
+                {notifs.map((n, i) => (
+                  <li key={n.id || i} className="flex items-start gap-3 rounded-xl px-2 py-2">
+                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.is_read ? "bg-white/15" : "bg-primary shadow-[0_0_8px_rgb(var(--lamp)/0.9)]"}`} />
+                    <p className={`line-clamp-2 text-[13px] ${n.is_read ? "text-text-dim" : "text-text-muted"}`}>{n.body || n.title}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Friends */}
+          <FriendsCard />
+
+          {/* Recent Achievements */}
+          <RecentAchievements />
+
+          {/* Quick actions */}
+          <section data-reveal="right" className="lamp-panel p-5">
+            <PanelTitle>Jump to</PanelTitle>
+            <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-1">
+              <Link to="/arena" className="col-span-2 xl:col-span-1"><Button size="sm" className="w-full justify-center">Enter arena</Button></Link>
+              <Link to="/live-quiz" className="col-span-2 xl:col-span-1"><Button variant="secondary" size="sm" className="w-full justify-center">Join live quiz</Button></Link>
+              <Link to="/certificates"><Button variant="ghost" size="sm" className="w-full justify-center">Certificates</Button></Link>
+              <Link to="/projects"><Button variant="ghost" size="sm" className="w-full justify-center">Projects</Button></Link>
+              <Link to="/referrals" className="col-span-2 xl:col-span-1"><Button variant="ghost" size="sm" className="w-full justify-center">Invite friends</Button></Link>
+            </div>
+          </section>
+        </aside>
       </div>
     </div>
   );
@@ -436,15 +512,17 @@ function RecentAchievements() {
   if (allAch.length === 0) return null;
 
   return (
-    <Card variant="glass">
-      <div className="flex items-center justify-between">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Achievements</p>
-        <span className="math-text text-[10px] text-text-dim">{unlockedIds.size}/{allAch.length}</span>
-      </div>
+    <section data-reveal="right" className="lamp-panel p-5">
+      <PanelTitle
+        icon={Award}
+        aside={<span className="text-[13px] tabular-nums text-text-dim">{unlockedIds.size} of {allAch.length}</span>}
+      >
+        Achievements
+      </PanelTitle>
       {recent.length === 0 ? (
-        <p className="mt-3 text-xs text-text-dim">No achievements unlocked yet. Keep going!</p>
+        <p className="mt-3 text-[13px] text-text-dim">No achievements unlocked yet. Attend an event or solve a challenge to earn your first.</p>
       ) : (
-        <div className="mt-3 space-y-2">
+        <div data-stagger="scale" className="mt-3 space-y-2">
           {recent.map(u => {
             const ach = u.achievements || allAch.find(a => a.id === u.achievement_id);
             if (!ach) return null;
@@ -452,9 +530,9 @@ function RecentAchievements() {
           })}
         </div>
       )}
-      <Link to="/profile" className="mt-3 block text-center font-mono text-[10px] text-primary/60 hover:text-primary transition">
-        View all →
+      <Link to="/profile" className="mt-3 inline-flex h-10 items-center gap-1 text-[13px] font-medium text-primary transition hover:text-text-primary">
+        View all achievements
       </Link>
-    </Card>
+    </section>
   );
 }

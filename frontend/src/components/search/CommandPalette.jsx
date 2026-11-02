@@ -30,7 +30,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { ArrowUpRight, BookOpen, CornerDownLeft, Puzzle, Route, Search, Sparkles, UserRound } from "lucide-react";
 import { search as searchApi } from "@/lib/api";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
+import { cn } from "@/lib/cn";
 
 const DEBOUNCE_MS = 220;
 const MIN_CHARS   = 2;
@@ -53,6 +56,7 @@ export default function CommandPalette({ open, onClose }) {
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const abortRef = useRef(null);
+  const lamp     = useIsLamplight();
 
   const [q,          setQ]          = useState("");
   const [groups,     setGroups]     = useState({ problem: [], roadmap: [], writeup: [], portfolio: [] });
@@ -183,6 +187,24 @@ export default function CommandPalette({ open, onClose }) {
 
   const showHint = q.trim().length < MIN_CHARS;
 
+  if (lamp) {
+    return (
+      <LampPalette
+        inputRef={inputRef}
+        q={q}
+        setQ={setQ}
+        onKey={onKey}
+        onClose={onClose}
+        onPick={onPick}
+        showHint={showHint}
+        loading={loading}
+        flatItems={flatItems}
+        activeIdx={activeIdx}
+        setActiveIdx={setActiveIdx}
+      />
+    );
+  }
+
   return (
     <AnimatePresence>
       <motion.div
@@ -213,11 +235,11 @@ export default function CommandPalette({ open, onClose }) {
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onKey}
               placeholder="Search problems, roadmaps, writeups, people…"
-              className="w-full bg-transparent text-sm text-white outline-none placeholder:text-text-dim"
+              className="w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-dim"
               autoComplete="off"
               spellCheck={false}
             />
-            <kbd className="hidden shrink-0 rounded border border-line/20 bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-text-dim sm:inline-block">
+            <kbd className="hidden shrink-0 rounded border border-line/20 bg-[rgb(var(--color-text-primary)/0.04)] px-1.5 py-0.5 font-mono text-[10px] text-text-dim sm:inline-block">
               Esc
             </kbd>
           </div>
@@ -236,11 +258,11 @@ export default function CommandPalette({ open, onClose }) {
           </div>
 
           {/* ── Foot ── */}
-          <div className="flex items-center justify-between gap-2 border-t border-line/10 bg-white/[0.02] px-4 py-2 font-mono text-[10px] text-text-dim">
+          <div className="flex items-center justify-between gap-2 border-t border-line/10 bg-[rgb(var(--color-text-primary)/0.02)] px-4 py-2 font-mono text-[10px] text-text-dim">
             <span className="flex items-center gap-2">
-              <kbd className="rounded border border-line/20 bg-white/[0.04] px-1.5 py-0.5">↑↓</kbd>
+              <kbd className="rounded border border-line/20 bg-[rgb(var(--color-text-primary)/0.04)] px-1.5 py-0.5">↑↓</kbd>
               navigate
-              <kbd className="ml-2 rounded border border-line/20 bg-white/[0.04] px-1.5 py-0.5">⏎</kbd>
+              <kbd className="ml-2 rounded border border-line/20 bg-[rgb(var(--color-text-primary)/0.04)] px-1.5 py-0.5">⏎</kbd>
               open
             </span>
             <span>{loading ? "…" : `${flatItems.length} result${flatItems.length === 1 ? "" : "s"}`}</span>
@@ -256,13 +278,13 @@ export default function CommandPalette({ open, onClose }) {
 function PaletteHint() {
   return (
     <div className="px-3 py-4">
-      <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.25em] text-text-dim">Quick links</p>
+      <p className="mb-3 text-[13px] font-medium text-text-muted">Quick links</p>
       <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
         {STATIC_PAGES.slice(0, 8).map((p) => (
           <li key={p.key}>
             <a
               href={p.to}
-              className="block rounded-lg border border-line/10 bg-white/[0.02] px-3 py-2 text-xs text-text-soft transition hover:border-primary/30 hover:text-white"
+              className="block rounded-lg border border-line/10 bg-[rgb(var(--color-text-primary)/0.02)] px-3 py-2 text-xs text-text-muted transition hover:border-primary/30 hover:text-text-primary"
             >
               {p.label}
             </a>
@@ -289,18 +311,18 @@ function FlatList({ items, activeIdx, onPick, setActiveIdx }) {
               "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition " +
               (i === activeIdx
                 ? "bg-primary/15 ring-1 ring-primary/30"
-                : "hover:bg-white/[0.04]")
+                : "hover:bg-[rgb(var(--color-text-primary)/0.04)]")
             }
           >
             <KindBadge kind={item.kind} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm text-white">{item.label}</span>
+              <span className="block truncate text-sm text-text-primary">{item.label}</span>
               {item.hint && (
                 <span className="block truncate font-mono text-[10px] text-text-dim">{item.hint}</span>
               )}
             </span>
             {i === activeIdx && (
-              <kbd className="shrink-0 rounded border border-primary/40 bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-white">
+              <kbd className="shrink-0 rounded border border-primary/40 bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-text-primary">
                 ⏎
               </kbd>
             )}
@@ -313,21 +335,222 @@ function FlatList({ items, activeIdx, onPick, setActiveIdx }) {
 
 function KindBadge({ kind }) {
   const map = {
-    page:      { label: "Page",      cls: "bg-white/[0.04] text-text-soft" },
-    problem:   { label: "Problem",   cls: "bg-amber-500/15 text-amber-300" },
-    roadmap:   { label: "Roadmap",   cls: "bg-violet-500/15 text-violet-300" },
-    writeup:   { label: "Writeup",   cls: "bg-sky-500/15 text-sky-300" },
-    portfolio: { label: "Person",    cls: "bg-emerald-500/15 text-emerald-300" },
+    page:      { label: "Page",      cls: "bg-[rgb(var(--color-text-primary)/0.04)] text-text-muted" },
+    problem:   { label: "Problem",   cls: "bg-primary/15 text-primary" },
+    roadmap:   { label: "Roadmap",   cls: "bg-secondary/15 text-secondary" },
+    writeup:   { label: "Writeup",   cls: "bg-warning/15 text-warning" },
+    portfolio: { label: "Person",    cls: "bg-success/15 text-success" },
   };
   const spec = map[kind] || map.page;
   return (
     <span
       className={
-        "inline-flex w-16 shrink-0 items-center justify-center rounded-md px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider " +
+        "inline-flex w-16 shrink-0 items-center justify-center rounded-md px-2 py-0.5 text-[11px] font-medium " +
         spec.cls
       }
     >
       {spec.label}
     </span>
+  );
+}
+
+/* ── Lamplight skin ───────────────────────────────────────────────
+ * Same data and keyboard model as above; only the presentation differs.
+ * The highlighted row carries a single framer `layoutId` slab that
+ * glides between rows as ↑/↓ move, and each fresh result set cascades
+ * in row by row.
+ */
+
+const LAMP_KIND = {
+  page:      { label: "Page",    group: "Pages",    Icon: ArrowUpRight, tone: "text-text-muted" },
+  problem:   { label: "Problem", group: "Problems", Icon: Puzzle,       tone: "text-primary" },
+  roadmap:   { label: "Roadmap", group: "Roadmaps", Icon: Route,        tone: "text-secondary" },
+  writeup:   { label: "Writeup", group: "Writeups", Icon: BookOpen,     tone: "text-[rgb(var(--violet))]" },
+  portfolio: { label: "Person",  group: "People",   Icon: UserRound,    tone: "text-success" },
+};
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 8 },
+  show: (i) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: Math.min(i, 12) * 0.028, duration: 0.32, ease: [0.16, 1, 0.3, 1] },
+  }),
+};
+
+function LampPalette({
+  inputRef, q, setQ, onKey, onClose, onPick, showHint, loading, flatItems, activeIdx, setActiveIdx,
+}) {
+  const listRef = useRef(null);
+
+  // Keep the highlighted row in view while arrowing through a long list.
+  useEffect(() => {
+    const row = listRef.current?.querySelector(`[data-idx="${activeIdx}"]`);
+    row?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIdx]);
+
+  // A new key per result set replays the cascade when results change.
+  const resultKey = flatItems.map((it) => `${it.kind}:${it.id}`).join("|");
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-[rgba(4,3,10,0.72)] px-3 pt-[9vh] backdrop-blur-md sm:px-4 sm:pt-[12vh]"
+      style={{ perspective: 1200 }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: -18, scale: 0.97, rotateX: 8 }}
+        animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0 }}
+        transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search"
+        className="lamp-panel lamp-panel--lit relative w-full max-w-2xl overflow-hidden shadow-[0_40px_120px_-40px_rgb(var(--lamp)/0.45)]"
+      >
+        {/* Lamp glow pooling at the top edge */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-10 -top-24 h-40 rounded-full bg-[radial-gradient(closest-side,rgb(var(--lamp)/0.22),transparent)]"
+        />
+
+        <div className="relative flex items-center gap-3 border-b border-[rgb(var(--rule))] px-4 py-3.5 sm:px-5">
+          <Search className={cn("h-[18px] w-[18px] shrink-0 transition-colors", q ? "text-primary" : "text-text-dim")} strokeWidth={1.75} aria-hidden="true" />
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={onKey}
+            placeholder="Search problems, roadmaps, writeups, people…"
+            aria-label="Search"
+            className="h-8 w-full bg-transparent text-[15px] text-text-primary outline-none placeholder:text-text-dim"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {loading ? (
+            <span aria-hidden="true" className="relative h-4 w-4 shrink-0">
+              <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
+              <span className="absolute inset-[5px] rounded-full bg-primary" />
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="hidden h-7 shrink-0 items-center rounded-lg border border-[rgb(var(--rule))] px-2 text-[12px] text-text-dim transition hover:text-text-primary sm:inline-flex"
+          >
+            Esc
+          </button>
+        </div>
+
+        <div ref={listRef} className="relative max-h-[60vh] overflow-y-auto overscroll-contain p-2">
+          {showHint ? (
+            <LampHint />
+          ) : flatItems.length === 0 ? (
+            <div className="flex flex-col items-center gap-1.5 px-4 py-10 text-center">
+              <p className="lamp-display text-lg text-text-primary">
+                {loading ? "Looking through the stacks…" : "Nothing matches that"}
+              </p>
+              {!loading ? <p className="text-sm text-text-muted">Try a shorter word, or a problem&apos;s source.</p> : null}
+            </div>
+          ) : (
+            <ul key={resultKey} className="space-y-0.5">
+              {flatItems.map((item, i) => {
+                const spec = LAMP_KIND[item.kind] || LAMP_KIND.page;
+                const prev = flatItems[i - 1];
+                const startsGroup = !prev || prev.kind !== item.kind;
+                const active = i === activeIdx;
+                return (
+                  <motion.li key={`${item.kind}:${item.id}`} custom={i} variants={rowVariants} initial="hidden" animate="show">
+                    {startsGroup ? (
+                      <p className={cn("px-3 pb-1 text-[12px] font-medium text-text-dim", i > 0 && "pt-3")}>{spec.group}</p>
+                    ) : null}
+                    <button
+                      type="button"
+                      data-idx={i}
+                      onMouseEnter={() => setActiveIdx(i)}
+                      onClick={() => onPick(item)}
+                      className="relative flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left"
+                    >
+                      {active ? (
+                        <motion.span
+                          layoutId="lamp-palette-highlight"
+                          transition={{ type: "spring", stiffness: 520, damping: 40 }}
+                          className="absolute inset-0 rounded-xl border border-[rgb(var(--lamp)/0.32)] bg-[rgb(var(--lamp)/0.09)] shadow-[inset_3px_0_0_rgb(var(--lamp))]"
+                        />
+                      ) : null}
+                      <span
+                        className={cn(
+                          "relative grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[rgb(var(--rule))] bg-surface/60",
+                          spec.tone,
+                        )}
+                      >
+                        <spec.Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                        <span className="sr-only">{spec.label}</span>
+                      </span>
+                      <span className="relative min-w-0 flex-1">
+                        <span className={cn("block truncate text-sm transition-colors", active ? "text-text-primary" : "text-text-muted")}>
+                          {item.label}
+                        </span>
+                        {item.hint && <span className="block truncate text-[12px] text-text-dim">{item.hint}</span>}
+                      </span>
+                      {active ? (
+                        <CornerDownLeft className="relative h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} aria-hidden="true" />
+                      ) : null}
+                    </button>
+                  </motion.li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="relative flex items-center justify-between gap-2 border-t border-[rgb(var(--rule))] px-4 py-2.5 text-[12px] text-text-dim sm:px-5">
+          <span className="hidden items-center gap-1.5 sm:flex">
+            <LampKey>↑</LampKey><LampKey>↓</LampKey> to move
+            <LampKey className="ml-2">↵</LampKey> to open
+          </span>
+          <span className="sm:hidden">Tap a result to open it</span>
+          <span className="lamp-numerals">
+            {loading ? "Searching…" : `${flatItems.length} result${flatItems.length === 1 ? "" : "s"}`}
+          </span>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function LampKey({ children, className }) {
+  return (
+    <kbd className={cn("inline-grid h-5 min-w-5 place-items-center rounded-md border border-[rgb(var(--rule))] bg-surface/70 px-1 font-sans text-[11px] text-text-muted", className)}>
+      {children}
+    </kbd>
+  );
+}
+
+function LampHint() {
+  return (
+    <div className="px-2 py-3">
+      <p className="mb-2 px-1 text-[13px] font-medium text-text-muted">Jump to</p>
+      <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        {STATIC_PAGES.slice(0, 8).map((p, i) => (
+          <motion.li key={p.key} custom={i} variants={rowVariants} initial="hidden" animate="show">
+            <a
+              href={p.to}
+              className="group flex min-h-[44px] items-center justify-between gap-2 rounded-xl border border-[rgb(var(--rule))] bg-surface/50 px-3 py-2 text-[13px] text-text-muted transition hover:border-[rgb(var(--lamp)/0.4)] hover:bg-[rgb(var(--lamp)/0.06)] hover:text-text-primary"
+            >
+              <span className="truncate">{p.label}</span>
+              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-100" strokeWidth={1.75} aria-hidden="true" />
+            </a>
+          </motion.li>
+        ))}
+      </ul>
+      <p className="mt-4 flex items-start gap-2 px-1 text-[12px] text-text-dim">
+        <Sparkles className="mt-px h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={1.75} aria-hidden="true" />
+        Type {MIN_CHARS} or more letters to search problems, roadmaps, writeups and people.
+      </p>
+    </div>
   );
 }

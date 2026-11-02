@@ -82,7 +82,7 @@ test("code sign-in uses existing request contract", async ({ page }) => {
   expect(verified).toEqual({ email: "student@bmsit.in", token: "12345678" });
 });
 
-test("password login switches to original member UI, logout restores guest design", async ({ page }) => {
+test("password login switches to the member UI, logout restores guest design", async ({ page }) => {
   const user = { id: "test-member", name: "Test Member", role: "student", email: "student@bmsit.in" };
   let submitted;
   await page.route("**/api/auth/login", async (route) => {
@@ -96,16 +96,14 @@ test("password login switches to original member UI, logout restores guest desig
   await page.getByRole("button", { name: "Sign In", exact: true }).click();
   await expect(page).toHaveURL(/\/events$/);
   await expect(page.locator(".mc-public")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: /Event Timeline/ })).toBeVisible();
+  // Members get the app shell (top bar + rail/dock), not the public layout.
+  await expect(page.locator("[data-topbar]")).toBeVisible();
   expect(submitted).toEqual({ email: user.email, password: "Test-password-123!" });
-  // Use the existing compact account menu to exercise the same logout
-  // handler without depending on the legacy desktop header's wide layout.
+  // Log out through the phone dock's account sheet, which calls the same
+  // logout handler as the desktop rail's account menu.
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Toggle menu" }).click();
-  await page
-    .getByRole("button", { name: /sign out/i })
-    .last()
-    .click();
+  await page.getByRole("navigation", { name: "Quick navigation" }).getByRole("button", { name: /you/i }).click();
+  await page.getByRole("dialog", { name: "All destinations" }).getByRole("button", { name: /sign out/i }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.locator(".mc-public")).toBeVisible();
 });
@@ -315,10 +313,13 @@ test("paused sculpture supports deliberate rotation without restarting animation
   const turned = await picture();
   await page.waitForTimeout(250);
   expect(await picture()).toBe(turned);
-  // A palette round trip preserves the manually chosen orientation.
+  // A palette round trip preserves the manually chosen orientation. It
+  // returns to whichever palette the page opened with, which is seasonal
+  // (Haunted during Halloween, Obsidian otherwise).
+  const startTheme = await page.locator("[data-public-theme]").getAttribute("data-public-theme");
   await page.getByRole("button", { name: /^Appearance:/ }).click();
   await page.getByRole("radio", { name: /Arctic/ }).check();
-  await page.getByRole("radio", { name: /Obsidian/ }).check();
+  await page.locator(`[data-swatch="${startTheme}"] input`).check();
   await page.keyboard.press("Escape");
   await expect.poll(picture).toBe(turned);
   await page.getByRole("button", { name: "Play sculpture animation" }).click();

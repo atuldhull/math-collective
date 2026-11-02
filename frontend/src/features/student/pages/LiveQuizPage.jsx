@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { io } from "socket.io-client";
-import SpaceBackground from "@/components/backgrounds/SpaceBackground";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Loader from "@/components/ui/Loader";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -26,6 +26,7 @@ const PHASE = {
 export default function LiveQuizPage() {
   /* ── connection ── */
   const socketRef = useRef(null);
+  const reduceMotion = useReducedMotion();
 
   /* ── Auto-fill code from URL (?code=ABC123) + name from auth ── */
   const [searchParams] = useSearchParams();
@@ -246,8 +247,9 @@ export default function LiveQuizPage() {
      RENDER — phase switch
      ═══════════════════════════════════════════ */
 
+  let screen;
   if (phase === PHASE.JOIN || phase === PHASE.ERROR) {
-    return (
+    screen = (
       <JoinScreen
         code={code}
         setCode={setCode}
@@ -259,10 +261,8 @@ export default function LiveQuizPage() {
         onJoin={handleJoin}
       />
     );
-  }
-
-  if (phase === PHASE.LOBBY) {
-    return (
+  } else if (phase === PHASE.LOBBY) {
+    screen = (
       <LobbyScreen
         sessionCode={sessionCode}
         lobbyPlayers={lobbyPlayers}
@@ -270,10 +270,8 @@ export default function LiveQuizPage() {
         onLeave={handleLeave}
       />
     );
-  }
-
-  if (phase === PHASE.QUESTION && question) {
-    return (
+  } else if (phase === PHASE.QUESTION && question) {
+    screen = (
       <QuestionScreen
         question={question}
         selectedAnswer={selectedAnswer}
@@ -284,10 +282,8 @@ export default function LiveQuizPage() {
         onSubmitAnswer={handleSubmitAnswer}
       />
     );
-  }
-
-  if (phase === PHASE.RESULT && result) {
-    return (
+  } else if (phase === PHASE.RESULT && result) {
+    screen = (
       <ResultScreen
         result={result}
         question={question}
@@ -295,34 +291,51 @@ export default function LiveQuizPage() {
         playerName={playerName}
       />
     );
-  }
-
-  if (phase === PHASE.FINISHED) {
-    return (
+  } else if (phase === PHASE.FINISHED) {
+    screen = (
       <FinishedScreen
         leaderboard={leaderboard}
         playerName={playerName}
         onLeave={handleLeave}
       />
     );
-  }
-
-  if (phase === PHASE.ENDED) {
-    return (
+  } else if (phase === PHASE.ENDED) {
+    screen = (
       <EndedScreen
         errorMsg={errorMsg}
         onLeave={handleLeave}
       />
     );
-  }
-
-  /* ── fallback ── */
-  return (
-    <>
-      <SpaceBackground />
-      <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
+  } else {
+    /* ── fallback ── */
+    screen = (
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Loader variant="orbit" size="lg" label="Loading..." />
       </div>
-    </>
+    );
+  }
+
+  // Every phase change is a scene change: the old screen tips back and
+  // away, the new one swings up into place. Join and error share a key
+  // so a failed join shakes its message instead of replaying the card.
+  const sceneKey = phase === PHASE.ERROR ? PHASE.JOIN : phase;
+
+  return (
+    <div className="[perspective:1600px]">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={sceneKey}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, rotateX: -10, y: 50, scale: 0.97 }}
+          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, rotateX: 0, y: 0, scale: 1 }}
+          exit={reduceMotion
+            ? { opacity: 0, transition: { duration: 0.15 } }
+            : { opacity: 0, rotateX: 8, y: -30, scale: 0.98, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          style={{ transformOrigin: "50% 0%" }}
+        >
+          {screen}
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }

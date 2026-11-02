@@ -16,6 +16,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Timer } from "lucide-react";
 import Card from "@/components/ui/Card";
 import { sprints as sprintsApi } from "@/lib/api";
 
@@ -59,8 +60,9 @@ export default function SprintWidget() {
   if (loading) {
     return (
       <Card variant="glow">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-glow">Sprint</p>
-        <p className="mt-4 text-xs text-text-dim">Loading this week's sprint…</p>
+        <p className="text-[13px] font-medium text-primary">This week&apos;s sprint</p>
+        <div className="mt-4 h-4 w-3/4 animate-pulse rounded bg-white/[0.06]" />
+        <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-white/[0.04]" />
       </Card>
     );
   }
@@ -69,27 +71,28 @@ export default function SprintWidget() {
   return (
     <Card variant="glow">
       <div className="flex items-center justify-between">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-glow">Sprint · this week</p>
-        <Link to="/sprints" className="font-mono text-[10px] text-primary transition hover:text-secondary">
+        <p className="inline-flex items-center gap-2 text-[13px] font-medium text-primary">
+          <Timer className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" /> This week&apos;s sprint
+        </p>
+        <Link to="/sprints" className="text-[13px] text-text-muted transition hover:text-primary">
           View all
         </Link>
       </div>
-      <div className="mt-4 rounded-xl border border-primary/25 bg-primary/[0.06] p-4">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Featured problem</p>
-        <h3 className="mt-1 line-clamp-2 text-base font-semibold text-white">{problem.title}</h3>
-        <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-[10px] text-text-dim">
+      <div className="mt-4">
+        <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-text-primary">{problem.title}</h3>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs capitalize text-text-dim">
           {problem.source && (
-            <span className="rounded-full border border-line/15 bg-white/[0.04] px-2 py-0.5 uppercase">
+            <span className="rounded-full border border-[rgb(var(--rule))] px-2 py-0.5">
               {problem.source}
             </span>
           )}
           {problem.difficulty && (
-            <span className="rounded-full border border-line/15 bg-white/[0.04] px-2 py-0.5 uppercase">
+            <span className="rounded-full border border-[rgb(var(--rule))] px-2 py-0.5">
               {problem.difficulty}
             </span>
           )}
         </div>
-        <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+        <div className="mt-4 flex items-center justify-between gap-3 text-[13px]">
           <span className="text-text-muted">
             {count} writeup{count === 1 ? "" : "s"} so far
           </span>
@@ -97,9 +100,9 @@ export default function SprintWidget() {
         </div>
         <Link
           to={`/problems/${problem.slug || problem.id}`}
-          className="mt-3 block rounded-lg border border-primary/40 bg-primary/15 px-3 py-2 text-center font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/25"
+          className="mt-4 block rounded-xl bg-primary px-3 py-2.5 text-center text-sm font-semibold text-[rgb(var(--color-obsidian))] shadow-[0_10px_30px_-12px_rgb(var(--lamp)/0.75)] transition hover:brightness-110"
         >
-          Join the sprint →
+          Join the sprint
         </Link>
       </div>
     </Card>
@@ -110,7 +113,7 @@ export default function SprintWidget() {
 
 function Countdown({ endsAt }) {
   const ms = new Date(endsAt).getTime() - Date.now();
-  if (ms <= 0) return <span className="font-mono text-[10px] text-text-dim">closing…</span>;
+  if (ms <= 0) return <span className="text-text-dim">Closing now</span>;
   const totalMins = Math.floor(ms / (60 * 1000));
   const days = Math.floor(totalMins / (24 * 60));
   const hours = Math.floor((totalMins % (24 * 60)) / 60);
@@ -121,5 +124,5 @@ function Countdown({ endsAt }) {
   else if (hours > 0) label = `${hours}h ${mins}m left`;
   else label = `${mins}m left`;
 
-  return <span className="font-mono text-[10px] text-primary">{label}</span>;
+  return <span className="lamp-numerals text-primary">{label}</span>;
 }

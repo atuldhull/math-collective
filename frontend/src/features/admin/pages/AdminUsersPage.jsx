@@ -1,12 +1,12 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useCallback } from "react";
+import { ChevronLeft, ChevronRight, Download, KeyRound, Trash2, UserPlus, X } from "lucide-react";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import InputField from "@/components/ui/InputField";
 import Loader from "@/components/ui/Loader";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import { admin } from "@/lib/api";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { EmptyState, PageHeader } from "@/components/lamp";
 
 function downloadCsv(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -25,8 +25,9 @@ const isNewMember = (createdAt) => !!createdAt && Date.now() - new Date(createdA
 const joinedLabel = (createdAt) =>
   createdAt ? new Date(createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
 
+const icon = (Icon) => <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />;
+
 export default function AdminUsersPage() {
-  useMonument("magma");
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -116,47 +117,57 @@ export default function AdminUsersPage() {
   }, []);
 
   const roleColors = {
-    student: "bg-primary/10 text-primary",
-    teacher: "bg-success/10 text-success",
-    admin: "bg-warning/10 text-warning",
-    super_admin: "bg-danger/10 text-danger",
+    student: "border-secondary/30 bg-secondary/10 text-secondary",
+    teacher: "border-success/30 bg-success/10 text-success",
+    admin: "border-primary/35 bg-primary/10 text-primary",
+    super_admin: "border-danger/30 bg-danger/10 text-danger",
   };
 
   return (
-    <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.1} />
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-white">User Management</h2>
-          <p className="text-sm text-text-muted">{total} total users</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="secondary" size="sm" loading={exporting} onClick={handleExportCSV}>
-            <span className="flex items-center gap-2">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
+    <div className="flex flex-col">
+      <PageHeader
+        context="Admin"
+        title="Members"
+        description={<><AnimatedNumber value={total} className="lamp-numerals text-text-primary" /> total users. Change roles inline, reset passwords, or export the full roster.</>}
+        actions={(
+          <>
+            <Button variant="secondary" size="sm" loading={exporting} onClick={handleExportCSV} leading={icon(Download)}>
               Export CSV
-            </span>
-          </Button>
-          <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
-            {showCreate ? "Cancel" : "Create User"}
-          </Button>
-        </div>
-      </div>
+            </Button>
+            <Button size="sm" onClick={() => setShowCreate(!showCreate)} leading={showCreate ? icon(X) : icon(UserPlus)}>
+              {showCreate ? "Cancel" : "Create User"}
+            </Button>
+          </>
+        )}
+      />
 
-      {msg && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-          {msg}
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {msg && (
+          <motion.div
+            key="msg"
+            role="status"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
+          >
+            {msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {showCreate && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
-          <Card variant="glow">
-            <form onSubmit={handleCreate} className="space-y-4">
-              <h3 className="font-display text-lg font-bold text-white">Create New User</h3>
+      <AnimatePresence initial={false}>
+        {showCreate && (
+          <motion.div
+            key="create"
+            initial={{ opacity: 0, height: 0, rotateX: -10 }}
+            animate={{ opacity: 1, height: "auto", rotateX: 0 }}
+            exit={{ opacity: 0, height: 0, rotateX: -6 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            style={{ transformPerspective: 900, transformOrigin: "50% 0%" }}
+          >
+            <form onSubmit={handleCreate} className="lamp-panel lamp-panel--lit mb-6 space-y-4 p-5 sm:p-6">
+              <h2 className="text-lg text-text-primary">Create a new user</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <InputField label="Name" placeholder="Full name" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} />
                 <InputField label="Email" type="email" placeholder="user@university.edu" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} required />
@@ -164,9 +175,13 @@ export default function AdminUsersPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <InputField label="Password" type="password" placeholder="Set a password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} required />
                 <div>
-                  <label className="mb-3 block font-mono text-[11px] uppercase tracking-[0.28em] text-text-muted">Role</label>
-                  <select value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
-                    className="w-full rounded-[1.5rem] border border-line/18 bg-panel/70 px-4 py-3 text-sm text-white outline-none">
+                  <label htmlFor="create-user-role" className="mb-2 block text-[13px] font-medium text-text-muted">Role</label>
+                  <select
+                    id="create-user-role"
+                    value={createForm.role}
+                    onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                    className="w-full rounded-xl border border-[rgb(var(--rule))] bg-surface/70 px-4 py-3 text-sm text-text-primary outline-none transition focus:border-primary/50"
+                  >
                     <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
                     <option value="admin">Admin</option>
@@ -175,88 +190,98 @@ export default function AdminUsersPage() {
               </div>
               <Button type="submit" loading={creating} size="sm">Create User</Button>
             </form>
-          </Card>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader variant="orbit" size="lg" /></div>
+      ) : users.length === 0 && page <= 1 ? (
+        <EmptyState title="No users found" body="Create the first account with the button above, or check back once people register." />
       ) : (
-        <Card variant="solid" className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-line/10 font-mono text-[10px] uppercase tracking-wider text-text-dim">
-                  <th className="px-4 py-3">User</th>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">XP</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Joined</th>
-                  <th className="px-4 py-3">Actions</th>
+        <section data-reveal="up" className="lamp-panel p-2 md:p-0">
+          {/* Below md the table re-flows into stacked cards: each row is a block, each cell carries its own label. */}
+          <table className="block w-full text-left text-sm md:table">
+            <thead className="hidden md:table-header-group">
+              <tr className="border-b border-[rgb(var(--rule))] text-[13px] text-text-muted">
+                <th className="px-5 py-3.5 font-medium">User</th>
+                <th className="px-4 py-3.5 font-medium">Role</th>
+                <th className="px-4 py-3.5 text-right font-medium">XP</th>
+                <th className="px-4 py-3.5 font-medium">Status</th>
+                <th className="px-4 py-3.5 font-medium">Joined</th>
+                <th className="px-5 py-3.5 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody data-stagger="up" className="block space-y-2 md:table-row-group md:space-y-0">
+              {users.length === 0 && (
+                <tr className="block md:table-row"><td colSpan="6" className="block px-4 py-8 text-center text-text-dim md:table-cell">No users on this page</td></tr>
+              )}
+              {users.map((u) => (
+                <tr
+                  key={u.id}
+                  className="grid grid-cols-2 gap-3 rounded-xl border border-[rgb(var(--rule))] bg-white/[0.015] p-4 transition-colors md:table-row md:rounded-none md:border-0 md:border-b md:bg-transparent md:p-0 md:last:border-b-0 md:hover:bg-primary/[0.04]"
+                >
+                  <td className="col-span-2 min-w-0 md:table-cell md:px-5 md:py-3.5">
+                    <p className="font-medium text-text-primary">{u.name || "—"}</p>
+                    <p className="break-all font-mono text-[12px] text-text-dim">{u.email}</p>
+                  </td>
+                  <td className="md:table-cell md:px-4 md:py-3.5">
+                    <span className="mb-1 block text-[12px] text-text-dim md:hidden">Role</span>
+                    <select
+                      aria-label={`Role for ${u.name || u.email}`}
+                      value={u.role || "student"}
+                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                      className={`min-h-[36px] rounded-full border px-3 py-1 text-[12px] font-medium outline-none ${roleColors[u.role] || roleColors.student}`}
+                    >
+                      <option value="student">Student</option>
+                      <option value="teacher">Teacher</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </td>
+                  <td className="md:table-cell md:px-4 md:py-3.5 md:text-right">
+                    <span className="mb-1 block text-[12px] text-text-dim md:hidden">XP</span>
+                    <span className="lamp-numerals text-primary">{u.xp || 0}</span>
+                  </td>
+                  <td className="md:table-cell md:px-4 md:py-3.5">
+                    <span className="mb-1 block text-[12px] text-text-dim md:hidden">Status</span>
+                    <span className="flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${u.is_active !== false ? "bg-success" : "bg-text-dim"}`} />
+                      <span className="text-[13px] text-text-muted">{u.is_active !== false ? "active" : "inactive"}</span>
+                    </span>
+                  </td>
+                  <td className="md:table-cell md:px-4 md:py-3.5">
+                    <span className="mb-1 block text-[12px] text-text-dim md:hidden">Joined</span>
+                    <span className="flex items-center gap-2">
+                      <span className="lamp-numerals whitespace-nowrap text-[13px] text-text-muted">{joinedLabel(u.created_at)}</span>
+                      {isNewMember(u.created_at) && (
+                        <span className="rounded-full border border-success/30 bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">New</span>
+                      )}
+                    </span>
+                  </td>
+                  <td className="col-span-2 border-t border-[rgb(var(--rule))] pt-3 md:table-cell md:border-0 md:px-5 md:py-3.5">
+                    <div className="flex flex-wrap items-center gap-2 md:flex-nowrap md:justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => handleResetPassword(u.id)} leading={icon(KeyRound)}>
+                        Reset PW
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => handleDelete(u.id)} leading={icon(Trash2)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {users.length === 0 && (
-                  <tr><td colSpan="6" className="px-4 py-8 text-center text-text-dim">No users found</td></tr>
-                )}
-                {users.map((u) => (
-                  <tr key={u.id} className="border-b border-line/5 transition hover:bg-white/[0.02] hover:border-l-2 hover:border-l-[rgba(255,107,53,0.3)]">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-white">{u.name || "—"}</p>
-                      <p className="font-mono text-[10px] text-text-dim">{u.email}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={u.role || "student"}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                        className={`rounded-full border-0 px-2.5 py-0.5 font-mono text-[10px] uppercase outline-none ${roleColors[u.role] || roleColors.student}`}
-                      >
-                        <option value="student">Student</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-primary">{u.xp || 0}</td>
-                    <td className="px-4 py-3">
-                      <span className="flex items-center gap-1.5">
-                        <span className={`h-2 w-2 rounded-full ${u.is_active !== false ? "bg-success" : "bg-text-dim"}`} />
-                        <span className="font-mono text-[10px] text-text-dim">{u.is_active !== false ? "active" : "inactive"}</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="flex items-center gap-2">
-                        <span className="whitespace-nowrap font-mono text-[10px] text-text-dim">{joinedLabel(u.created_at)}</span>
-                        {isNewMember(u.created_at) && (
-                          <span className="rounded-full border border-success/30 bg-success/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">New</span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="sm" onClick={() => handleResetPassword(u.id)}>
-                          Reset PW
-                        </Button>
-                        <Button variant="danger" size="sm" onClick={() => handleDelete(u.id)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
           {/* Pagination */}
           {total > 20 && (
-            <div className="flex items-center justify-center gap-3 border-t border-line/10 px-4 py-3">
-              <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => fetchUsers(page - 1)}>Prev</Button>
-              <span className="font-mono text-xs text-text-dim">Page {page}</span>
-              <Button variant="ghost" size="sm" disabled={users.length < 20} onClick={() => fetchUsers(page + 1)}>Next</Button>
+            <div className="flex items-center justify-center gap-3 border-t border-[rgb(var(--rule))] px-4 py-3">
+              <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => fetchUsers(page - 1)} leading={icon(ChevronLeft)}>Prev</Button>
+              <span className="lamp-numerals text-[13px] text-text-muted">Page {page}</span>
+              <Button variant="ghost" size="sm" disabled={users.length < 20} onClick={() => fetchUsers(page + 1)} trailing={icon(ChevronRight)}>Next</Button>
             </div>
           )}
-        </Card>
+        </section>
       )}
-    </motion.div>
     </div>
   );
 }

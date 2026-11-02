@@ -1,8 +1,12 @@
 import { useState, useCallback, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import PandaChatPanel from "./PandaChatPanel";
+import PandaMark from "./PandaMark";
+import { X } from "lucide-react";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 export default function PandaBot() {
+  const lamp = useIsLamplight();
   const [open, setOpen] = useState(false);
   const [jumping, setJumping] = useState(false);
   // Launcher ref so the panel's click-outside listener can ignore clicks
@@ -30,7 +34,7 @@ export default function PandaBot() {
       <PandaChatPanel open={open} onClose={handleClose} launcherRef={launcherRef} />
 
       {/* The panda face itself IS the floating bot — no circle container */}
-      <div className="fixed bottom-5 right-5 z-50">
+      <div className="lamp-float fixed bottom-5 right-5 z-50">
         {/* Shadow underneath */}
         <motion.div
           animate={
@@ -76,6 +80,9 @@ export default function PandaBot() {
               these four zero-blur shadows trace the hexagon itself and give
               a real 1px edge. Teal is --monument-abyss (#00FFC8), inlined
               because Safari does not resolve var() inside filter(). */}
+          {lamp ? (
+            <LampLauncher ref={launcherRef} open={open} onClick={toggle} />
+          ) : (
           <span
             className="block"
             style={{
@@ -149,9 +156,18 @@ export default function PandaBot() {
               </AnimatePresence>
             </motion.button>
           </span>
+          )}
         </motion.div>
 
         {/* Label */}
+        {lamp ? (
+          <motion.p
+            animate={open ? { opacity: 0, y: -4 } : { opacity: 1, y: 0 }}
+            className="mt-1.5 text-center text-[11px] font-medium text-text-muted"
+          >
+            Panda
+          </motion.p>
+        ) : (
         <motion.p
           animate={open ? { opacity: 0 } : { opacity: 1 }}
           className="mt-0.5 text-center font-mono text-[7px] font-bold uppercase tracking-[0.2em]"
@@ -159,7 +175,51 @@ export default function PandaBot() {
         >
           PANDA AI
         </motion.p>
+        )}
       </div>
     </>
+  );
+}
+
+// Lamplight launcher: a soft ink tile with a warm rim; the panda's face is
+// drawn (PandaMark) instead of the emoji. Opening swaps the face for an X
+// with a quarter-turn.
+function LampLauncher({ ref, open, onClick }) {
+  return (
+    <motion.button
+      ref={ref}
+      onClick={onClick}
+      whileHover={{ scale: 1.08, y: -3 }}
+      whileTap={{ scale: 0.88 }}
+      className="group relative grid h-14 w-14 cursor-pointer place-items-center rounded-2xl border border-[rgb(var(--lamp)/0.4)] bg-[rgb(var(--color-surface)/0.9)] shadow-[0_16px_40px_-14px_rgb(var(--lamp)/0.7)] outline-none backdrop-blur-xl transition-[border-color,box-shadow] duration-300 hover:border-[rgb(var(--lamp)/0.7)]"
+      aria-label="Toggle PANDA AI"
+    >
+      <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_50%_0%,rgb(var(--lamp)/0.25),transparent_70%)]" />
+      <AnimatePresence mode="wait" initial={false}>
+        {open ? (
+          <motion.span
+            key="open"
+            initial={{ scale: 0, rotate: -90 }}
+            animate={{ scale: 1, rotate: 0 }}
+            exit={{ scale: 0, rotate: 90 }}
+            transition={{ type: "spring", bounce: 0.35 }}
+            className="relative text-primary"
+          >
+            <X className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
+          </motion.span>
+        ) : (
+          <motion.span
+            key="closed"
+            initial={{ scale: 0, rotate: -30 }}
+            animate={{ scale: 1, rotate: 0 }}
+            exit={{ scale: 0, rotate: 30 }}
+            transition={{ type: "spring", bounce: 0.5 }}
+            className="relative"
+          >
+            <PandaMark size={36} />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
   );
 }

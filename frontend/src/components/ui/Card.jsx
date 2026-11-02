@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useRef } from "react";
 import { cn } from "@/lib/cn";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 const variantMap = {
   glass: "border-line/20 bg-surface/70 shadow-panel",
@@ -44,6 +45,7 @@ export default function Card({
   // matching the rest of the app (ExperienceShell already gates Lenis
   // smooth-scroll on this same flag).
   const reduced = useReducedMotion();
+  const lamp = useIsLamplight();
   // jsdom (the test environment) doesn't ship IntersectionObserver, and
   // framer-motion's whileInView depends on it. Skip the entrance when
   // the API is missing so the component renders synchronously in unit
@@ -83,12 +85,12 @@ export default function Card({
       data-cursor={interactive ? "interactive" : undefined}
       data-spotlight={spotlight ? "on" : undefined}
       className={cn(
-        "group relative overflow-hidden border p-5 backdrop-blur-2xl sm:p-6",
-        variantMap[variant],
+        "group relative overflow-hidden p-5 backdrop-blur-2xl sm:p-6",
+        lamp ? cn("lamp-panel", variant === "glow" && "lamp-panel--lit") : cn("border", variantMap[variant]),
         interactive ? "will-change-transform" : "",
         className,
       )}
-      style={{
+      style={lamp ? undefined : {
         clipPath: "var(--clip-notch)",
         borderTop: "2px solid var(--page-accent)",
       }}
@@ -105,12 +107,14 @@ export default function Card({
           className="pointer-events-none absolute inset-0 z-[1] opacity-0 transition-opacity duration-500 group-hover:opacity-100"
           style={{
             background:
-              "radial-gradient(420px circle at var(--spotlight-x, -1000px) var(--spotlight-y, -1000px), rgba(124,58,237,0.18), transparent 60%)",
+              lamp
+                ? "radial-gradient(420px circle at var(--spotlight-x, -1000px) var(--spotlight-y, -1000px), rgb(var(--lamp)/0.12), transparent 60%)"
+                : "radial-gradient(420px circle at var(--spotlight-x, -1000px) var(--spotlight-y, -1000px), rgba(124,58,237,0.18), transparent 60%)",
           }}
         />
       )}
       {/* Notch corner accent triangle */}
-      <span
+      {lamp ? null : <span
         className="pointer-events-none absolute top-0 right-0 z-[2]"
         style={{
           width: 0,
@@ -119,18 +123,18 @@ export default function Card({
           borderWidth: "0 20px 20px 0",
           borderColor: "transparent var(--page-accent) transparent transparent",
         }}
-      />
+      />}
       <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      <span className="pointer-events-none absolute right-[-3rem] top-[-3rem] h-32 w-32 rounded-full bg-primary/18 blur-3xl transition duration-300 group-hover:scale-125" />
+      {lamp ? null : <span className="pointer-events-none absolute right-[-3rem] top-[-3rem] h-32 w-32 rounded-full bg-primary/18 blur-3xl transition duration-300 group-hover:scale-125" />}
 
       {eyebrow ? (
-        <p className="relative z-[1] font-mono text-[11px] uppercase tracking-[0.32em] text-primary/80">
+        <p className={cn("relative z-[1]", lamp ? "text-[13px] font-medium text-primary" : "font-mono text-[11px] uppercase tracking-[0.32em] text-primary/80")}>
           {eyebrow}
         </p>
       ) : null}
 
       {title ? (
-        <h3 className="relative z-[1] mt-3 font-display text-2xl font-bold tracking-[-0.04em] text-white">
+        <h3 className={cn("relative z-[1] mt-3 font-display text-2xl tracking-[-0.03em]", lamp ? "font-semibold text-text-primary" : "font-bold text-white")}>
           {title}
         </h3>
       ) : null}

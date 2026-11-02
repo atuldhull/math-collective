@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Card from "@/components/ui/Card";
+import { useGSAP } from "@gsap/react";
+import { Medal, Plus, UsersRound } from "lucide-react";
+import gsap from "@/lib/gsap-setup";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import MessageButton from "@/components/social/MessageButton";
@@ -8,35 +10,42 @@ import { core } from "@/lib/api";
 import { useCoreStore } from "@/store/core-store";
 import CoreBadge from "@/features/coreTeam/components/CoreBadge";
 import { ModalShell, Field, INPUT_CLS } from "@/features/coreTeam/components/FormBits";
+import { PageHeader } from "@/components/lamp";
 
-const MEDALS = ["🥇", "🥈"];
+const MEDAL_CLS = ["text-primary", "text-text-muted"];
 
-function MemberRow({ m, rank }) {
+function MemberRow({ m, rank, max }) {
   const top = rank < 2;
   return (
-    <div className={`flex items-center justify-between rounded-xl border px-3 py-2.5 ${
-      top ? "border-warning/25 bg-warning/[0.06]" : "border-line/8 bg-black/15"
-    }`}>
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="w-6 text-center text-sm">
-          {top ? MEDALS[rank] : <span className="font-mono text-[10px] text-text-dim">{rank + 1}</span>}
+    <li className="relative flex items-center justify-between gap-3 overflow-hidden rounded-xl px-3 py-2.5">
+      <span
+        data-bar
+        aria-hidden="true"
+        className={`absolute inset-y-0 left-0 rounded-xl ${top ? "bg-primary/[0.08]" : "bg-white/[0.025]"}`}
+        style={{ width: `${Math.max(4, ((m.points || 0) / max) * 100)}%` }}
+      />
+      <div className="relative flex min-w-0 items-center gap-3">
+        <span className="flex w-6 justify-center text-sm">
+          {top
+            ? <Medal className={`h-4 w-4 ${MEDAL_CLS[rank]}`} strokeWidth={1.75} aria-label={rank === 0 ? "First" : "Second"} />
+            : <span className="lamp-numerals text-[13px] text-text-dim">{rank + 1}</span>}
         </span>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 font-display text-xs font-bold text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary/15 text-xs font-semibold text-secondary">
           {(m.name || "?")[0]}
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm text-white">{m.name}</p>
-          <p className="truncate font-mono text-[10px] text-text-dim">{m.position}</p>
+          <p className="truncate text-sm text-text-primary">{m.name}</p>
+          <p className="truncate text-[12px] text-text-dim">{m.position}</p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="relative flex shrink-0 items-center gap-2">
         {m.user_id && <MessageButton userId={m.user_id} size="sm" variant="ghost" label="" />}
         {!m.user_id && (
-          <span className="font-mono text-[9px] uppercase tracking-wider text-text-dim">code unused</span>
+          <span className="text-[11px] text-text-dim">code unused</span>
         )}
-        <span className="math-text text-sm font-bold text-primary">{m.points}</span>
+        <span className="lamp-numerals w-10 text-right text-sm text-primary">{m.points}</span>
       </div>
-    </div>
+    </li>
   );
 }
 
@@ -45,71 +54,94 @@ export default function CoreRosterPage() {
   const isCouncil = member?.tier === "council";
   const [data, setData] = useState(null);
   const [modal, setModal] = useState(null); // 'team' | 'member' | null
+  const root = useRef(null);
 
   const load = useCallback(() => {
     core.teams().then((r) => setData(r.data || { council: [], teams: [] })).catch(() => setData({ council: [], teams: [] }));
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  // Each team's points ladder fills from the left as the team scrolls in.
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.utils.toArray("[data-team]").forEach((team) => {
+        gsap.from(team.querySelectorAll("[data-bar]"), {
+          scaleX: 0, transformOrigin: "left center", duration: 1.2, ease: "expo.out", stagger: 0.06,
+          scrollTrigger: { trigger: team, start: "top 85%", once: true },
+        });
+      });
+    });
+  }, { scope: root, dependencies: [data], revertOnUpdate: true });
+
   if (!data) {
     return <div className="flex justify-center py-20"><Loader variant="orbit" size="lg" label="Loading roster…" /></div>;
   }
 
+  const memberCount = data.council.length + data.teams.reduce((s, t) => s + t.members.length, 0);
+
   return (
-    <div className="space-y-6">
-      {isCouncil && (
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button size="sm" variant="secondary" magnetic={false} onClick={() => setModal("team")}>+ Add Team</Button>
-          <Button size="sm" variant="primary" magnetic={false} onClick={() => setModal("member")}>+ Add Member</Button>
-        </div>
-      )}
+    <div ref={root} className="flex flex-col">
+      <PageHeader
+        context="Core team"
+        title="Roster"
+        description={`${memberCount} people across the council and ${data.teams.length} team${data.teams.length === 1 ? "" : "s"}, ranked by points.`}
+        actions={isCouncil ? (
+          <>
+            <Button size="sm" variant="secondary" magnetic={false} onClick={() => setModal("team")} leading={<UsersRound className="h-4 w-4" strokeWidth={1.75} />}>Add Team</Button>
+            <Button size="sm" variant="primary" magnetic={false} onClick={() => setModal("member")} leading={<Plus className="h-4 w-4" strokeWidth={1.75} />}>Add Member</Button>
+          </>
+        ) : null}
+      />
 
       {/* Council */}
-      <Card variant="glow" spotlight={false}>
+      <section data-reveal="tilt" className="lamp-panel lamp-panel--lit p-5 sm:p-6">
         <div className="flex items-center gap-3">
-          <h2 className="font-display text-xl font-bold text-white">Club Council</h2>
+          <h2 className="text-xl text-text-primary">Club council</h2>
           <CoreBadge tier="council" />
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <ul data-stagger="scale" className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {data.council.map((m) => (
-            <div key={m.id} className="flex items-center justify-between rounded-xl border border-line/8 bg-black/15 px-3 py-2.5">
+            <li key={m.id} className="flex items-center justify-between gap-3 rounded-xl border border-[rgb(var(--rule))] bg-white/[0.02] px-3 py-2.5">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-warning/20 font-display text-xs font-bold text-warning">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
                   {(m.name || "?")[0]}
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-white">{m.name}</p>
-                  <p className="truncate font-mono text-[10px] text-text-dim">{m.position}</p>
+                  <p className="truncate text-sm text-text-primary">{m.name}</p>
+                  <p className="truncate text-[12px] text-text-dim">{m.position}</p>
                 </div>
               </div>
               {m.user_id && <MessageButton userId={m.user_id} size="sm" variant="ghost" label="" />}
-            </div>
+            </li>
           ))}
-        </div>
-      </Card>
+        </ul>
+      </section>
 
       {/* Teams */}
-      <div className="grid gap-4 xl:grid-cols-2">
-        {data.teams.map((t) => (
-          <motion.div key={t.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <Card variant="solid" spotlight={false} noEntrance>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full" style={{ background: t.accent }} />
-                  <h3 className="font-display text-lg font-bold text-white">{t.name}</h3>
+      <div className="mt-6 grid gap-5 xl:grid-cols-2">
+        {data.teams.map((t) => {
+          const max = Math.max(1, ...t.members.map((m) => m.points || 0));
+          return (
+            <section key={t.id} data-team data-reveal="up" className="lamp-panel relative overflow-hidden p-5 sm:p-6">
+              <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.accent }} />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: t.accent }} />
+                  <h2 className="truncate text-lg text-text-primary">{t.name}</h2>
                 </div>
-                <span className="font-mono text-[10px] text-text-dim">{t.members.length} members</span>
+                <span className="shrink-0 text-[12px] text-text-dim"><span className="lamp-numerals text-text-muted">{t.members.length}</span> members</span>
               </div>
-              {t.description && <p className="mt-1 text-xs text-text-muted">{t.description}</p>}
-              <div className="mt-3 space-y-2">
+              {t.description && <p className="mt-1 text-[13px] text-text-muted">{t.description}</p>}
+              <ol className="mt-3 space-y-1">
                 {t.members.length === 0 && (
-                  <p className="py-3 text-center text-xs text-text-dim">No members yet.</p>
+                  <li className="py-3 text-center text-[13px] text-text-dim">No members yet.</li>
                 )}
-                {t.members.map((m, i) => <MemberRow key={m.id} m={m} rank={i} />)}
-              </div>
-            </Card>
-          </motion.div>
-        ))}
+                {t.members.map((m, i) => <MemberRow key={m.id} m={m} rank={i} max={max} />)}
+              </ol>
+            </section>
+          );
+        })}
       </div>
 
       <AnimatePresence>
@@ -153,9 +185,9 @@ function AddTeamModal({ onClose, onDone }) {
         </Field>
         <Field label="Accent colour">
           <input type="color" value={form.accent} onChange={(e) => setForm({ ...form, accent: e.target.value })}
-            className="h-10 w-full rounded-lg border border-line/20 bg-black/30" />
+            className="h-11 w-full cursor-pointer rounded-xl border border-[rgb(var(--rule))] bg-surface/70 p-1" />
         </Field>
-        {err && <p className="text-xs text-danger">{err}</p>}
+        {err && <p role="alert" className="text-[13px] text-danger">{err}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button size="sm" variant="ghost" magnetic={false} onClick={onClose}>Cancel</Button>
           <Button size="sm" variant="primary" magnetic={false} loading={busy} onClick={save}>Create team</Button>
@@ -194,10 +226,25 @@ function AddMemberModal({ teams, onClose, onDone }) {
     return (
       <ModalShell title="Member added" onClose={onDone}>
         <p className="text-sm text-text-muted">Share this private access code with the new member:</p>
-        <div className="mt-3 rounded-xl border border-primary/30 bg-primary/10 px-4 py-4 text-center">
-          <p className="font-mono text-2xl tracking-[0.3em] text-white">{code}</p>
+        <div className="mt-3 rounded-2xl border border-primary/30 bg-primary/10 px-4 py-5 text-center [perspective:600px]">
+          <p className="select-all font-mono text-2xl tracking-[0.3em] text-text-primary">
+            <span className="sr-only">{code}</span>
+            {/* each character flips down into place like a split-flap board */}
+            {String(code).split("").map((ch, i) => (
+              <motion.span
+                key={i}
+                aria-hidden="true"
+                className="inline-block"
+                initial={{ rotateX: -90, opacity: 0 }}
+                animate={{ rotateX: 0, opacity: 1 }}
+                transition={{ delay: 0.15 + i * 0.05, type: "spring", stiffness: 300, damping: 20 }}
+              >
+                {ch}
+              </motion.span>
+            ))}
+          </p>
         </div>
-        <p className="mt-2 text-xs text-text-dim">
+        <p className="mt-3 text-[13px] text-text-dim">
           They redeem it inside the portal — it only works with the email you entered.
         </p>
         <div className="mt-4 flex justify-end">
@@ -236,7 +283,7 @@ function AddMemberModal({ teams, onClose, onDone }) {
             {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </Field>
-        {err && <p className="text-xs text-danger">{err}</p>}
+        {err && <p role="alert" className="text-[13px] text-danger">{err}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button size="sm" variant="ghost" magnetic={false} onClick={onClose}>Cancel</Button>
           <Button size="sm" variant="primary" magnetic={false} loading={busy} onClick={save}>Add & issue code</Button>

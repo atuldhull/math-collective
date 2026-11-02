@@ -2,8 +2,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { io } from "socket.io-client";
 import { quiz } from "@/lib/api";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { AlertCircle, CheckCircle2, X } from "lucide-react";
+import { PageHeader } from "@/components/lamp";
 
 import LiveQuizHost from "./teacherQuiz/LiveQuizHost";
 import TestCreator from "./teacherQuiz/TestCreator";
@@ -11,7 +11,6 @@ import AIGenerator from "./teacherQuiz/AIGenerator";
 import TestsList from "./teacherQuiz/TestsList";
 
 export default function TeacherQuizPage() {
-  useMonument("magma");
 
   // Challenge pool for selection
   const [challengePool, setChallengePool] = useState([]);
@@ -238,31 +237,122 @@ export default function TeacherQuizPage() {
   );
 
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="magma" intensity={0.1} />
-      <motion.div initial="hidden" animate="visible" className="space-y-6">
-        {/* Header */}
-        <div>
-          <h2 className="font-display text-2xl font-bold text-white">Quiz Manager</h2>
-          <p className="text-sm text-text-muted">Host live quizzes and create scheduled tests</p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        context="Teacher panel"
+        title="Quiz manager"
+        description="Host live quizzes and create scheduled tests"
+      />
 
-        {/* Live Quiz Host */}
-        <LiveQuizHost
-          liveActive={liveActive}
-          liveCode={liveCode}
-          livePlayers={livePlayers}
-          liveStatus={liveStatus}
-          liveQuestionNum={liveQuestionNum}
-          liveTotalQ={liveTotalQ}
-          liveAnswered={liveAnswered}
-          livePodium={livePodium}
-          liveSelectedQs={liveSelectedQs}
-          setLiveSelectedQs={setLiveSelectedQs}
-          teacherName={teacherName}
-          setTeacherName={setTeacherName}
-          challengePool={challengePool}
+      {/* Alerts */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            role="alert"
+            className="rounded-xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                {error}
+              </span>
+              <button
+                onClick={() => setError(null)}
+                aria-label="Dismiss error"
+                className="-m-2 flex h-10 w-10 shrink-0 items-center justify-center text-danger/60 hover:text-danger"
+              >
+                <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+        {success && (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-sm text-success"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                {success}
+              </span>
+              <button
+                onClick={() => setSuccess(null)}
+                aria-label="Dismiss notification"
+                className="-m-2 flex h-10 w-10 shrink-0 items-center justify-center text-success/60 hover:text-success"
+              >
+                <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Live Quiz Host */}
+      <LiveQuizHost
+        liveActive={liveActive}
+        liveCode={liveCode}
+        livePlayers={livePlayers}
+        liveStatus={liveStatus}
+        liveQuestionNum={liveQuestionNum}
+        liveTotalQ={liveTotalQ}
+        liveAnswered={liveAnswered}
+        livePodium={livePodium}
+        liveSelectedQs={liveSelectedQs}
+        setLiveSelectedQs={setLiveSelectedQs}
+        teacherName={teacherName}
+        setTeacherName={setTeacherName}
+        challengePool={challengePool}
+        poolLoading={poolLoading}
+        aiTopics={aiTopics}
+        setAiTopics={setAiTopics}
+        aiCount={aiCount}
+        setAiCount={setAiCount}
+        aiDifficulty={aiDifficulty}
+        setAiDifficulty={setAiDifficulty}
+        aiGenerating={aiGenerating}
+        setAiGenerating={setAiGenerating}
+        aiResult={aiResult}
+        setAiResult={setAiResult}
+        setChallengePool={setChallengePool}
+        setError={setError}
+        setSuccess={setSuccess}
+        startLiveQuiz={startLiveQuiz}
+        nextQuestion={nextQuestion}
+        revealAnswer={revealAnswer}
+        endLiveQuiz={endLiveQuiz}
+      />
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        {/* Create scheduled test */}
+        <TestCreator
+          title={title}
+          setTitle={setTitle}
+          description={description}
+          setDescription={setDescription}
+          selectedChallenges={selectedChallenges}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+          creatingTest={creatingTest}
+          challengeSearch={challengeSearch}
+          setChallengeSearch={setChallengeSearch}
+          filteredPool={filteredPool}
           poolLoading={poolLoading}
+          toggleChallenge={toggleChallenge}
+          handleCreateTest={handleCreateTest}
+        />
+
+        {/* AI Bulk Generation */}
+        <AIGenerator
           aiTopics={aiTopics}
           setAiTopics={setAiTopics}
           aiCount={aiCount}
@@ -270,105 +360,18 @@ export default function TeacherQuizPage() {
           aiDifficulty={aiDifficulty}
           setAiDifficulty={setAiDifficulty}
           aiGenerating={aiGenerating}
-          setAiGenerating={setAiGenerating}
           aiResult={aiResult}
-          setAiResult={setAiResult}
-          setChallengePool={setChallengePool}
-          setError={setError}
-          setSuccess={setSuccess}
-          startLiveQuiz={startLiveQuiz}
-          nextQuestion={nextQuestion}
-          revealAnswer={revealAnswer}
-          endLiveQuiz={endLiveQuiz}
+          handleAiBulk={handleAiBulk}
         />
+      </div>
 
-        {/* Alerts */}
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger"
-            >
-              <div className="flex items-center justify-between">
-                {error}
-                <button
-                  onClick={() => setError(null)}
-                  className="ml-4 text-danger/60 hover:text-danger"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </motion.div>
-          )}
-          {success && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm text-success"
-            >
-              <div className="flex items-center justify-between">
-                {success}
-                <button
-                  onClick={() => setSuccess(null)}
-                  className="ml-4 text-success/60 hover:text-success"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="grid gap-6 xl:grid-cols-2">
-          {/* Create scheduled test */}
-          <TestCreator
-            title={title}
-            setTitle={setTitle}
-            description={description}
-            setDescription={setDescription}
-            selectedChallenges={selectedChallenges}
-            startDate={startDate}
-            setStartDate={setStartDate}
-            endDate={endDate}
-            setEndDate={setEndDate}
-            creatingTest={creatingTest}
-            challengeSearch={challengeSearch}
-            setChallengeSearch={setChallengeSearch}
-            filteredPool={filteredPool}
-            poolLoading={poolLoading}
-            toggleChallenge={toggleChallenge}
-            handleCreateTest={handleCreateTest}
-          />
-
-          {/* AI Bulk Generation */}
-          <AIGenerator
-            aiTopics={aiTopics}
-            setAiTopics={setAiTopics}
-            aiCount={aiCount}
-            setAiCount={setAiCount}
-            aiDifficulty={aiDifficulty}
-            setAiDifficulty={setAiDifficulty}
-            aiGenerating={aiGenerating}
-            aiResult={aiResult}
-            handleAiBulk={handleAiBulk}
-          />
-        </div>
-
-        {/* Existing tests */}
-        <TestsList
-          tests={tests}
-          testsLoading={testsLoading}
-          deletingId={deletingId}
-          handleDeleteTest={handleDeleteTest}
-        />
-      </motion.div>
+      {/* Existing tests */}
+      <TestsList
+        tests={tests}
+        testsLoading={testsLoading}
+        deletingId={deletingId}
+        handleDeleteTest={handleDeleteTest}
+      />
     </div>
   );
 }

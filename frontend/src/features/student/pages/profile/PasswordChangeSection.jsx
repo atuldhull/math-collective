@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import Card from "@/components/ui/Card";
+import { ChevronDown, KeyRound } from "lucide-react";
 import Button from "@/components/ui/Button";
 import InputField from "@/components/ui/InputField";
 import { MIN_PASSWORD_LENGTH, PASSWORD_HELPER, PASSWORD_TOO_SHORT } from "@/lib/passwordPolicy";
@@ -19,25 +19,23 @@ export default function PasswordChangeSection({
   onSubmit,
 }) {
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.4 }}
-    >
-      <Card variant="solid">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-warning">
-              Security
-            </p>
-            <h2 className="mt-2 font-display text-2xl font-bold text-white">
-              Change Password
-            </h2>
+    <section data-reveal="up" className="lamp-panel p-5 sm:p-7">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-text-muted">
+              <KeyRound className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="text-xl text-text-primary">Change password</h2>
+              <p className="text-[13px] text-text-muted">You&apos;ll need your current password.</p>
+            </div>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowPassword(!showPassword)}
+            aria-expanded={showPassword}
+            trailing={<ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${showPassword ? "rotate-180" : ""}`} strokeWidth={1.75} />}
           >
             {showPassword ? "Hide" : "Show"}
           </Button>
@@ -108,7 +106,8 @@ export default function PasswordChangeSection({
                 {pwError && (
                   <motion.p
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    animate={{ opacity: 1, x: [0, -8, 6, -4, 0] }}
+                    transition={{ duration: 0.4 }}
                     className="text-sm text-danger"
                   >
                     {pwError}
@@ -131,7 +130,6 @@ export default function PasswordChangeSection({
             </motion.form>
           )}
         </AnimatePresence>
-      </Card>
-    </motion.section>
+    </section>
   );
 }

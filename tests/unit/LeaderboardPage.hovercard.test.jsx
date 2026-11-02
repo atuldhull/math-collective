@@ -13,6 +13,29 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
+// jsdom has no matchMedia or SVG geometry. GSAP's ScrollTrigger needs
+// matchMedia at registration and the Lamplight kit measures SVG paths,
+// so stub both before any module loads. Reporting reduced motion keeps
+// every animation off in tests.
+vi.hoisted(() => {
+  if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
+    window.matchMedia = (query) => ({
+      matches: /reduce\)/.test(query) && !/no-preference/.test(query),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    });
+  }
+  if (typeof SVGElement !== "undefined" && !SVGElement.prototype.getTotalLength) {
+    SVGElement.prototype.getTotalLength = () => 0;
+    SVGElement.prototype.getPointAtLength = () => ({ x: 0, y: 0 });
+  }
+});
+
 vi.mock("@/lib/api", () => ({
   leaderboard: {
     weekly:   vi.fn(async () => ({ data: [

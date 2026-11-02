@@ -13,9 +13,11 @@
  * Overview tab preview and this tab look consistent.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "@/lib/gsap-setup";
 import { users } from "@/lib/api";
-import Card from "@/components/ui/Card";
+import { EmptyState } from "@/components/lamp";
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import ActivityTimelineItem from "@/components/social/ActivityTimelineItem";
@@ -32,6 +34,20 @@ export default function ActivityTab({ userId }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore]     = useState(false);
   const [hidden, setHidden]       = useState(false);
+  const timeline = useRef(null);
+
+  // The timeline's spine draws itself as the list scrolls past.
+  useGSAP(() => {
+    if (!timeline.current) return;
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.fromTo("[data-spine]", { scaleY: 0 }, {
+        scaleY: 1, ease: "none",
+        scrollTrigger: { trigger: timeline.current, start: "top 75%", end: "bottom 60%", scrub: 0.6 },
+      });
+    });
+    return () => mm.revert();
+  }, { scope: timeline, dependencies: [items.length, loading], revertOnUpdate: true });
 
   const fetchPage = useCallback(async (p) => {
     try {
@@ -69,35 +85,31 @@ export default function ActivityTab({ userId }) {
 
   if (hidden) {
     return (
-      <Card variant="glass" className="py-10 text-center">
-        <p className="text-3xl">🔒</p>
-        <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-          This user has hidden their activity
-        </p>
-      </Card>
+      <EmptyState compact title="This user has hidden their activity" />
     );
   }
 
   if (items.length === 0) {
     return (
-      <Card variant="glass" className="py-10 text-center">
-        <p className="text-3xl">🌱</p>
-        <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-          No activity yet
-        </p>
-      </Card>
+      <EmptyState compact title="No activity yet" body="Event check-ins and unlocked achievements will be listed here." />
     );
   }
 
   return (
     <div className="space-y-3">
-      <Card variant="glass">
-        <div className="divide-y divide-line/10">
+      <section ref={timeline} className="lamp-panel relative py-2 pl-7 pr-4 sm:pl-9 sm:pr-6">
+        <span aria-hidden="true" className="absolute bottom-4 left-3.5 top-4 w-px bg-[rgb(var(--rule))] sm:left-[1.125rem]" />
+        <span
+          data-spine
+          aria-hidden="true"
+          className="absolute bottom-4 left-3.5 top-4 w-px origin-top bg-[linear-gradient(180deg,rgb(var(--lamp)),rgb(var(--violet)))] sm:left-[1.125rem]"
+        />
+        <div data-stagger="left" className="divide-y divide-[rgb(var(--rule))]">
           {items.map((item, i) => (
             <ActivityTimelineItem key={`${item.kind}-${i}-${item.at}`} item={item} />
           ))}
         </div>
-      </Card>
+      </section>
       {hasMore && (
         <div className="flex justify-center pt-2">
           <Button size="sm" variant="secondary" loading={loadingMore} onClick={loadMore}>

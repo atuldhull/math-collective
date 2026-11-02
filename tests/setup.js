@@ -36,3 +36,27 @@ process.env.SESSION_SECRET = process.env.SESSION_SECRET || "test-secret-test-sec
 process.env.SUPABASE_URL              = process.env.SUPABASE_URL              || "https://dummy.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "dummy-service-role-key";
 
+
+// ── jsdom gaps the Lamplight kit relies on ──
+// gsap-setup registers ScrollTrigger at import, which reads matchMedia,
+// and the asymptote curves measure SVG paths. jsdom ships neither, so
+// any page importing @/components/lamp would crash its test on import.
+// matchMedia reports reduced motion so GSAP choreography stays off and
+// content renders in its final, visible state.
+if (typeof window !== "undefined") {
+  if (!window.matchMedia) {
+    window.matchMedia = (query) => ({
+      matches: /prefers-reduced-motion:\s*reduce/.test(query),
+      media: query,
+      onchange: null,
+      addListener() {},
+      removeListener() {},
+      addEventListener() {},
+      removeEventListener() {},
+      dispatchEvent() { return false; },
+    });
+  }
+  const proto = window.SVGElement?.prototype;
+  if (proto && !proto.getTotalLength) proto.getTotalLength = () => 100;
+  if (proto && !proto.getPointAtLength) proto.getPointAtLength = () => ({ x: 0, y: 0 });
+}

@@ -4,7 +4,7 @@
  * Mounts under the "Resources" section on /problems/:slugOrId and
  * turns a read-only catalogue entry into a community board:
  *
- *   • Interest beacon — "🔥 I'm tackling this" toggle. Shows the
+ *   • Interest beacon — "I'm tackling this" toggle. Shows the
  *     total count and a small stack of recent-interest avatars so the
  *     viewer can SEE who else is working on this problem.
  *   • Writeup list   — markdown post-mortems other students have
@@ -20,9 +20,11 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowBigUp, ExternalLink, Flame, PenLine, Plus, Trash2 } from "lucide-react";
 import { problems } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import BookmarkButton from "@/components/ui/BookmarkButton";
 import WriteupComments from "./WriteupComments";
 
@@ -201,109 +203,133 @@ export default function EngagementPanel({ slugOrId }) {
   // ── Render ───────────────────────────────────────────────────
   if (loading) {
     return (
-      <motion.section
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-        className="mt-10 rounded-2xl border border-line/15 bg-white/[0.02] p-6"
-      >
+      <section className="lamp-panel mt-12 flex justify-center p-8">
         <Loader variant="orbit" />
-      </motion.section>
+      </section>
     );
   }
 
   if (error || !data) {
     return (
-      <p className="mt-10 rounded-2xl border border-line/10 bg-white/[0.02] p-4 text-center text-xs text-text-dim">
+      <p className="lamp-panel mt-12 p-5 text-center text-sm text-text-muted">
         {error || "No community data yet."}
       </p>
     );
   }
 
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="mt-10 space-y-6"
-    >
+    <section className="mt-12 space-y-8">
       {/* ── Interest beacon strip ── */}
-      <div className="rounded-2xl border border-line/15 bg-white/[0.025] p-5 sm:p-6">
+      <div data-reveal="scale" className="lamp-panel relative overflow-hidden p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h3 className="font-mono text-[11px] uppercase tracking-[0.25em] text-text-dim">Working on this</h3>
-            <p className="mt-1 text-sm text-text-soft">
+            <h3 className="text-lg font-semibold text-text-primary">Working on this</h3>
+            <p className="mt-1 text-sm leading-6 text-text-muted">
               {data.interest_count === 0 ? (
                 <>Be the first to mark this — others will see you working on it.</>
               ) : data.interest_count === 1 ? (
                 <>1 student is tackling this problem.</>
               ) : (
-                <>{data.interest_count} students are tackling this problem.</>
+                <><AnimatedNumber value={data.interest_count} duration={0.6} /> students are tackling this problem.</>
               )}
             </p>
             {data.interested_users?.length > 0 && (
               <div className="mt-3 flex -space-x-2">
-                {data.interested_users.map((u) => (
-                  <Avatar key={u.user_id} name={u.name} avatar_url={u.avatar_url} />
+                {data.interested_users.map((u, i) => (
+                  <motion.div
+                    key={u.user_id}
+                    initial={{ opacity: 0, x: -8, scale: 0.8 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    transition={{ delay: 0.2 + i * 0.06, type: "spring", stiffness: 380, damping: 22 }}
+                  >
+                    <Avatar name={u.name} avatar_url={u.avatar_url} />
+                  </motion.div>
                 ))}
               </div>
             )}
           </div>
 
-          <button
+          <motion.button
             type="button"
             onClick={onToggleInterest}
             disabled={busy}
+            whileTap={{ scale: 0.95 }}
+            aria-pressed={Boolean(data.i_am_interested)}
             className={
-              "w-full shrink-0 rounded-xl px-4 py-2.5 font-mono text-xs uppercase tracking-wider transition sm:w-auto sm:py-2 " +
+              "relative inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors sm:w-auto " +
               (data.i_am_interested
-                ? "border border-primary/40 bg-primary/15 text-white hover:bg-primary/20"
-                : "border border-line/25 bg-white/[0.04] text-text-soft hover:border-primary/40 hover:text-white")
+                ? "bg-primary text-[rgb(var(--color-obsidian))] shadow-[0_10px_30px_-10px_rgb(var(--lamp)/0.9)]"
+                : "border border-[rgb(var(--rule))] bg-surface/60 text-text-primary hover:border-primary/40")
             }
           >
-            {data.i_am_interested ? "🔥 I'm on this" : "+ I'm tackling this"}
-          </button>
+            <motion.span
+              key={data.i_am_interested ? "on" : "off"}
+              initial={{ scale: 0.4, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 14 }}
+              className="inline-flex"
+            >
+              {data.i_am_interested
+                ? <Flame className="h-4 w-4" strokeWidth={2} />
+                : <Plus className="h-4 w-4" strokeWidth={1.75} />}
+            </motion.span>
+            {data.i_am_interested ? "I'm on this" : "I'm tackling this"}
+          </motion.button>
         </div>
       </div>
 
       {/* ── Writeups ── */}
       <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.25em] text-text-dim">
-            Writeups · {data.writeups?.length || 0}
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <h3 className="text-xl font-semibold text-text-primary">
+            Writeups <span className="lamp-numerals ml-1 text-base text-text-dim">{data.writeups?.length || 0}</span>
           </h3>
           <button
             type="button"
             onClick={openComposer}
-            className="rounded-lg border border-line/25 bg-white/[0.04] px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white sm:py-1.5"
+            className="inline-flex min-h-[40px] items-center gap-2 rounded-xl border border-[rgb(var(--rule))] bg-surface/60 px-3.5 text-sm font-medium text-text-primary transition hover:border-primary/40"
           >
-            {myWriteup ? "Edit my writeup" : "+ Post a writeup"}
+            {myWriteup ? <PenLine className="h-4 w-4" strokeWidth={1.75} /> : <Plus className="h-4 w-4" strokeWidth={1.75} />}
+            {myWriteup ? "Edit my writeup" : "Post a writeup"}
           </button>
         </div>
 
-        {composeOpen && (
-          <ComposerForm
-            draft={draft}
-            setDraft={setDraft}
-            onSubmit={onSubmitWriteup}
-            onCancel={() => setComposeOpen(false)}
-            onRemoveMine={myWriteup ? onRemoveMine : null}
-            posting={posting}
-            postError={postError}
-          />
-        )}
+        <AnimatePresence initial={false}>
+          {composeOpen && (
+            <motion.div
+              key="composer"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <ComposerForm
+                draft={draft}
+                setDraft={setDraft}
+                onSubmit={onSubmitWriteup}
+                onCancel={() => setComposeOpen(false)}
+                onRemoveMine={myWriteup ? onRemoveMine : null}
+                posting={posting}
+                postError={postError}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {data.writeups?.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-line/15 bg-white/[0.015] p-5 text-center text-xs text-text-dim">
+          <p className="rounded-[1.25rem] border border-dashed border-[rgb(var(--rule))] p-6 text-center text-sm text-text-muted">
             No writeups yet. Be the first to post your approach.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div data-stagger="up" className="space-y-4">
             {data.writeups.map((w) => (
               <WriteupCard key={w.id} w={w} onVote={() => onVote(w.id)} />
             ))}
           </div>
         )}
       </div>
-    </motion.section>
+    </section>
   );
 }
 
@@ -313,7 +339,7 @@ function Avatar({ name, avatar_url }) {
   const initial = (name || "?").trim().charAt(0).toUpperCase();
   return (
     <div
-      className="flex h-7 w-7 items-center justify-center rounded-full border border-bg/60 bg-white/[0.08] font-mono text-[10px] text-text-soft"
+      className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgb(var(--color-surface))] bg-secondary/25 text-xs font-semibold text-text-primary"
       title={name}
     >
       {avatar_url ? (
@@ -325,45 +351,56 @@ function Avatar({ name, avatar_url }) {
 
 function WriteupCard({ w, onVote }) {
   return (
-    <article className="rounded-xl border border-line/15 bg-white/[0.02] p-4">
+    <article className={"lamp-panel p-4 sm:p-5 " + (w.is_mine ? "border-primary/30" : "")}>
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex min-w-0 items-center gap-2.5">
           <Avatar name={w.author_name} avatar_url={w.author_avatar} />
-          <span className="truncate text-xs text-text-muted">
+          <span className="truncate text-sm font-medium text-text-primary">
             {w.is_mine ? "Your writeup" : w.author_name}
           </span>
-          <span className="font-mono text-[10px] text-text-dim">
-            · {new Date(w.created_at).toLocaleDateString()}
+          <span className="text-xs text-text-dim">
+            {new Date(w.created_at).toLocaleDateString()}
           </span>
         </div>
-        <div className="shrink-0 flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           {/* Save writeup for later */}
           <BookmarkButton type="writeup" id={w.id} compact />
-          <button
+          <motion.button
             type="button"
             onClick={onVote}
+            whileTap={{ scale: 0.9 }}
             className={
-              "shrink-0 rounded-full px-3 py-1.5 font-mono text-[11px] transition sm:py-1 " +
+              "inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm tabular-nums transition-colors " +
               (w.voted_by_me
-                ? "border border-primary/40 bg-primary/15 text-white"
-                : "border border-line/20 bg-white/[0.04] text-text-soft hover:border-primary/40")
+                ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+                : "border border-[rgb(var(--rule))] text-text-muted hover:border-primary/40 hover:text-text-primary")
             }
             aria-label={w.voted_by_me ? "Remove upvote" : "Upvote"}
           >
-            ▲ {w.vote_count}
-          </button>
+            <motion.span
+              key={w.voted_by_me ? "up" : "idle"}
+              initial={w.voted_by_me ? { y: 6, opacity: 0 } : false}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 520, damping: 18 }}
+              className="inline-flex"
+            >
+              <ArrowBigUp className="h-4 w-4" strokeWidth={1.75} fill={w.voted_by_me ? "currentColor" : "none"} />
+            </motion.span>
+            {w.vote_count}
+          </motion.button>
         </div>
       </header>
-      <h4 className="mt-2.5 text-base font-semibold text-white">{w.title}</h4>
+      <h4 className="mt-3 text-[1.05rem] font-semibold text-text-primary">{w.title}</h4>
       <Prose text={w.body} />
       {w.repo_url && (
         <a
           href={w.repo_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 inline-flex items-center gap-1.5 break-all font-mono text-[11px] text-primary hover:underline"
+          className="mt-3 inline-flex items-center gap-1.5 break-all font-mono text-xs text-primary hover:underline"
         >
-          ↗ {w.repo_url.replace(/^https?:\/\//, "").slice(0, 60)}
+          <ExternalLink className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+          {w.repo_url.replace(/^https?:\/\//, "").slice(0, 60)}
         </a>
       )}
       <WriteupComments writeupId={w.id} initialCount={w.comment_count || 0} />
@@ -371,16 +408,18 @@ function WriteupCard({ w, onVote }) {
   );
 }
 
+const FIELD = "w-full rounded-xl border border-[rgb(var(--rule))] bg-obsidian/50 px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-dim transition focus:border-primary/50 focus:outline-none";
+
 function ComposerForm({ draft, setDraft, onSubmit, onCancel, onRemoveMine, posting, postError }) {
   return (
-    <form onSubmit={onSubmit} className="mb-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
+    <form onSubmit={onSubmit} className="lamp-panel lamp-panel--lit mb-5 p-4 sm:p-5">
       <input
         type="text"
         placeholder="Title — e.g. 'Solved with a sliding window in 40 lines'"
         value={draft.title}
         onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
         maxLength={200}
-        className="w-full rounded-lg border border-line/15 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-text-dim focus:border-primary/50 focus:outline-none"
+        className={FIELD + " min-h-[44px]"}
       />
       <textarea
         placeholder="Approach, gotchas, what you'd do differently. Markdown is rendered as plain paragraphs."
@@ -388,7 +427,7 @@ function ComposerForm({ draft, setDraft, onSubmit, onCancel, onRemoveMine, posti
         onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))}
         maxLength={16000}
         rows={7}
-        className="mt-2 w-full resize-y rounded-lg border border-line/15 bg-white/[0.03] px-3 py-2 text-sm text-text-soft placeholder:text-text-dim focus:border-primary/50 focus:outline-none"
+        className={FIELD + " mt-2.5 resize-y leading-6"}
       />
       <input
         type="url"
@@ -396,32 +435,33 @@ function ComposerForm({ draft, setDraft, onSubmit, onCancel, onRemoveMine, posti
         value={draft.repo_url}
         onChange={(e) => setDraft((d) => ({ ...d, repo_url: e.target.value }))}
         maxLength={500}
-        className="mt-2 w-full rounded-lg border border-line/15 bg-white/[0.03] px-3 py-2 font-mono text-xs text-text-soft placeholder:text-text-dim focus:border-primary/50 focus:outline-none"
+        className={FIELD + " mt-2.5 min-h-[44px] font-mono text-xs"}
       />
       {postError && (
-        <p className="mt-2 text-xs text-danger">{postError}</p>
+        <p className="mt-2 text-sm text-danger">{postError}</p>
       )}
-      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
         {onRemoveMine && (
           <button
             type="button"
             onClick={onRemoveMine}
-            className="mr-auto rounded-lg border border-danger/30 bg-danger/8 px-3 py-2.5 font-mono text-[11px] uppercase tracking-wider text-danger transition hover:bg-danger/12 sm:py-1.5"
+            className="mr-auto inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-danger transition hover:bg-danger/10"
           >
+            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
             Remove
           </button>
         )}
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-line/20 bg-white/[0.04] px-3 py-2.5 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:text-white sm:py-1.5"
+          className="min-h-[40px] rounded-xl px-3.5 text-sm font-medium text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={posting}
-          className="rounded-lg border border-primary/40 bg-primary/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50 sm:py-1.5"
+          className="min-h-[40px] rounded-xl bg-primary px-4 text-sm font-semibold text-[rgb(var(--color-obsidian))] transition hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
         >
           {posting ? "Posting…" : (onRemoveMine ? "Save changes" : "Post writeup")}
         </button>
@@ -434,7 +474,7 @@ function Prose({ text }) {
   if (!text) return null;
   const paragraphs = String(text).split(/\n\n+/).filter(Boolean);
   return (
-    <div className="mt-2 space-y-2 break-words text-sm leading-7 text-text-soft">
+    <div className="mt-2 max-w-[68ch] space-y-2.5 break-words text-[15px] leading-7 text-text-primary/85">
       {paragraphs.map((para, i) => (
         <p key={i} className="whitespace-pre-wrap">{para}</p>
       ))}

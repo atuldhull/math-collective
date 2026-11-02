@@ -283,3 +283,44 @@
     right: -52px;
   }
 }
+
+/* Haunted — the Halloween palette: midnight, pumpkin and slime. Picking
+   it also turns on the spooky ambience and transitions (useHaunted). */
+.mc-public-theme[data-public-theme="haunted"] {
+  --mc-paper: #09060a;
+  --mc-surface: #140c14;
+  --mc-field: #1e111c;
+  --mc-ink: #f6ecde;
+  --mc-muted: #baa8a0;
+  --mc-line: #3a1e2c;
+  --mc-accent: #ff7a1a;
+  --mc-accent-2: #84eb62;
+  --mc-accent-soft: #a8603a;
+  --mc-tint: #2a1410;
+  --mc-button-text: #140805;
+  --mc-shadow: #00000070;
+  --mc-backdrop: #050306ee;
+  --mc-art-1: #1a0e14;
+  --mc-art-2: #24100c;
+  --mc-art-3: #0f1a0c;
+  --mc-deep: #040206;
+  --mc-deep-ink: #f6ecde;
+  --mc-deep-muted: #baa8a0;
+  --mc-deep-line: #3a1e2c;
+  --mc-deep-accent: #ff9440;
+  --mc-ambient: #ff7a1a22;
+  --mc-ambient-2: #84eb6212;
+  --color-obsidian: 9 6 10;
+  --color-surface: 20 12 20;
+  --color-panel: 30 17 28;
+  --color-text-primary: 246 236 222;
+  --color-text-muted: 186 168 160;
+  --color-text-dim: 160 142 136;
+  --color-line: 110 60 80;
+  --color-primary: 255 122 26;
+  --color-secondary: 132 235 98;
+  --color-success: 132 235 98;
+  --color-danger: 230 40 56;
+  --color-warning: 255 190 60;
+  color-scheme: dark;
+}

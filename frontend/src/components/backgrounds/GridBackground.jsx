@@ -1,3 +1,4 @@
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 /**
  * GridBackground — clean professional dashboard backdrop.
  *
@@ -19,7 +20,7 @@
  * No canvas, no requestAnimationFrame, no GC pressure. Renders once.
  */
 
-export default function GridBackground({ accent = "primary" }) {
+function GridBackgroundScene({ accent = "primary" }) {
   const ACCENTS = {
     primary:    { a: "#7c3aed", b: "#3b82f6" }, // teacher
     success:    { a: "#10b981", b: "#06b6d4" }, // admin
@@ -101,4 +102,10 @@ export default function GridBackground({ accent = "primary" }) {
       />
     </div>
   );
+}
+
+// Off the home page the Lamplight shell paints one shared backdrop
+// (LampBackdrop), so the per-page scenes step aside there.
+export default function GridBackground(props) {
+  return useIsLamplight() ? null : <GridBackgroundScene {...props} />;
 }

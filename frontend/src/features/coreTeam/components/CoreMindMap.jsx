@@ -66,41 +66,41 @@ export default function CoreMindMap({ nodes, hubLabel = "CORE" }) {
       <svg viewBox={`0 0 ${VB} ${VB}`} className="absolute inset-0 h-full w-full overflow-visible">
         <defs>
           <radialGradient id="mm-hub-grad" cx="50%" cy="42%" r="60%">
-            <stop offset="0%"   stopColor="#c4b5fd" />
-            <stop offset="55%"  stopColor="#7c3aed" />
-            <stop offset="100%" stopColor="#3b0f73" />
+            <stop offset="0%"   stopColor="rgb(255 214 160)" />
+            <stop offset="55%"  stopColor="rgb(var(--lamp))" />
+            <stop offset="100%" stopColor="rgb(var(--violet))" />
           </radialGradient>
         </defs>
 
         {/* rotating orbit rings */}
         <circle className="mm-orbit-a" cx={HUB} cy={HUB} r={RING} fill="none"
-          stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="2 15" />
+          stroke="rgb(var(--rule))" strokeWidth="1" strokeDasharray="2 15" />
         <circle className="mm-orbit-b" cx={HUB} cy={HUB} r={RING - 46} fill="none"
-          stroke="rgba(124,58,237,0.16)" strokeWidth="1" strokeDasharray="3 22" />
+          stroke="rgb(var(--violet)/0.22)" strokeWidth="1" strokeDasharray="3 22" />
 
         {/* connector strings */}
         {placed.map((p) => (
           <g key={p.i}>
             <line x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2}
-              stroke={p.color} strokeOpacity="0.16" strokeWidth="2.5" />
+              style={{ stroke: p.color }} strokeOpacity="0.16" strokeWidth="2.5" />
             <line className="mm-flow" x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2}
-              stroke={p.color} strokeOpacity="0.72" strokeWidth="2"
+              style={{ stroke: p.color }} strokeOpacity="0.72" strokeWidth="2"
               strokeDasharray="5 11" strokeLinecap="round" />
             <circle id={`mm-pulse-${p.i}`} cx={p.x1} cy={p.y1} r="5"
-              fill={p.color} opacity="0" />
+              style={{ fill: p.color }} opacity="0" />
           </g>
         ))}
 
         {/* hub */}
-        <circle className="mm-aura" cx={HUB} cy={HUB} r="76" fill="#7c3aed" opacity="0.22" />
+        <circle className="mm-aura" cx={HUB} cy={HUB} r="76" fill="rgb(var(--lamp))" opacity="0.18" />
         <circle cx={HUB} cy={HUB} r="52" fill="url(#mm-hub-grad)" />
-        <circle cx={HUB} cy={HUB} r="52" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+        <circle cx={HUB} cy={HUB} r="52" fill="none" stroke="rgb(var(--color-text-primary)/0.4)" strokeWidth="1.5" />
       </svg>
 
       {/* hub label (crisp HTML, centred on the hub) */}
       <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-        <p className="font-display text-lg font-bold tracking-tight text-white">{hubLabel}</p>
-        <p className="font-mono text-[8px] uppercase tracking-[0.3em] text-white/75">portal</p>
+        <p className="lamp-display text-lg text-[rgb(var(--color-obsidian))]">{hubLabel}</p>
+        <p className="text-[11px] font-medium text-[rgb(var(--color-obsidian)/0.7)]">portal</p>
       </div>
 
       {/* nodes — outer div is centred (static); inner Link is GSAP-floated */}
@@ -117,14 +117,14 @@ export default function CoreMindMap({ nodes, hubLabel = "CORE" }) {
           >
             <span
               className="flex h-[clamp(3.1rem,12vw,4.7rem)] w-[clamp(3.1rem,12vw,4.7rem)] items-center justify-center rounded-full border bg-surface/85 backdrop-blur-xl transition-transform duration-300 group-hover:scale-[1.14]"
-              style={{ borderColor: `${p.color}66`, boxShadow: `0 0 24px ${p.color}33` }}
+              style={{ borderColor: `color-mix(in srgb, ${p.color} 40%, transparent)`, boxShadow: `0 0 24px color-mix(in srgb, ${p.color} 20%, transparent)` }}
             >
               <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24"
-                stroke={p.color} strokeWidth={2}>
+                style={{ stroke: p.color }} strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d={p.icon} />
               </svg>
             </span>
-            <span className="rounded-full bg-black/45 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white transition-colors group-hover:text-white">
+            <span className="rounded-full border border-[rgb(var(--rule))] bg-surface/80 px-2.5 py-0.5 text-[12px] font-medium text-text-muted backdrop-blur transition-colors group-hover:text-text-primary">
               {p.label}
             </span>
           </Link>

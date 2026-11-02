@@ -14,20 +14,37 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import {
+  CalendarDays, Check, Clock, ExternalLink, Globe, MapPin, Repeat, RotateCcw,
+  Sparkles, Ticket, TicketCheck, TriangleAlert, Trophy, Users,
+} from "lucide-react";
+import gsap from "@/lib/gsap-setup";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
-import EventStatusBadge from "@/components/ui/EventStatusBadge";
-import EventTypeBadge from "@/components/ui/EventTypeBadge";
 import CapacityBar from "@/components/ui/CapacityBar";
 import EventQrCode from "@/components/ui/EventQrCode";
+import { EmptyState, PageHeader, SegmentedTabs, TiltPanel } from "@/components/lamp";
+import { Flicker } from "@/components/motion/ScrollFx";
 import EventHero from "@/features/events/components/EventHero";
 import EventExplorer from "@/features/events/components/EventExplorer";
+import { NoteChip, StatusChip, TypeChip } from "@/features/events/components/EventChips";
 import { events as eventsApi, insights } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 import { openRazorpayCheckout } from "@/lib/razorpay";
+
+// ── Lamplight constants ──────────────────────────────────
+
+const STATUS_TABS = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Live" },
+  { value: "registering", label: "Open" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "completed", label: "Past" },
+];
+
+const INPUT = "w-full min-w-0 rounded-xl border border-[rgb(var(--rule))] bg-obsidian/50 px-3 py-2.5 text-sm text-text-primary outline-none transition placeholder:text-text-dim focus:border-primary/50 focus:shadow-[0_0_0_3px_rgb(var(--lamp)/0.12)]";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -53,9 +70,9 @@ function timeUntil(d) {
 // ── Main Component ───────────────────────────────────────
 
 export default function EventsPage() {
-  useMonument("jungle");
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const listRef = useRef(null);
 
   const [eventsList, setEventsList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -314,13 +331,74 @@ export default function EventsPage() {
     live: eventsList.filter(e => e.status === "active").length,
   };
 
+  // Status tab counts (same matching rules as the status filter above).
+  const statusCount = (key) => eventsList.filter((e) => {
+    if (typeFilter !== "all" && (e.event_type || "general") !== typeFilter) return false;
+    const s = e.status || "upcoming";
+    if (key === "all") return true;
+    if (key === "completed") return s === "completed" || s === "past";
+    return s === key;
+  }).length;
+
+  // The one lit card on the page: the first live event, else the
+  // first one taking registrations.
+  const featuredId = (filtered.find((e) => e.status === "active")
+    || filtered.find((e) => e.status === "registering"))?.id;
+
+  // ── Motion: the timeline draws itself and cards flip down into place ──
+  const listKey = filtered.map((e) => e.id).join(",");
+  useGSAP(() => {
+    if (!listRef.current) return undefined;
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const q = gsap.utils.selector(listRef);
+      const line = q("[data-tl-line]")[0];
+      if (line) {
+        gsap.fromTo(line, { scaleY: 0 }, {
+          scaleY: 1,
+          ease: "none",
+          scrollTrigger: { trigger: listRef.current, start: "top 70%", end: "bottom 70%", scrub: 0.6 },
+        });
+      }
+      q("[data-tl-dot]").forEach((dot) => {
+        ScrollTrigger.create({
+          trigger: dot,
+          start: "top 70%",
+          onEnter: () => { dot.dataset.reached = "true"; },
+          onLeaveBack: () => { dot.dataset.reached = "false"; },
+        });
+      });
+      const cards = q("[data-flip]");
+      gsap.set(cards, { autoAlpha: 0, rotateX: -72, y: 46, transformPerspective: 1100, transformOrigin: "50% 0%" });
+      ScrollTrigger.batch(cards, {
+        start: "top 92%",
+        once: true,
+        onEnter: (batch) => gsap.to(batch, {
+          autoAlpha: 1, rotateX: 0, y: 0,
+          duration: 1.15, ease: "expo.out", stagger: 0.09,
+          clearProps: "transform,opacity,visibility",
+        }),
+      });
+    });
+    return () => mm.revert();
+  }, { scope: listRef, dependencies: [listKey, loading], revertOnUpdate: true });
+
   // ── Render ─────────────────────────────────────────────
+
+  // Same header in every return so it holds its place while events load.
+  const header = (
+    <PageHeader
+      context="Events"
+      title="Enter the arena of the week"
+      description="Register for what's coming up, check in when you arrive and keep your entry QR close."
+    />
+  );
 
   if (loading) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="jungle" intensity={0.15} />
-        <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
+      <div className="relative pb-16">
+        {header}
+        <div className="flex min-h-[40vh] items-center justify-center">
           <Loader variant="orbit" size="lg" label="Loading events..." />
         </div>
       </div>
@@ -329,44 +407,31 @@ export default function EventsPage() {
 
   if (error) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="jungle" intensity={0.15} />
-        <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center gap-4">
-          <p className="text-4xl">⚠️</p>
+      <div className="relative pb-16">
+        {header}
+        <div className="lamp-panel mx-auto flex max-w-lg flex-col items-center gap-4 px-6 py-14 text-center">
+          <TriangleAlert className="h-8 w-8 text-danger" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm text-danger">{error}</p>
-          <Button variant="secondary" size="sm" onClick={fetchEvents}>Retry</Button>
+          <Button variant="secondary" size="sm" onClick={fetchEvents} leading={<RotateCcw className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />}>
+            Retry
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="jungle" intensity={0.15} />
+    <div className="relative pb-16">
+      {header}
 
-      {/* Ambient math glyphs — same visual signature as auth + dashboard
-          so every page in the app reads as part of the same family.
-          Jungle-themed (success/green tint) to match the page's
-          MonumentBackground colour cue. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 select-none">
-        <span className="math-text absolute left-[3%] top-[14%] text-[9rem] text-success/[0.045]">∮</span>
-        <span className="math-text absolute right-[5%] top-[8%] text-[8rem] text-white/[0.03]">∇</span>
-        <span className="math-text absolute left-[15%] top-[60%] text-[6rem] text-white/[0.03]">τ</span>
-        <span className="math-text absolute right-[8%] bottom-[20%] text-[7rem] text-primary/[0.04]">ℵ</span>
-        <span className="math-text absolute left-[48%] top-[40%] text-[5rem] text-white/[0.025]">η</span>
-      </div>
-
-      {/* Outer wraps the whole page; inner sections set their own
-          max-width. The padding here gives a consistent gutter so
-          content never touches the screen edge on small viewports. */}
-      <div className="relative z-10 pb-16 px-4 sm:px-6 lg:px-10">
-        {/* Cinematic Entry Hero */}
-        <EventHero stats={heroStats} onExplore={scrollToTimeline} />
+      <div className="space-y-12">
+        {/* Week at a glance: count-up tiles + two-week calendar strip */}
+        <EventHero stats={heroStats} onExplore={scrollToTimeline} events={eventsList} />
 
         {/* Timeline section (scroll target) */}
-        <div ref={timelineRef} className="space-y-10 pt-10">
+        <div ref={timelineRef} className="scroll-mt-24 space-y-10">
 
-        {/* Category Explorer — interactive environment cards */}
+        {/* Category Explorer — tilting tiles */}
         <EventExplorer
           activeFilter={typeFilter}
           onFilterChange={setTypeFilter}
@@ -374,199 +439,212 @@ export default function EventsPage() {
           onExplore={scrollToTimeline}
         />
 
-        {/* Status filter row (compact, below explorer). On mobile the
-            "Status:" label is hidden — pills are self-explanatory and
-            hiding it lets all 5 fit on one row at 375px without an
-            ugly wrap. Label returns on sm+ where there's space. */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <span className="mr-1 hidden font-mono text-[9px] uppercase tracking-[0.2em] text-text-dim sm:inline">Status:</span>
-          {[
-            { key: "all", label: "All" },
-            { key: "active", label: "Live" },
-            { key: "registering", label: "Open" },
-            { key: "upcoming", label: "Upcoming" },
-            { key: "completed", label: "Past" },
-          ].map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key === filter ? "all" : f.key)}
-              className={`min-h-[36px] rounded-full border px-3 py-2 font-mono text-[10px] uppercase tracking-wider transition sm:min-h-0 sm:px-2.5 sm:py-1 sm:text-[9px] ${
-                filter === f.key
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-line/10 bg-white/[0.02] text-text-dim hover:text-text-muted hover:border-line/20"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+        {/* Status filter. Selecting the active status again resets to all. */}
+        <div data-reveal="fade" className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3">
+          <span className="hidden text-[13px] font-medium text-text-muted sm:inline">Status</span>
+          <SegmentedTabs
+            aria-label="Filter by status"
+            size="sm"
+            value={filter}
+            onChange={(v) => setFilter(v === filter ? "all" : v)}
+            items={STATUS_TABS.map((f) => ({ ...f, count: statusCount(f.value) }))}
+          />
         </div>
 
         {/* Recommended for You */}
         {recs.length > 0 && filter === "all" && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-6xl">
-            <div className="flex items-center gap-3 mb-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">Recommended for You</p>
+          <section className="mx-auto w-full max-w-6xl">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <Flicker as="h2" className="text-lg text-text-primary sm:text-xl">Recommended for you</Flicker>
               {recPrefs?.top_type && (
-                <span className="rounded-full border border-line/15 bg-white/5 px-2 py-0.5 font-mono text-[8px] uppercase text-text-dim">
-                  Based on your {recPrefs.top_type} interest
-                </span>
+                <NoteChip tone="violet" icon={Sparkles}>Based on your {recPrefs.top_type} interest</NoteChip>
               )}
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div data-stagger="fog" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {recs.slice(0, 3).map(ev => (
-                <Card key={ev.id} variant="glass" interactive spotlight className="cursor-pointer" onClick={() => {
-                  const el = document.getElementById(`event-${ev.id}`);
-                  el?.scrollIntoView({ behavior: "smooth", block: "center" });
-                }}>
-                  <EventTypeBadge type={ev.event_type} />
-                  <h4 className="mt-2 font-display text-sm font-bold text-white truncate">{ev.title}</h4>
-                  <p className="mt-1 font-mono text-[10px] text-text-dim">
+                <TiltPanel
+                  key={ev.id}
+                  as="button"
+                  type="button"
+                  className="p-5 text-left"
+                  onClick={() => {
+                    const el = document.getElementById(`event-${ev.id}`);
+                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                >
+                  <span className="relative block"><TypeChip type={ev.event_type} /></span>
+                  <span className="relative mt-3 block truncate text-base font-semibold text-text-primary">{ev.title}</span>
+                  <span className="relative mt-1 block text-[13px] text-text-muted">
                     {ev.starts_at || ev.date ? new Date(ev.starts_at || ev.date).toLocaleDateString() : ""}
-                  </p>
-                  <div className="mt-2 flex items-center justify-between">
-                    {ev.xp_reward > 0 && <span className="math-text text-[10px] text-primary">+{ev.xp_reward} XP</span>}
-                    <span className="font-mono text-[9px] text-text-dim">{ev.registration_count || 0} registered</span>
-                  </div>
-                </Card>
+                  </span>
+                  <span className="relative mt-3 flex items-center justify-between text-[13px]">
+                    {ev.xp_reward > 0 ? <span className="lamp-numerals text-primary">+{ev.xp_reward} XP</span> : <span />}
+                    <span className="text-text-dim">{ev.registration_count || 0} registered</span>
+                  </span>
+                </TiltPanel>
               ))}
             </div>
-          </motion.section>
+          </section>
         )}
 
         {/* Empty state */}
         {filtered.length === 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-20 text-center">
-            <svg
-              aria-hidden="true"
-              className="mx-auto h-14 w-14 text-text-dim/50"
-              viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth={1.4}
-              strokeLinecap="round" strokeLinejoin="round"
-            >
-              <rect x="3" y="5" width="18" height="16" rx="2" />
-              <path d="M16 3v4M8 3v4M3 11h18" />
-            </svg>
-            <p className="mt-4 text-lg text-text-muted">No events found</p>
-            <p className="mt-2 text-sm text-text-dim">
-              {filter !== "all" ? "Try a different filter." : "Check back later for new events!"}
-            </p>
-          </motion.div>
+          <EmptyState
+            title="No events found"
+            body={filter !== "all" || typeFilter !== "all" ? "Try a different filter." : "Check back later for new events!"}
+            action={filter !== "all" || typeFilter !== "all" ? (
+              <Button variant="secondary" size="sm" onClick={() => { setFilter("all"); setTypeFilter("all"); }}>
+                Show all events
+              </Button>
+            ) : null}
+          />
         )}
 
         {/* Event Timeline */}
-        <div className="relative mx-auto max-w-6xl">
-          {/* Timeline vertical line */}
-          <div className="absolute left-6 top-0 hidden h-full md:block event-timeline-line" />
+        <div ref={listRef} className="relative mx-auto w-full max-w-6xl">
+          {/* Timeline rail: a faint ghost line, and a lamp line that draws with the scroll */}
+          {filtered.length > 0 && (
+            <div aria-hidden="true" className="absolute bottom-6 left-[23px] top-6 hidden w-px md:block">
+              <div className="absolute inset-0 bg-[rgb(var(--rule))]" />
+              <div data-tl-line className="absolute inset-0 origin-top bg-[linear-gradient(180deg,rgb(var(--lamp)/0.95),rgb(var(--violet)/0.7))] shadow-[0_0_10px_rgb(var(--lamp)/0.6)]" />
+            </div>
+          )}
 
-          <div className="space-y-6">
+          <div className="space-y-5 sm:space-y-6">
             <AnimatePresence mode="popLayout">
-              {filtered.map((event, i) => {
+              {filtered.map((event) => {
                 const status = event.status || "upcoming";
                 const isRegistered = event.user_registration && event.user_registration.status !== "cancelled";
                 const isAttended = event.user_registration?.status === "attended";
                 const isWaitlisted = event.user_registration?.status === "waitlisted";
                 const isActing = actionLoading === event.id;
                 const result = actionResult?.eventId === event.id ? actionResult : null;
+                const when = event.starts_at || event.date;
+                const formOpen = showCheckin === event.id || showTeamForm === event.id;
 
                 return (
                   <motion.div
                     key={event.id}
                     layout
-                    initial={{ opacity: 0, x: -30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 30 }}
-                    transition={{ delay: 0.1 + i * 0.06 }}
+                    exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.25 } }}
                     id={`event-${event.id}`}
                     className="relative md:pl-16"
                   >
-                    {/* Timeline dot */}
-                    <div className="absolute left-4 top-8 hidden md:block">
-                      <span className={`event-timeline-dot`}
-                        data-active={status === "active" || status === "registering"} />
-                    </div>
+                    {/* Timeline stop — lights up as the rail reaches it */}
+                    <span
+                      data-tl-dot
+                      aria-hidden="true"
+                      className={`absolute left-[17px] top-10 hidden h-[13px] w-[13px] rounded-full border-2 transition-all duration-500 md:block data-[reached=true]:scale-110 data-[reached=true]:border-primary data-[reached=true]:bg-primary data-[reached=true]:shadow-[0_0_14px_rgb(var(--lamp)/0.85)] ${
+                        status === "active"
+                          ? "border-success bg-success shadow-[0_0_14px_rgb(var(--color-success))]"
+                          : "border-[rgb(var(--rule))] bg-obsidian"
+                      }`}
+                    />
 
-                    <Card variant={status === "active" ? "glow" : "glass"} spotlight>
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        {/* Left: Event info */}
-                        <div className="flex-1 min-w-0">
+                    <div data-flip>
+                    <TiltPanel lit={event.id === featuredId} tilt={!formOpen} className="p-5 sm:p-6">
+                      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start">
+                        {/* Calendar leaf */}
+                        <div className="flex shrink-0 items-center gap-3 sm:w-[4.75rem] sm:flex-col sm:gap-0 sm:rounded-xl sm:border sm:border-[rgb(var(--rule))] sm:bg-obsidian/40 sm:py-3">
+                          {when ? (
+                            <>
+                              <span className="lamp-numerals text-[2rem] leading-none text-text-primary sm:text-[2.1rem]">
+                                {new Date(when).getDate()}
+                              </span>
+                              <span className="flex flex-col sm:items-center">
+                                <span className="text-[13px] font-medium text-primary sm:mt-1">
+                                  {new Date(when).toLocaleDateString("en-IN", { month: "short" })}
+                                </span>
+                                <span className="text-[12px] text-text-dim">
+                                  {new Date(when).toLocaleDateString("en-IN", { weekday: "short" })}
+                                </span>
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-[13px] text-text-dim sm:px-2 sm:text-center">Date to be announced</span>
+                          )}
+                        </div>
+
+                        {/* Event info */}
+                        <div className="min-w-0 flex-1">
                           {/* Badges row */}
                           <div className="flex flex-wrap items-center gap-2">
-                            <EventStatusBadge status={status} />
-                            <EventTypeBadge type={event.event_type} />
+                            <StatusChip status={status} />
+                            <TypeChip type={event.event_type} />
                             {event.xp_reward > 0 && (
-                              <span className="math-text rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[10px] font-bold text-primary">
-                                +{event.xp_reward} XP
-                              </span>
+                              <NoteChip tone="lamp">+{event.xp_reward} XP</NoteChip>
                             )}
                             {isRegistered && !isAttended && (
-                              <span className={`rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider ${
-                                isWaitlisted
-                                  ? "border-warning/25 bg-warning/8 text-warning"
-                                  : "border-success/25 bg-success/8 text-success"
-                              }`}>
-                                {isWaitlisted ? "Waitlisted" : "Registered ✓"}
-                              </span>
+                              isWaitlisted
+                                ? <NoteChip tone="warn">Waitlisted</NoteChip>
+                                : <NoteChip tone="good" icon={Check}>Registered</NoteChip>
                             )}
                             {isAttended && (
-                              <span className="rounded-full border border-success/25 bg-success/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">
-                                Attended ✓
-                              </span>
+                              <NoteChip tone="good" icon={Check}>Attended</NoteChip>
                             )}
                             {/* Paid-event badges (migration 19) */}
                             {event.is_paid && event.price_paise > 0 && (
-                              <span className="rounded-full border border-secondary/25 bg-secondary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-secondary">
-                                ₹{(event.price_paise / 100).toFixed(0)}
-                              </span>
+                              <NoteChip tone="violet">₹{(event.price_paise / 100).toFixed(0)}</NoteChip>
                             )}
                             {event.is_paid && isRegistered && event.user_registration?.payment_status === "paid" && (
-                              <span className="rounded-full border border-success/25 bg-success/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-success">
-                                Paid ✓
-                              </span>
+                              <NoteChip tone="good" icon={Check}>Paid</NoteChip>
                             )}
                             {event.is_paid && isRegistered && event.user_registration?.payment_status === "submitted" && (
-                              <span className="rounded-full border border-secondary/25 bg-secondary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-secondary">
-                                Awaiting verification
-                              </span>
+                              <NoteChip tone="violet">Awaiting verification</NoteChip>
                             )}
                             {event.is_paid && isRegistered && event.user_registration?.payment_status === "rejected" && (
-                              <span className="rounded-full border border-danger/25 bg-danger/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-danger">
-                                Payment rejected
-                              </span>
+                              <NoteChip tone="bad">Payment rejected</NoteChip>
                             )}
                           </div>
 
                           {/* Title */}
-                          <h3 className="mt-3 font-display text-2xl font-bold tracking-[-0.03em] text-white">
+                          <h3 className="mt-3 text-[1.45rem] leading-tight text-text-primary sm:text-2xl">
                             {event.title}
                           </h3>
 
                           {/* Meta row */}
-                          <div className="mt-2 flex flex-wrap gap-4 font-mono text-[11px] text-text-dim">
-                            {(event.starts_at || event.date) && (
-                              <span>📅 {formatDate(event.starts_at || event.date)}</span>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] text-text-muted">
+                            {when && (
+                              <span className="inline-flex items-center gap-1.5">
+                                <CalendarDays className="h-3.5 w-3.5 text-text-dim" strokeWidth={1.75} aria-hidden="true" />
+                                {formatDate(when)}
+                              </span>
                             )}
-                            {(event.starts_at || event.date) && (
-                              <span>🕐 {formatTime(event.starts_at || event.date)}</span>
+                            {when && (
+                              <span className="inline-flex items-center gap-1.5">
+                                <Clock className="h-3.5 w-3.5 text-text-dim" strokeWidth={1.75} aria-hidden="true" />
+                                {formatTime(when)}
+                              </span>
                             )}
-                            {event.location && <span>📍 {event.location}</span>}
+                            {event.location && (
+                              <span className="inline-flex items-center gap-1.5">
+                                <MapPin className="h-3.5 w-3.5 text-text-dim" strokeWidth={1.75} aria-hidden="true" />
+                                {event.location}
+                              </span>
+                            )}
                             {event.organiser && <span>by {event.organiser}</span>}
                             {event.venue_type && event.venue_type !== "in-person" && (
-                              <span className="text-secondary">{event.venue_type === "online" ? "🌐 Online" : "🔄 Hybrid"}</span>
+                              <span className="inline-flex items-center gap-1.5 text-secondary">
+                                {event.venue_type === "online"
+                                  ? <Globe className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                                  : <Repeat className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />}
+                                {event.venue_type === "online" ? "Online" : "Hybrid"}
+                              </span>
                             )}
                           </div>
 
                           {/* Countdown for upcoming */}
-                          {(status === "upcoming" || status === "registering") && (event.starts_at || event.date) && (
-                            <p className="mt-1 math-text text-[11px] text-secondary">
-                              Starts in {timeUntil(event.starts_at || event.date)}
+                          {(status === "upcoming" || status === "registering") && when && (
+                            <p className="mt-2 text-[13px] font-medium text-primary">
+                              Starts in <span className="lamp-numerals">{timeUntil(when)}</span>
                             </p>
                           )}
 
                           {/* Tags */}
                           {event.tags?.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1.5">
+                            <div className="mt-3 flex flex-wrap gap-1.5">
                               {event.tags.map((tag) => (
-                                <span key={tag} className="rounded-full bg-primary/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary/70">
+                                <span key={tag} className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[12px] text-text-muted">
                                   {tag}
                                 </span>
                               ))}
@@ -575,14 +653,14 @@ export default function EventsPage() {
 
                           {/* Description (truncated) */}
                           {event.description && (
-                            <p className="mt-3 text-sm leading-7 text-text-muted line-clamp-3">
+                            <p className="mt-3 max-w-[68ch] text-sm leading-7 text-text-muted line-clamp-3">
                               {event.description}
                             </p>
                           )}
 
                           {/* Capacity bar */}
                           {(event.capacity || event.registration_count > 0) && (
-                            <div className="mt-3 max-w-xs">
+                            <div className="mt-4 max-w-xs">
                               <CapacityBar current={event.registration_count || 0} max={event.capacity} />
                             </div>
                           )}
@@ -604,13 +682,13 @@ export default function EventsPage() {
                               || reg.payment_status === "not_required";
                             if (!paymentCleared) {
                               return (
-                                <p className="mt-4 rounded-lg border border-warning/25 bg-warning/[0.06] px-3 py-2 text-xs text-warning">
+                                <p className="mt-4 rounded-xl border border-warning/25 bg-warning/[0.06] px-3 py-2 text-[13px] text-warning">
                                   Your entry QR unlocks here as soon as your payment clears.
                                 </p>
                               );
                             }
                             return (
-                              <div className="mt-4">
+                              <div className="mt-4 inline-flex rounded-2xl border border-primary/25 bg-primary/[0.04] p-4 shadow-[0_0_40px_-16px_rgb(var(--lamp)/0.6)]">
                                 <EventQrCode
                                   eventId={event.id}
                                   qrToken={reg.qr_token}
@@ -624,11 +702,11 @@ export default function EventsPage() {
                               Only shown to registered students whose
                               payment isn't already verified. */}
                           {event.is_paid && isRegistered && event.user_registration?.payment_status !== "paid" && event.user_registration?.payment_status !== "not_required" && (
-                            <div className="mt-4 rounded-xl border border-secondary/20 bg-secondary/[0.04] p-4">
-                              <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="mt-4 rounded-2xl border border-secondary/25 bg-secondary/[0.05] p-4">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                  <p className="font-mono text-[10px] uppercase tracking-wider text-secondary">Payment required</p>
-                                  <p className="mt-1 math-text text-xl font-bold text-white">
+                                  <p className="text-[13px] font-medium text-secondary">Payment required</p>
+                                  <p className="lamp-numerals mt-1 text-2xl text-text-primary">
                                     ₹{((event.price_paise || 0) / 100).toFixed(2)}
                                   </p>
                                 </div>
@@ -637,24 +715,24 @@ export default function EventsPage() {
                                     src={event.payment_qr_base64}
                                     alt="Payment QR"
                                     loading="lazy"
-                                    className="h-28 w-28 rounded-lg border border-line/15 bg-white p-1"
+                                    className="h-28 w-28 rounded-xl border border-[rgb(var(--rule))] bg-white p-1"
                                   />
                                 )}
                               </div>
                               {event.payment_upi_id && (
-                                <p className="mt-2 font-mono text-[11px] text-text-muted">
-                                  UPI ID: <span className="select-all text-white">{event.payment_upi_id}</span>
+                                <p className="mt-2 text-[13px] text-text-muted">
+                                  UPI ID: <span className="select-all font-mono text-text-primary">{event.payment_upi_id}</span>
                                 </p>
                               )}
                               {event.payment_instructions && (
-                                <p className="mt-2 text-[11px] leading-5 text-text-dim whitespace-pre-wrap">
+                                <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-text-dim">
                                   {event.payment_instructions}
                                 </p>
                               )}
 
                               {/* Rejection reason — shown so the student knows why and how to retry. */}
                               {event.user_registration?.payment_status === "rejected" && event.user_registration?.rejection_reason && (
-                                <p className="mt-2 rounded-lg border border-danger/25 bg-danger/[0.06] px-3 py-2 text-[11px] text-danger">
+                                <p className="mt-2 rounded-xl border border-danger/25 bg-danger/[0.06] px-3 py-2 text-[13px] text-danger">
                                   Previous attempt rejected: {event.user_registration.rejection_reason}
                                 </p>
                               )}
@@ -669,10 +747,10 @@ export default function EventsPage() {
                                     loading={payLoading === event.id}
                                     className="w-full sm:w-auto"
                                   >
-                                    {event.user_registration?.payment_status === "rejected" ? "Retry Payment" : `Pay ₹${((event.price_paise || 0) / 100).toFixed(0)} securely`}
+                                    {event.user_registration?.payment_status === "rejected" ? "Retry payment" : `Pay ₹${((event.price_paise || 0) / 100).toFixed(0)} securely`}
                                   </Button>
-                                  <p className="mt-1.5 font-mono text-[10px] text-text-dim">
-                                    Opens Razorpay — cards, UPI, netbanking. Your registration flips to ✓ automatically once the payment clears (no admin verification needed).
+                                  <p className="mt-2 text-[12px] leading-5 text-text-dim">
+                                    Opens Razorpay for cards, UPI or netbanking. Your registration is marked paid automatically once the payment clears, with no admin check needed.
                                   </p>
                                 </div>
                               )}
@@ -681,8 +759,8 @@ export default function EventsPage() {
                                   Keeps the old path available when Razorpay is down / not wired. */}
                               {event.user_registration?.payment_status !== "submitted" && (
                                 <details className="mt-3">
-                                  <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-wider text-text-dim hover:text-text-muted">
-                                    Or pay manually via UPI + submit ref
+                                  <summary className="cursor-pointer text-[13px] text-text-muted hover:text-text-primary">
+                                    Or pay manually via UPI and submit the reference
                                   </summary>
                                   <div className="mt-2 flex flex-wrap items-center gap-2">
                                     <input
@@ -691,7 +769,7 @@ export default function EventsPage() {
                                       value={payRefInputs[event.id] || ""}
                                       onChange={(e) => setPayRefInputs((s) => ({ ...s, [event.id]: e.target.value }))}
                                       onKeyDown={(e) => e.key === "Enter" && handleSubmitPayment(event)}
-                                      className="w-full min-w-0 flex-1 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-secondary/40 sm:w-auto sm:min-w-[180px]"
+                                      className={`${INPUT} flex-1 font-mono sm:w-auto sm:min-w-[180px]`}
                                       maxLength={32}
                                     />
                                     <Button
@@ -707,8 +785,8 @@ export default function EventsPage() {
                                 </details>
                               )}
                               {event.user_registration?.payment_status === "submitted" && (
-                                <p className="mt-3 font-mono text-[10px] text-text-dim">
-                                  Ref submitted: <span className="text-text-muted">{event.user_registration.payment_ref}</span> — an admin will verify shortly.
+                                <p className="mt-3 text-[13px] text-text-dim">
+                                  Ref submitted: <span className="font-mono text-text-muted">{event.user_registration.payment_ref}</span>. An admin will verify it shortly.
                                 </p>
                               )}
                             </div>
@@ -718,13 +796,14 @@ export default function EventsPage() {
                           <AnimatePresence>
                             {result && (
                               <motion.div
+                                role="status"
                                 initial={{ opacity: 0, y: -8, height: 0 }}
                                 animate={{ opacity: 1, y: 0, height: "auto" }}
                                 exit={{ opacity: 0, y: -8, height: 0 }}
-                                className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
-                                  result.type === "success" ? "border-success/25 bg-success/8 text-success" :
-                                  result.type === "warning" ? "border-warning/25 bg-warning/8 text-warning" :
-                                  "border-danger/25 bg-danger/8 text-danger"
+                                className={`mt-3 rounded-xl border px-3 py-2 text-[13px] ${
+                                  result.type === "success" ? "border-success/25 bg-success/10 text-success" :
+                                  result.type === "warning" ? "border-warning/25 bg-warning/10 text-warning" :
+                                  "border-danger/25 bg-danger/10 text-danger"
                                 }`}
                               >
                                 {result.message}
@@ -743,11 +822,12 @@ export default function EventsPage() {
                               >
                                 <input
                                   type="text"
+                                  aria-label="Check-in code"
                                   placeholder="Enter check-in code"
                                   value={checkinCode}
                                   onChange={(e) => setCheckinCode(e.target.value)}
                                   onKeyDown={(e) => e.key === "Enter" && handleCheckin(event)}
-                                  className="w-full min-w-0 rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-primary/30 sm:w-40"
+                                  className={`${INPUT} font-mono sm:w-44`}
                                   autoFocus
                                 />
                                 <Button size="sm" onClick={() => handleCheckin(event)} loading={isActing}>
@@ -768,14 +848,15 @@ export default function EventsPage() {
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: "auto" }}
                                 exit={{ opacity: 0, height: 0 }}
-                                className="mt-4 rounded-xl border border-primary/30 bg-primary/[0.05] p-4"
+                                className="mt-4 overflow-hidden rounded-2xl border border-primary/30 bg-primary/[0.05] p-4"
                               >
-                                <p className="mb-3 font-mono text-[11px] uppercase tracking-wider text-primary">
+                                <p className="mb-3 flex items-center gap-2 text-[13px] font-medium text-primary">
+                                  <Users className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                                   Team details
                                 </p>
                                 <div className="flex flex-wrap items-end gap-3">
-                                  <div className="flex-1 min-w-[180px]">
-                                    <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-dim">Team name</label>
+                                  <div className="min-w-[180px] flex-1">
+                                    <label className="mb-1.5 block text-[13px] text-text-muted">Team name</label>
                                     <input
                                       type="text"
                                       value={teamForm.name}
@@ -783,11 +864,11 @@ export default function EventsPage() {
                                       placeholder="e.g. Euler's Engineers"
                                       maxLength={80}
                                       autoFocus
-                                      className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 text-sm text-white outline-none focus:border-primary/40"
+                                      className={INPUT}
                                     />
                                   </div>
-                                  <div className="w-32">
-                                    <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
+                                  <div className="w-36">
+                                    <label className="mb-1.5 block text-[13px] text-text-muted">
                                       Team size ({event.min_team_size || 1}–{event.max_team_size || 50})
                                     </label>
                                     <input
@@ -796,7 +877,7 @@ export default function EventsPage() {
                                       max={event.max_team_size || 50}
                                       value={teamForm.size}
                                       onChange={(e) => setTeamForm((s) => ({ ...s, size: e.target.value }))}
-                                      className="w-full rounded-lg border border-line/15 bg-black/15 px-3 py-2 font-mono text-sm text-white outline-none focus:border-primary/40"
+                                      className={`${INPUT} font-mono`}
                                     />
                                   </div>
                                   <div className="flex gap-2">
@@ -808,37 +889,37 @@ export default function EventsPage() {
                                     </Button>
                                   </div>
                                 </div>
-                                <p className="mt-3 font-mono text-[10px] text-text-dim">
-                                  You're registering on behalf of your team. One QR + one check-in covers everyone.
+                                <p className="mt-3 text-[12px] text-text-dim">
+                                  You're registering on behalf of your team. One QR and one check-in covers everyone.
                                 </p>
                               </motion.div>
                             )}
                           </AnimatePresence>
                         </div>
 
-                        {/* Right: Action buttons. Stretch to full
-                           width on mobile so they sit below the info
-                           block cleanly; right-align at tablet+ where
-                           the card goes horizontal. */}
-                        <div className="flex flex-col items-stretch gap-2 flex-shrink-0 sm:items-end">
+                        {/* Action buttons. Stretch to full width on mobile so
+                           they sit below the info block cleanly; right-align
+                           at tablet+ where the card goes horizontal. */}
+                        <div className="flex flex-shrink-0 flex-col items-stretch gap-2 sm:items-end">
                           {/* Register button */}
                           {(status === "upcoming" || status === "registering") && !isRegistered && !event.is_full && (
-                            <Button size="sm" onClick={() => handleRegister(event)} loading={isActing}>
-                              Register Now
+                            <Button size="sm" onClick={() => handleRegister(event)} loading={isActing}
+                              leading={<Ticket className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />}>
+                              Register
                             </Button>
                           )}
 
                           {/* Full — join waitlist */}
                           {(status === "upcoming" || status === "registering") && !isRegistered && event.is_full && (
                             <Button size="sm" variant="secondary" onClick={() => handleRegister(event)} loading={isActing}>
-                              Join Waitlist
+                              Join waitlist
                             </Button>
                           )}
 
                           {/* Cancel registration */}
                           {isRegistered && !isAttended && status !== "completed" && status !== "past" && (
                             <Button variant="ghost" size="sm" onClick={() => handleCancel(event)} loading={isActing}>
-                              Cancel Registration
+                              Cancel registration
                             </Button>
                           )}
 
@@ -855,34 +936,43 @@ export default function EventsPage() {
                                 }
                               }}
                               loading={isActing && showCheckin !== event.id}
+                              leading={<TicketCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />}
                             >
-                              Check In
+                              Check in
                             </Button>
                           )}
 
                           {/* External registration link (fallback) */}
                           {event.registration_form_url && !isRegistered && (
-                            <a href={event.registration_form_url} target="_blank" rel="noopener noreferrer">
-                              <Button variant="ghost" size="sm">External Form ↗</Button>
+                            <a href={event.registration_form_url} target="_blank" rel="noopener noreferrer" className="flex flex-col">
+                              <Button variant="ghost" size="sm" tabIndex={-1}
+                                trailing={<ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />}>
+                                Open external form
+                              </Button>
                             </a>
                           )}
 
                           {/* Online venue link */}
                           {event.venue_link && (status === "active" || isRegistered) && (
-                            <a href={event.venue_link} target="_blank" rel="noopener noreferrer">
-                              <Button variant="ghost" size="sm">Join Online ↗</Button>
+                            <a href={event.venue_link} target="_blank" rel="noopener noreferrer" className="flex flex-col">
+                              <Button variant="ghost" size="sm" tabIndex={-1}
+                                trailing={<ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />}>
+                                Join online
+                              </Button>
                             </a>
                           )}
 
                           {/* View leaderboard for competitions */}
                           {(event.event_type === "competition" || event.event_type === "hackathon") && status === "completed" && (
-                            <Button variant="ghost" size="sm" onClick={() => navigate(`/events/${event.id}/leaderboard`)}>
+                            <Button variant="ghost" size="sm" onClick={() => navigate(`/events/${event.id}/leaderboard`)}
+                              leading={<Trophy className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />}>
                               Leaderboard
                             </Button>
                           )}
                         </div>
                       </div>
-                    </Card>
+                    </TiltPanel>
+                    </div>
                   </motion.div>
                 );
               })}

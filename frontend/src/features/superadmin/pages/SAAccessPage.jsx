@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Card from "@/components/ui/Card";
+import { TriangleAlert } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { superAdmin } from "@/lib/api";
 import { FEATURE_DEFINITIONS as FEATURES } from "@/config/features";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import { useMonument } from "@/hooks/useMonument";
+import { PageHeader } from "@/components/lamp";
+
+const LABEL = "mb-2 block text-[13px] font-medium text-text-muted";
+const FIELD = "w-full rounded-xl border border-[rgb(var(--rule))] bg-surface/70 px-4 py-3 text-sm text-text-primary outline-none transition focus:border-primary/50";
 
 export default function SAAccessPage() {
-  useMonument("magma");
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrg, setSelectedOrg] = useState("");
@@ -91,46 +92,56 @@ export default function SAAccessPage() {
   const orgName = orgs.find((o) => o.id === selectedOrg)?.name || "";
   const enabledCount = Object.values(flags).filter(Boolean).length;
 
-  if (loading) return <div style={{ position: "relative" }}><MonumentBackground monument="magma" intensity={0.08} /><div className="flex justify-center py-20"><Loader variant="orbit" size="lg" /></div></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader variant="orbit" size="lg" /></div>;
 
   return (
-    <div style={{ position: "relative" }}>
-    <MonumentBackground monument="magma" intensity={0.08} />
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div>
-        <h2 className="font-display text-2xl font-bold text-white">Access Control</h2>
-        <p className="text-sm text-text-muted">Enable or disable features per organisation</p>
-      </div>
+    <div className="flex flex-col">
+      <PageHeader
+        context="Super admin"
+        title="Access control"
+        description="Enable or disable features per organisation"
+        progress={selectedOrg ? enabledCount / FEATURES.length : undefined}
+      />
 
       <AnimatePresence>
         {msg && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className={`rounded-xl border px-4 py-3 text-sm ${msg.type === "success" ? "border-success/30 bg-success/10 text-success" : "border-danger/30 bg-danger/10 text-danger"}`}>
+          <motion.div key={msg.text} role="status" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className={`mb-5 rounded-xl border px-4 py-3 text-sm ${msg.type === "success" ? "border-success/30 bg-success/10 text-success" : "border-danger/30 bg-danger/10 text-danger"}`}>
             {msg.text}
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Impersonation banner */}
-      {isImpersonating && (
-        <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-warning">You are currently impersonating an organisation</p>
-            <Button size="sm" variant="ghost" onClick={stopImpersonate}>Stop Impersonation</Button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {isImpersonating && (
+          <motion.div
+            key="imp"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/35 bg-warning/10 px-4 py-3">
+              <p className="flex items-center gap-2 text-sm text-warning">
+                <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning opacity-60" /><span className="relative h-2 w-2 rounded-full bg-warning" /></span>
+                You are currently impersonating an organisation
+              </p>
+              <Button size="sm" variant="ghost" onClick={stopImpersonate}>Stop Impersonation</Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ═══ FEATURE FLAGS ═══ */}
-      <Card variant="solid">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Feature Flags</p>
-        <p className="mt-1 text-xs text-text-dim">Select an organisation, toggle features, and save. Only enabled features will be accessible to that org.</p>
+      <section data-reveal="up" className="lamp-panel lamp-panel--lit p-5 sm:p-6">
+        <h2 className="text-xl text-text-primary">Feature flags</h2>
+        <p className="mt-1 max-w-[62ch] text-[13px] text-text-muted">Select an organisation, toggle features, and save. Only enabled features will be accessible to that org.</p>
 
         {/* Org selector */}
         <div className="mt-5">
-          <label className="mb-2 block font-mono text-[10px] uppercase tracking-wider text-text-dim">Select Organisation</label>
-          <select value={selectedOrg} onChange={(e) => setSelectedOrg(e.target.value)}
-            className="w-full max-w-md rounded-xl border border-line/15 bg-panel/70 px-4 py-3 text-sm text-white outline-none focus:border-primary/30">
+          <label htmlFor="access-org" className={LABEL}>Organisation</label>
+          <select id="access-org" value={selectedOrg} onChange={(e) => setSelectedOrg(e.target.value)} className={`${FIELD} max-w-md`}>
             <option value="">Choose an organisation...</option>
             {orgs.map((o) => (
               <option key={o.id} value={o.id}>{o.name} ({o.slug})</option>
@@ -139,76 +150,97 @@ export default function SAAccessPage() {
         </div>
 
         {/* Feature toggles */}
-        {selectedOrg && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-text-muted">
-                Managing: <span className="font-medium text-white">{orgName}</span>
-                <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[9px] text-primary">{enabledCount}/{FEATURES.length} enabled</span>
-              </p>
-              <div className="flex gap-2">
-                <button onClick={enableAll} className="rounded-lg bg-success/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-wider text-success transition hover:bg-success/20">Enable All</button>
-                <button onClick={disableAll} className="rounded-lg bg-danger/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-wider text-danger transition hover:bg-danger/20">Disable All</button>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {FEATURES.map((feat) => (
-                <div key={feat.key}
-                  className={`flex items-center justify-between rounded-xl border px-4 py-3.5 transition ${
-                    flags[feat.key] ? "border-success/20 bg-success/5" : "border-line/10 bg-black/10"
-                  }`}>
-                  <div>
-                    <p className={`text-sm font-medium ${flags[feat.key] ? "text-white" : "text-text-muted"}`}>{feat.label}</p>
-                    <p className="text-[10px] text-text-dim">{feat.description || feat.desc}</p>
+        <AnimatePresence mode="wait">
+          {selectedOrg && (
+            <motion.div key={selectedOrg} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mt-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-text-muted">
+                    Managing <span className="font-medium text-text-primary">{orgName}</span>
+                  </p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <div className="h-1.5 w-40 overflow-hidden rounded-full bg-white/[0.06]">
+                      <motion.div
+                        className="h-full origin-left rounded-full bg-success"
+                        initial={false}
+                        animate={{ scaleX: FEATURES.length ? enabledCount / FEATURES.length : 0 }}
+                        transition={{ type: "spring", stiffness: 160, damping: 22 }}
+                      />
+                    </div>
+                    <span className="lamp-numerals text-[13px] text-text-muted">{enabledCount}/{FEATURES.length} enabled</span>
                   </div>
-                  <button onClick={() => toggle(feat.key)}
-                    className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${flags[feat.key] ? "bg-success" : "bg-white/10"}`}>
-                    <motion.span
-                      animate={{ x: flags[feat.key] ? 22 : 3 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                      className="absolute top-1 h-5 w-5 rounded-full bg-white shadow"
-                    />
-                  </button>
                 </div>
-              ))}
-            </div>
+                <div className="flex gap-2">
+                  <button onClick={enableAll} className="min-h-[40px] rounded-xl bg-success/10 px-3 text-[13px] font-medium text-success transition hover:bg-success/20">Enable All</button>
+                  <button onClick={disableAll} className="min-h-[40px] rounded-xl bg-danger/10 px-3 text-[13px] font-medium text-danger transition hover:bg-danger/20">Disable All</button>
+                </div>
+              </div>
 
-            <div className="mt-5 flex items-center gap-3">
-              <Button onClick={saveFlags} loading={saving}>
-                Save Feature Flags
-              </Button>
-              <span className="text-xs text-text-dim">Changes apply immediately after saving</span>
-            </div>
-          </motion.div>
-        )}
-      </Card>
+              <div data-stagger="up" className="grid gap-3 sm:grid-cols-2">
+                {FEATURES.map((feat, i) => {
+                  const on = !!flags[feat.key];
+                  return (
+                    <div key={feat.key}
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition-colors duration-300 ${
+                        on ? "border-success/25 bg-success/[0.06]" : "border-[rgb(var(--rule))] bg-white/[0.02]"
+                      }`}>
+                      <div className="min-w-0">
+                        <p className={`text-sm font-medium transition-colors ${on ? "text-text-primary" : "text-text-muted"}`}>{feat.label}</p>
+                        <p className="text-[12px] text-text-dim">{feat.description || feat.desc}</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        aria-label={`Toggle ${feat.label}`}
+                        onClick={() => toggle(feat.key)}
+                        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-300 ${on ? "bg-success" : "bg-white/10"}`}>
+                        {/* Index-based delay makes Enable all / Disable all ripple across the grid. */}
+                        <motion.span
+                          animate={{ x: on ? 22 : 3 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 25, delay: (i % 20) * 0.025 }}
+                          className="absolute left-0 top-1 h-5 w-5 rounded-full bg-[rgb(var(--color-text-primary))] shadow"
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button onClick={saveFlags} loading={saving}>
+                  Save Feature Flags
+                </Button>
+                <span className="text-[13px] text-text-dim">Changes apply immediately after saving</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
 
       {/* ═══ IMPERSONATION ═══ */}
-      <Card variant="glass" className="border-warning/10">
-        <div className="flex items-center gap-2">
-          <span className="text-warning">⚠</span>
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-warning">Dangerous Operation</p>
-        </div>
-        <p className="mt-2 text-xs text-text-muted">
+      <section data-reveal="up" className="lamp-panel mt-6 border-warning/25 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg text-warning">
+          <TriangleAlert className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          Impersonate an organisation
+        </h2>
+        <p className="mt-2 max-w-[66ch] text-[13px] leading-6 text-text-muted">
           Impersonation allows you to act as an organisation admin. All actions performed while impersonating will be logged in the audit trail. Use with extreme caution.
         </p>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
-          <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
-            <label className="mb-1 block text-[10px] text-text-dim">Organisation</label>
-            <select value={impOrg} onChange={(e) => setImpOrg(e.target.value)}
-              className="w-full rounded-xl border border-line/15 bg-panel/70 px-3 py-2.5 text-sm text-white outline-none">
+          <div className="w-full min-w-0 sm:min-w-[200px] sm:flex-1">
+            <label htmlFor="imp-org" className={LABEL}>Organisation</label>
+            <select id="imp-org" value={impOrg} onChange={(e) => setImpOrg(e.target.value)} className={FIELD}>
               <option value="">Select org...</option>
               {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </div>
-          <Button size="sm" variant="danger" onClick={handleImpersonate} loading={impersonating} disabled={!impOrg}>
+          <Button size="sm" variant="danger" onClick={handleImpersonate} loading={impersonating} disabled={!impOrg} className="w-full sm:w-auto">
             Impersonate
           </Button>
         </div>
-      </Card>
-    </motion.div>
+      </section>
     </div>
   );
 }

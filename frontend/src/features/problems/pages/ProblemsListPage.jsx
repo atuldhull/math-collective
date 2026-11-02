@@ -15,35 +15,26 @@
  * UX choices
  *   - Cards (not table) so each problem feels like a project you'd
  *     pick up, not a row to triage.
- *   - Filters live in a sticky sidebar on desktop, collapse to a
- *     drawer on mobile. The URL holds the filter state so a student
- *     can deep-link "AI/ML beginner problems from Kaggle" to a friend.
+ *   - Filters live in a bar under the page header; on phones the
+ *     chip rows collapse behind a "Filters" toggle. The URL holds the
+ *     filter state so a student can deep-link "AI/ML beginner problems
+ *     from Kaggle" to a friend.
  *   - Pagination not infinite-scroll — students searching for a
  *     specific problem need a stable address bar.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import { ChevronDown, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
 import { problems, bookmarks as bookmarksApi } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
 import BookmarkButton from "@/components/ui/BookmarkButton";
-
-const SOURCE_COLOR = {
-  SIH:        { bg: "rgba(249, 115, 22, 0.10)", border: "rgba(249, 115, 22, 0.35)", text: "#fdba74" },
-  GSoC:       { bg: "rgba(16, 185, 129, 0.10)", border: "rgba(16, 185, 129, 0.35)", text: "#6ee7b7" },
-  Kaggle:     { bg: "rgba(59, 130, 246, 0.10)", border: "rgba(59, 130, 246, 0.35)", text: "#93c5fd" },
-  MLH:        { bg: "rgba(236, 72, 153, 0.10)", border: "rgba(236, 72, 153, 0.35)", text: "#f9a8d4" },
-  Devfolio:   { bg: "rgba(168, 85, 247, 0.10)", border: "rgba(168, 85, 247, 0.35)", text: "#d8b4fe" },
-  Unstop:     { bg: "rgba(245, 158, 11, 0.10)", border: "rgba(245, 158, 11, 0.35)", text: "#fcd34d" },
-  OpenSource: { bg: "rgba(148, 163, 184, 0.10)", border: "rgba(148, 163, 184, 0.35)", text: "#cbd5e1" },
-};
-
-const DIFFICULTY_COLOR = {
-  beginner:     "#6ee7b7",
-  intermediate: "#fcd34d",
-  advanced:     "#fca5a5",
-};
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { PageHeader, TiltPanel, EmptyState } from "@/components/lamp";
+import { ScrollCurve } from "@/components/motion/ScrollFx";
+import { cn } from "@/lib/cn";
+import { SOURCE_HUE, SourceBadge, DifficultyMeter } from "@/features/problems/components/ProblemMeta";
 
 const PAGE_SIZE = 24;
 
@@ -56,10 +47,10 @@ export default function ProblemsListPage() {
   // the page lands so each card knows its initial saved state
   // without N+1 round trips.
   const [savedMap, setSavedMap] = useState({});
-  // Mobile: the source/domain/difficulty filter stack is hidden by
+  // Mobile: the source/domain/difficulty chip rows are hidden by
   // default behind a "Filters" toggle so students don't have to
   // scroll past the entire option pile to see the first result. On
-  // lg+ the sidebar is always visible (state ignored).
+  // lg+ the rows are always visible (state ignored).
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Derived filter values from URL — single source of truth so
@@ -121,69 +112,67 @@ export default function ProblemsListPage() {
 
   const clearAll = () => setParams(new URLSearchParams(), { replace: false });
   const hasFilters = q || source || domain || difficulty;
+  const activeCount = [source, domain, difficulty].filter(Boolean).length;
 
   return (
-    <div className="mx-auto w-full max-w-7xl pb-20 pt-10">
-      {/* ── Header ── */}
-      <motion.header
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mb-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
-      >
-        <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">PROBLEM REPOSITORY</p>
-          <h1 className="font-display mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-            Real-world problems to actually build.
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-text-muted">
-            Hand-curated catalogue of problem statements from SIH, GSoC, Kaggle, MLH and
-            the open-source world. Each one has the official source, datasets if any, and
-            a short "how to start" so you don't stare at a blank file.
-          </p>
-        </div>
-        <Link
-          to="/problems/submit"
-          className="self-start rounded-lg border border-primary/40 bg-primary/15 px-4 py-2.5 text-center font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 sm:self-auto sm:py-2"
-        >
-          + Submit problem
-        </Link>
-      </motion.header>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px,1fr]">
-        {/* ── Sidebar (sticky on desktop) ── */}
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          {/* Search bar — always visible on every breakpoint. The
-              one filter students reach for constantly. */}
-          <SearchBox value={q} onChange={(v) => setFilter("q", v)} />
-
-          {/* Mobile-only "Filters" toggle. On lg+ this button hides
-              and the filter groups below are always rendered. */}
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={filtersOpen}
-            className="flex w-full items-center justify-between rounded-lg border border-line/20 bg-white/[0.03] px-3 py-3 font-mono text-[11px] uppercase tracking-wider text-text-soft transition hover:border-primary/40 hover:text-white lg:hidden"
+    <div className="mx-auto w-full max-w-7xl pb-20">
+      <PageHeader
+        context="Problem repository"
+        title="Real-world problems to actually build."
+        description={'Hand-curated problem statements from SIH, GSoC, Kaggle, MLH and the open-source world. Each one has the official source, datasets if any, and a short "how to start" so you don\'t stare at a blank file.'}
+        actions={
+          <Link
+            to="/problems/submit"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-[rgb(var(--color-obsidian))] shadow-[0_10px_30px_-12px_rgb(var(--lamp)/0.8)] transition hover:brightness-110"
           >
-            <span>
+            <Plus className="h-4 w-4" strokeWidth={1.75} />
+            Submit problem
+          </Link>
+        }
+      >
+        {/* ── Filter bar ── */}
+        <div className="lamp-panel p-3 sm:p-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Search — always visible on every breakpoint. The one
+                filter students reach for constantly. */}
+            <SearchBox value={q} onChange={(v) => setFilter("q", v)} />
+
+            {/* Mobile-only "Filters" toggle. On lg+ it hides and the
+                chip rows below are always rendered. */}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[rgb(var(--rule))] bg-surface/60 px-3.5 text-sm font-medium text-text-muted transition hover:border-primary/40 hover:text-text-primary lg:hidden"
+            >
               Filters
               {hasFilters && (
-                <span className="ml-2 rounded-full bg-primary/20 px-1.5 py-0.5 text-[9px] text-white">
-                  active
+                <span className="rounded-full bg-primary/20 px-1.5 text-[11px] text-primary">
+                  {activeCount || "active"}
                 </span>
               )}
-            </span>
-            <span className={"transition " + (filtersOpen ? "rotate-90" : "")}>▶</span>
-          </button>
+              <ChevronDown
+                className={cn("h-4 w-4 transition-transform duration-300", filtersOpen && "rotate-180")}
+                strokeWidth={1.75}
+              />
+            </button>
 
-          {/* Filter groups — collapsed by default on mobile, always
-              visible on lg. The `lg:!block` override beats the
-              conditional `hidden`. */}
-          <div className={"space-y-4 " + (filtersOpen ? "block" : "hidden") + " lg:!block"}>
+            <p className="ml-auto hidden text-[13px] font-medium text-text-muted sm:block" aria-live="polite">
+              {state.loading
+                ? "Loading…"
+                : <><AnimatedNumber value={state.total} duration={0.8} /> problem{state.total === 1 ? "" : "s"}</>}
+            </p>
+          </div>
+
+          {/* Chip rows — collapsed by default on mobile, always
+              visible on lg. The `lg:!grid` override beats `hidden`. */}
+          <div className={cn("mt-3 gap-3 border-t border-[rgb(var(--rule))] pt-3", filtersOpen ? "grid" : "hidden", "lg:!grid")}>
             <FilterGroup
               label="Source"
               value={source}
               onChange={(v) => setFilter("source", v)}
               options={facets.sources}
+              hue={(opt) => SOURCE_HUE[opt]}
             />
             <FilterGroup
               label="Domain"
@@ -198,59 +187,71 @@ export default function ProblemsListPage() {
               options={["beginner", "intermediate", "advanced"]}
             />
             {hasFilters && (
-              <button
-                onClick={clearAll}
-                className="w-full rounded-lg border border-line/20 bg-white/[0.03] px-3 py-2.5 font-mono text-[11px] uppercase tracking-wider text-text-muted transition hover:border-primary/40 hover:text-white"
-              >
-                clear filters
-              </button>
+              <div>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-[13px] font-medium text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Clear filters
+                </button>
+              </div>
             )}
           </div>
-        </aside>
+        </div>
+      </PageHeader>
 
-        {/* ── Results ── */}
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-text-dim">
-              {state.loading
-                ? "loading…"
-                : `${state.total.toLocaleString()} problem${state.total === 1 ? "" : "s"}`}
-            </p>
+      {/* ── Results ── */}
+      <section>
+        <ScrollCurve tone="violet" className="mb-6 h-10 sm:h-12" start="top 92%" end="top 40%" />
+        <p className="mb-4 text-[13px] font-medium text-text-muted sm:hidden">
+          {state.loading
+            ? "Loading…"
+            : `${state.total.toLocaleString()} problem${state.total === 1 ? "" : "s"}`}
+        </p>
+
+        {state.loading && (
+          <div className="flex justify-center py-20">
+            <Loader variant="orbit" />
           </div>
+        )}
 
-          {state.loading && (
-            <div className="flex justify-center py-20">
-              <Loader variant="orbit" />
-            </div>
-          )}
+        {state.error && !state.loading && (
+          <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-sm text-danger">
+            {state.error}
+          </div>
+        )}
 
-          {state.error && !state.loading && (
-            <div className="rounded-2xl border border-danger/30 bg-danger/8 p-6 text-sm text-danger">
-              {state.error}
-            </div>
-          )}
+        {!state.loading && !state.error && state.data.length === 0 && (
+          <EmptyState
+            title="No problems match these filters."
+            body="Try clearing one of them, or search for a broader word."
+            action={hasFilters ? (
+              <button
+                type="button"
+                onClick={clearAll}
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-primary/40 bg-primary/10 px-4 text-sm font-medium text-primary transition hover:bg-primary/15"
+              >
+                Clear filters
+              </button>
+            ) : null}
+          />
+        )}
 
-          {!state.loading && !state.error && state.data.length === 0 && (
-            <div className="rounded-2xl border border-line/15 bg-surface/40 p-10 text-center">
-              <p className="font-display text-lg text-white">No problems match these filters.</p>
-              <p className="mt-2 text-sm text-text-muted">Try clearing one of them.</p>
-            </div>
-          )}
+        {!state.loading && state.data.length > 0 && (
+          <ul data-stagger="fog" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {state.data.map((p, i) => (
+              <ProblemCard key={p.id} p={p} index={i} saved={Boolean(savedMap[p.id])} />
+            ))}
+          </ul>
+        )}
 
-          {!state.loading && state.data.length > 0 && (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {state.data.map((p, i) => (
-                <ProblemCard key={p.id} p={p} index={i} saved={Boolean(savedMap[p.id])} />
-              ))}
-            </ul>
-          )}
-
-          {/* Pagination */}
-          {!state.loading && totalPages > 1 && (
-            <Pagination page={page} totalPages={totalPages} onChange={(n) => setFilter("page", String(n))} />
-          )}
-        </section>
-      </div>
+        {/* Pagination */}
+        {!state.loading && totalPages > 1 && (
+          <Pagination page={page} totalPages={totalPages} onChange={(n) => setFilter("page", String(n))} />
+        )}
+      </section>
     </div>
   );
 }
@@ -270,37 +271,56 @@ function SearchBox({ value, onChange }) {
   }, [local, value, onChange]);
 
   return (
-    <div>
-      <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.2em] text-text-dim">Search</label>
+    <label className="relative min-w-0 flex-1 basis-[220px]">
+      <span className="sr-only">Search</span>
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" strokeWidth={1.75} />
       <input
         type="search"
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         placeholder="theorem, OCR, blockchain…"
-        className="w-full rounded-lg border border-line/20 bg-panel/70 px-3 py-2 text-sm text-white outline-none transition focus:border-primary/40"
+        className="min-h-[44px] w-full rounded-xl border border-[rgb(var(--rule))] bg-obsidian/40 py-2 pl-10 pr-3 text-sm text-text-primary outline-none transition placeholder:text-text-dim focus:border-primary/50 focus:shadow-[0_0_0_4px_rgb(var(--lamp)/0.08)]"
       />
-    </div>
+    </label>
   );
 }
 
-function FilterGroup({ label, value, onChange, options }) {
+function FilterGroup({ label, value, onChange, options, hue }) {
+  const sliderId = useId();
+  if (!options?.length) return null;
   return (
-    <div>
-      <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-text-dim">{label}</p>
-      <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-4">
+      <p className="w-20 shrink-0 text-[13px] font-medium text-text-muted">{label}</p>
+      <div className="scrollbar-none -mx-1 flex min-w-0 gap-1.5 overflow-x-auto px-1 pb-0.5 lg:flex-wrap lg:overflow-visible">
         {options.map((opt) => {
           const active = value === opt;
+          const h = hue?.(opt);
           return (
             <button
               key={opt}
+              type="button"
               onClick={() => onChange(active ? "" : opt)}
-              className={`rounded-md px-3 py-2 text-left text-sm transition sm:py-1.5 sm:text-xs ${
-                active
-                  ? "bg-primary/15 text-white ring-1 ring-primary/40"
-                  : "text-text-muted active:bg-white/[0.06] hover:bg-white/[0.04] hover:text-white"
-              }`}
+              aria-pressed={active}
+              className={cn(
+                "relative inline-flex min-h-[40px] shrink-0 items-center gap-2 rounded-xl px-3 text-[13px] capitalize transition-colors sm:min-h-[34px]",
+                active ? "text-text-primary" : "text-text-muted hover:bg-white/[0.04] hover:text-text-primary",
+              )}
             >
-              {opt}
+              {active && (
+                <motion.span
+                  layoutId={sliderId}
+                  className="absolute inset-0 rounded-xl border border-primary/45 bg-primary/15"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              {h && (
+                <span
+                  aria-hidden="true"
+                  className="relative h-2 w-2 rounded-full"
+                  style={{ background: `rgb(${h})`, boxShadow: active ? `0 0 10px rgb(${h})` : "none" }}
+                />
+              )}
+              <span className="relative">{opt}</span>
             </button>
           );
         })}
@@ -309,57 +329,44 @@ function FilterGroup({ label, value, onChange, options }) {
   );
 }
 
-function ProblemCard({ p, index, saved }) {
-  const colors = SOURCE_COLOR[p.source] || SOURCE_COLOR.OpenSource;
+function ProblemCard({ p, saved }) {
   return (
-    <motion.li
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: Math.min(index * 0.03, 0.3), ease: [0.16, 1, 0.3, 1] }}
-      className="relative"
-    >
+    <li className="relative">
       {/* Bookmark sits OUTSIDE the <Link> so a click on it doesn't
           navigate. Absolutely positioned over the card's top-right. */}
       <div className="absolute right-3 top-3 z-10">
         <BookmarkButton type="problem" id={p.id} initial={saved} compact />
       </div>
 
-      <Link
+      <TiltPanel
+        as={Link}
         to={`/problems/${p.slug || p.id}`}
-        className="flex h-full flex-col rounded-2xl border border-line/15 bg-surface/60 p-5 shadow-panel transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg"
+        className="group flex h-full flex-col p-5 transition-colors hover:border-primary/30"
       >
-        <div className="mb-3 flex items-center gap-2 pr-9">
-          <span
-            className="rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider"
-            style={{ background: colors.bg, border: `1px solid ${colors.border}`, color: colors.text }}
-          >
-            {p.source}{p.source_event ? ` · ${p.source_event.replace(p.source + " ", "")}` : ""}
-          </span>
-          <span
-            className="rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider"
-            style={{ color: DIFFICULTY_COLOR[p.difficulty], border: `1px solid ${DIFFICULTY_COLOR[p.difficulty]}33` }}
-          >
-            {p.difficulty}
-          </span>
+        <div className="mb-4 flex min-w-0 items-center gap-3 pr-10">
+          <SourceBadge source={p.source} event={p.source_event} />
+          <DifficultyMeter level={p.difficulty} />
         </div>
 
-        <h3 className="font-display text-base font-semibold leading-snug text-white">{p.title}</h3>
+        <h3 className="text-[1.05rem] font-semibold leading-snug text-text-primary transition-colors group-hover:text-primary">
+          {p.title}
+        </h3>
 
         {p.organisation && (
-          <p className="mt-2 text-xs text-text-muted">{p.organisation}</p>
+          <p className="mt-2 text-[13px] text-text-muted">{p.organisation}</p>
         )}
 
-        <div className="mt-auto pt-4">
-          <div className="flex flex-wrap gap-1.5">
+        <div className="mt-auto pt-5">
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
             {(p.tags || []).slice(0, 4).map((t) => (
-              <span key={t} className="rounded-full bg-white/[0.04] px-2 py-0.5 font-mono text-[9px] text-text-dim">
+              <span key={t} className="text-xs text-text-dim">
                 #{t}
               </span>
             ))}
           </div>
         </div>
-      </Link>
-    </motion.li>
+      </TiltPanel>
+    </li>
   );
 }
 
@@ -372,15 +379,17 @@ function Pagination({ page, totalPages, onChange }) {
     return [...pages].filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
   }, [page, totalPages]);
 
+  const base = "flex h-10 min-w-[40px] items-center justify-center rounded-xl px-3 text-sm tabular-nums transition";
+
   return (
-    <nav className="mt-8 flex flex-wrap items-center justify-center gap-1 font-mono text-xs">
+    <nav data-reveal="fade" className="mt-10 flex flex-wrap items-center justify-center gap-1">
       <button
         disabled={page <= 1}
         onClick={() => onChange(page - 1)}
         aria-label="Previous page"
-        className="flex h-10 min-w-[40px] items-center justify-center rounded-md border border-line/20 bg-white/[0.03] px-3 text-text-muted transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30 sm:h-8"
+        className={cn(base, "border border-[rgb(var(--rule))] text-text-muted hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30")}
       >
-        ←
+        <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
       </button>
       {window.map((n, i) => {
         const gap = i > 0 && n - window[i - 1] > 1;
@@ -391,11 +400,12 @@ function Pagination({ page, totalPages, onChange }) {
               onClick={() => onChange(n)}
               aria-label={`Page ${n}`}
               aria-current={n === page ? "page" : undefined}
-              className={`flex h-10 min-w-[40px] items-center justify-center rounded-md px-3 transition sm:h-8 ${
+              className={cn(
+                base,
                 n === page
-                  ? "bg-primary/20 text-white ring-1 ring-primary/40"
-                  : "border border-line/20 bg-white/[0.03] text-text-muted hover:text-white"
-              }`}
+                  ? "bg-primary font-semibold text-[rgb(var(--color-obsidian))]"
+                  : "border border-[rgb(var(--rule))] text-text-muted hover:border-primary/30 hover:text-text-primary",
+              )}
             >
               {n}
             </button>
@@ -406,9 +416,9 @@ function Pagination({ page, totalPages, onChange }) {
         disabled={page >= totalPages}
         onClick={() => onChange(page + 1)}
         aria-label="Next page"
-        className="flex h-10 min-w-[40px] items-center justify-center rounded-md border border-line/20 bg-white/[0.03] px-3 text-text-muted transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30 sm:h-8"
+        className={cn(base, "border border-[rgb(var(--rule))] text-text-muted hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30")}
       >
-        →
+        <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
       </button>
     </nav>
   );

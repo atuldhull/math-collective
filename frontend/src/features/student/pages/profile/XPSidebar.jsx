@@ -1,142 +1,141 @@
-import { motion } from "framer-motion";
-import Card from "@/components/ui/Card";
+import { useRef } from "react";
+import { useGSAP } from "@gsap/react";
+import { Check, Lock } from "lucide-react";
+import gsap from "@/lib/gsap-setup";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { AsymptoteCurve } from "@/components/lamp";
 
+/**
+ * XP + title ladder. The bespoke beat: when the ladder scrolls in, a
+ * lamp-coloured spine climbs from the first rung to the viewer's
+ * current title, and each rung it passes lights its check as it goes.
+ */
 export default function XPSidebar({ xp, level, currentTitle, nextTitle, xpTitles, progressToNext }) {
+  const ladder = useRef(null);
+  const share = Math.max(0, Math.min(progressToNext, 100)) / 100;
+  const activeIdx = Math.max(0, xpTitles.findIndex((t) => t.title === currentTitle.title));
+  const spine = xpTitles.length > 1 ? activeIdx / (xpTitles.length - 1) : 1;
+
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const tl = gsap.timeline({
+        scrollTrigger: { trigger: ladder.current, start: "top 80%", once: true },
+      });
+      tl.fromTo("[data-spine]", { scaleY: 0 }, { scaleY: spine, duration: 0.25 * (activeIdx + 1) + 0.4, ease: "power2.inOut" })
+        .from("[data-rung]", { x: -16, autoAlpha: 0, duration: 0.5, stagger: 0.06, ease: "power3.out" }, 0)
+        .from("[data-lit]", { scale: 0, duration: 0.4, stagger: 0.25, ease: "back.out(3)" }, 0.2);
+    });
+    mm.add("(prefers-reduced-motion: reduce)", () => {
+      gsap.set("[data-spine]", { scaleY: spine });
+    });
+    return () => mm.revert();
+  }, { scope: ladder, dependencies: [spine, activeIdx], revertOnUpdate: true });
+
   return (
     <>
       {/* ── XP Card ── */}
-      <Card variant="glow">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-glow">
-          Experience
+      <section data-reveal="right" className="lamp-panel p-5 sm:p-6">
+        <p className="text-[13px] font-medium text-text-muted">Experience</p>
+        <p className="lamp-numerals mt-2 text-5xl leading-none text-text-primary">
+          <AnimatedNumber value={xp} duration={1.6} />
+          <span className="ml-2 text-base text-text-dim">XP</span>
         </p>
-        <div className="mt-4 text-center">
-          <p className="math-text text-5xl font-bold text-white">
-            {xp.toLocaleString()}
-          </p>
-          <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-text-dim">
-            Total XP
-          </p>
-        </div>
 
-        <div className="mt-6">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-text-muted">{currentTitle.title}</span>
-            <span className="font-mono text-xs text-white">
-              {nextTitle ? nextTitle.title : "Max Rank"}
-            </span>
-          </div>
-          <div className="mt-2 h-3 overflow-hidden rounded-full bg-white/5">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(progressToNext, 100)}%` }}
-              transition={{ delay: 0.6, duration: 1.2, ease: "easeOut" }}
-              className="relative h-full overflow-hidden rounded-full"
-              style={{ background: "var(--monument-sky)" }}
-            >
-              <span
-                className="absolute inset-0"
-                style={{
-                  background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%)",
-                  backgroundSize: "200% 100%",
-                  animation: "xpShimmer 2s ease-in-out infinite",
-                }}
-              />
-            </motion.div>
-          </div>
-          <style>{`@keyframes xpShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
-          {nextTitle && (
-            <p className="mt-2 text-center text-xs text-text-dim">
-              {((nextTitle.minXp || 0) - xp).toLocaleString()} XP to{" "}
-              <span className="text-white">{nextTitle.title}</span>
-            </p>
-          )}
+        <AsymptoteCurve progress={share} className="mt-5 h-16 w-full" />
+
+        <div className="mt-4 flex items-center justify-between text-[13px]">
+          <span className="text-text-muted">{currentTitle.title}</span>
+          <span className="text-text-primary">
+            {nextTitle ? nextTitle.title : "Max Rank"}
+          </span>
         </div>
-      </Card>
+        <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+          <div
+            className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-[linear-gradient(90deg,rgb(var(--violet)),rgb(var(--lamp)))] transition-transform duration-[1400ms] ease-out"
+            style={{ transform: `scaleX(${share})` }}
+          />
+        </div>
+        {nextTitle && (
+          <p className="mt-2 text-[13px] text-primary">
+            {((nextTitle.minXp || 0) - xp).toLocaleString()} XP to{" "}
+            <span className="text-text-primary">{nextTitle.title}</span>
+          </p>
+        )}
+      </section>
 
       {/* ── Title Progression ── */}
-      <Card variant="solid">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-secondary">
-          Title Progression
-        </p>
-        <h3 className="mt-2 font-display text-xl font-bold text-white">
-          Rank Ladder
-        </h3>
+      <section ref={ladder} className="lamp-panel p-5 sm:p-6">
+        <h3 className="text-lg text-text-primary">Title ladder</h3>
+        <p className="mt-1 text-[13px] text-text-muted">Each title unlocks at a fixed amount of XP.</p>
 
-        <div className="mt-5 space-y-2">
+        <ol className="relative mt-5 space-y-1">
+          {/* Spine — sits behind the rung markers, climbs to the current title. */}
+          <span aria-hidden="true" className="absolute bottom-5 left-[1.375rem] top-5 w-px bg-[rgb(var(--rule))]" />
+          <span
+            data-spine
+            aria-hidden="true"
+            className="absolute bottom-5 left-[1.375rem] top-5 w-px origin-top bg-primary shadow-[0_0_8px_rgb(var(--lamp)/0.8)]"
+            style={{ transform: `scaleY(${spine})` }}
+          />
           {xpTitles.map((t, i) => {
             const isActive = currentTitle.title === t.title;
             const isUnlocked = xp >= t.minXp;
 
             return (
-              <motion.div
+              <li
                 key={t.title}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + i * 0.06 }}
-                className={`flex items-center gap-3 rounded-2xl border px-4 py-2.5 transition ${
-                  isActive
-                    ? "border-primary/30 bg-primary/10"
-                    : isUnlocked
-                      ? "border-line/15 bg-white/[0.03]"
-                      : "border-line/8 bg-black/10 opacity-50"
+                data-rung
+                className={`relative flex min-h-[48px] items-center gap-3 rounded-xl px-2.5 py-2 ${
+                  isActive ? "bg-primary/10 ring-1 ring-primary/30" : ""
                 }`}
               >
                 <span
-                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                  {...(isUnlocked ? { "data-lit": true } : {})}
+                  className={`relative z-[1] flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
                     isActive
-                      ? "bg-primary/20 text-primary"
+                      ? "bg-primary text-[rgb(var(--color-obsidian))]"
                       : isUnlocked
-                        ? "bg-success/15 text-success"
-                        : "bg-white/5 text-text-dim"
+                        ? "bg-surface text-primary ring-1 ring-primary/40"
+                        : "bg-surface text-text-dim ring-1 ring-[rgb(var(--rule))]"
                   }`}
                 >
-                  {isUnlocked ? "\u2713" : i + 1}
+                  {isUnlocked ? <Check className="h-3.5 w-3.5" strokeWidth={2} /> : <Lock className="h-3 w-3" strokeWidth={1.75} />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p
-                    className={`truncate text-sm font-medium ${
-                      isActive ? "text-white" : "text-text-muted"
-                    }`}
-                  >
+                  <p className={`truncate text-sm ${isActive ? "font-medium text-text-primary" : isUnlocked ? "text-text-muted" : "text-text-dim"}`}>
                     {t.title}
                   </p>
-                  <p className="math-text text-[10px] text-text-dim">
-                    {(t.minXp ?? 0).toLocaleString()} XP
-                  </p>
                 </div>
+                <span className="shrink-0 text-[12px] tabular-nums text-text-dim">
+                  {(t.minXp ?? 0).toLocaleString()} XP
+                </span>
                 {isActive && (
-                  <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-primary">
+                  <span className="shrink-0 text-[12px] font-medium text-primary">
                     Current
                   </span>
                 )}
-              </motion.div>
+              </li>
             );
           })}
-        </div>
-      </Card>
+        </ol>
+      </section>
 
       {/* ── Quick Stats ── */}
-      <Card variant="glass">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-warning">
-          Quick Stats
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-4 text-center">
-          <div>
-            <p className="math-text text-2xl font-bold text-white">{level}</p>
-            <p className="font-mono text-[10px] uppercase tracking-wider text-text-dim">
-              Level
-            </p>
-          </div>
-          <div>
-            <p className="math-text text-2xl font-bold text-white">
-              {xp.toLocaleString()}
-            </p>
-            <p className="font-mono text-[10px] uppercase tracking-wider text-text-dim">
-              XP
-            </p>
-          </div>
+      <section data-reveal="right" className="lamp-panel grid grid-cols-2 divide-x divide-[rgb(var(--rule))] p-5">
+        <div className="pr-4">
+          <p className="text-[13px] text-text-muted">Level</p>
+          <p className="lamp-numerals mt-1 text-3xl text-text-primary">
+            <AnimatedNumber value={level} duration={1} />
+          </p>
         </div>
-      </Card>
+        <div className="pl-4">
+          <p className="text-[13px] text-text-muted">XP</p>
+          <p className="lamp-numerals mt-1 text-3xl text-text-primary">
+            <AnimatedNumber value={xp} duration={1.4} />
+          </p>
+        </div>
+      </section>
     </>
   );
 }

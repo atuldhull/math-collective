@@ -4,6 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { events as eventsApi } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 import { useReducedMotionPreference } from "@/hooks/useReducedMotionPreference";
+import { ArrowRight, Megaphone, X } from "lucide-react";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 // Dismissal is remembered per-message: publishing a NEW notice re-shows
 // the bar to people who dismissed the previous one.
@@ -33,6 +35,8 @@ export default function AnnouncementBar() {
   const status = useAuthStore((s) => s.status);
   const reducedMotion = useReducedMotionPreference();
   const navigate = useNavigate();
+  const lamp = useIsLamplight();
+  const t = (a, b) => (lamp ? a : b);
   const [settings, setSettings] = useState(null);
   const [dismissed, setDismissed] = useState(() => readDismissed());
 
@@ -93,8 +97,26 @@ export default function AnnouncementBar() {
             onKeyDown={(e) => {
               if (e.key === "Enter") navigate("/login");
             }}
-            className="flex cursor-pointer items-center justify-center gap-2 border-b border-primary/25 bg-gradient-to-r from-primary/15 via-secondary/10 to-primary/15 px-3 py-2.5 backdrop-blur-xl sm:gap-3 sm:px-4"
+            className={t(
+              "relative flex cursor-pointer items-center justify-center gap-2 overflow-hidden border-b border-[rgb(var(--lamp)/0.22)] bg-[rgb(var(--color-surface)/0.85)] bg-[linear-gradient(90deg,rgb(var(--lamp)/0.1),rgb(var(--violet)/0.08),rgb(var(--lamp)/0.1))] px-3 py-2 backdrop-blur-xl sm:gap-3 sm:px-4",
+              "flex cursor-pointer items-center justify-center gap-2 border-b border-primary/25 bg-gradient-to-r from-primary/15 via-secondary/10 to-primary/15 px-3 py-2.5 backdrop-blur-xl sm:gap-3 sm:px-4",
+            )}
           >
+            {lamp ? (
+              <>
+                {/* One glint of lamplight crosses the bar as it opens. */}
+                {!reducedMotion && (
+                  <motion.span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-[linear-gradient(90deg,transparent,rgb(var(--lamp)/0.22),transparent)]"
+                    initial={{ x: "-100%" }}
+                    animate={{ x: "400%" }}
+                    transition={{ duration: 1.6, ease: [0.65, 0, 0.35, 1], delay: 0.35 }}
+                  />
+                )}
+                <Megaphone className="hidden h-4 w-4 shrink-0 text-primary sm:block" strokeWidth={1.75} aria-hidden="true" />
+              </>
+            ) : (
             <svg
               className="hidden h-4 w-4 shrink-0 text-primary sm:block"
               fill="none"
@@ -109,6 +131,7 @@ export default function AnnouncementBar() {
                 d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
               />
             </svg>
+            )}
             {ticker ? (
               <div className="min-w-0 flex-1 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
                 <div
@@ -129,9 +152,9 @@ export default function AnnouncementBar() {
                           to="/register"
                           tabIndex={isClone ? -1 : 0}
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-block whitespace-nowrap rounded-full border border-primary/40 bg-primary/20 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white transition hover:bg-primary/30"
+                          className={t("inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-[12px] font-semibold text-[rgb(var(--color-obsidian))] shadow-[0_6px_18px_-8px_rgb(var(--lamp)/0.9)] transition hover:brightness-110", "inline-block whitespace-nowrap rounded-full border border-primary/40 bg-primary/20 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white transition hover:bg-primary/30")}
                         >
-                          Join now →
+                          {lamp ? <>Join now <ArrowRight className="h-3 w-3" strokeWidth={2} aria-hidden="true" /></> : "Join now →"}
                         </Link>
                       )}
                     </span>
@@ -145,9 +168,9 @@ export default function AnnouncementBar() {
                   <Link
                     to="/register"
                     onClick={(e) => e.stopPropagation()}
-                    className="ml-2 inline-block whitespace-nowrap rounded-full border border-primary/40 bg-primary/20 px-2.5 py-0.5 align-middle font-mono text-[10px] uppercase tracking-wider text-white transition hover:bg-primary/30"
+                    className={t("ml-2 align-middle inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-[12px] font-semibold text-[rgb(var(--color-obsidian))] shadow-[0_6px_18px_-8px_rgb(var(--lamp)/0.9)] transition hover:brightness-110", "ml-2 inline-block whitespace-nowrap rounded-full border border-primary/40 bg-primary/20 px-2.5 py-0.5 align-middle font-mono text-[10px] uppercase tracking-wider text-white transition hover:bg-primary/30")}
                   >
-                    Join now →
+                    {lamp ? <>Join now <ArrowRight className="h-3 w-3" strokeWidth={2} aria-hidden="true" /></> : "Join now →"}
                   </Link>
                 )}
               </p>
@@ -159,11 +182,14 @@ export default function AnnouncementBar() {
                 dismiss();
               }}
               aria-label="Dismiss announcement"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-text-muted transition hover:bg-white/10 hover:text-white"
+              className={t(
+                "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-text-muted transition hover:bg-[rgb(var(--lamp)/0.1)] hover:text-text-primary sm:h-8 sm:w-8",
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-text-muted transition hover:bg-white/10 hover:text-white",
+              )}
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {lamp ? <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" /> : <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              </svg>}
             </button>
           </div>
         </motion.div>

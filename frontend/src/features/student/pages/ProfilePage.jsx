@@ -1,8 +1,7 @@
-import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
-import MonumentBackground from "@/components/backgrounds/MonumentBackground";
-import MonumentHero from "@/components/monument/MonumentHero";
-import { useMonument } from "@/hooks/useMonument";
+import { Link } from "react-router-dom";
+import { PageHeader } from "@/components/lamp";
+import { ScrollCount } from "@/components/motion/ScrollFx";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { user } from "@/lib/api";
@@ -49,7 +48,6 @@ function getNextTitle(xp, titles) {
 }
 
 export default function ProfilePage() {
-  useMonument("sky");
 
   /* ── profile data ── */
   const [profile, setProfile] = useState(null);
@@ -256,9 +254,8 @@ export default function ProfilePage() {
      ═══════════════════════════════════════════ */
   if (loading) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="sky" intensity={0.2} />
-        <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
+      <div className="pb-16">
+        <div className="flex min-h-[60vh] items-center justify-center">
           <Loader variant="orbit" size="lg" label="Loading profile..." />
         </div>
       </div>
@@ -270,13 +267,15 @@ export default function ProfilePage() {
      ═══════════════════════════════════════════ */
   if (error) {
     return (
-      <div style={{ position: "relative" }}>
-        <MonumentBackground monument="sky" intensity={0.2} />
-        <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center gap-4">
-          <p className="text-danger">{error}</p>
-          <Button variant="secondary" size="sm" onClick={fetchProfile}>
-            Retry
-          </Button>
+      <div className="pb-16">
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="lamp-panel flex max-w-md flex-col items-center gap-4 px-6 py-10 text-center">
+            <p className="lamp-display text-xl text-text-primary">Your profile didn&apos;t load</p>
+            <p className="text-sm text-danger">{error}</p>
+            <Button variant="secondary" size="sm" onClick={fetchProfile}>
+              Retry
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -302,20 +301,31 @@ export default function ProfilePage() {
      MAIN RENDER
      ═══════════════════════════════════════════ */
   return (
-    <div style={{ position: "relative" }}>
-      <MonumentBackground monument="sky" intensity={0.2} />
+    <div className="pb-16">
+      {/* ── Page Header ── the curve doubles as the XP meter. */}
+      <PageHeader
+        context={currentTitle?.title ? `${currentTitle.title}, level ${level}` : `Level ${level}`}
+        title="Your profile"
+        description="How others see you, how far you've come, and the settings that keep your account yours."
+        progress={Math.max(0, Math.min(1, progressToNext / 100))}
+        actions={(profile.id || profile.user_id) ? (
+          <Link to={`/profile/${profile.id || profile.user_id}`}>
+            <Button variant="secondary" size="sm">See public profile</Button>
+          </Link>
+        ) : null}
+      />
 
-      <div className="relative z-10 space-y-8 pb-16">
-        {/* ── Page Header ── */}
-        <MonumentHero
-          monument="sky"
-          title="Your Profile"
-          subtitle="Pilot Dossier"
-        />
+      {/* The tally climbs as you scroll down into your own record. */}
+      <div className="relative -mt-2 mb-8">
+        <p className="relative flex flex-wrap items-baseline gap-x-3 gap-y-1 text-text-muted">
+          <ScrollCount value={xp} start="top 92%" end="top 35%" className="lamp-numerals text-4xl leading-none text-text-primary sm:text-5xl" />
+          <span className="text-sm">XP earned so far{nextTitle?.title ? `, on the way to ${nextTitle.title}` : ""}</span>
+        </p>
+      </div>
 
-        <div className="grid gap-8 xl:grid-cols-[1fr_380px]">
-          {/* ══════════════ LEFT COLUMN ══════════════ */}
-          <div className="space-y-8">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-8">
+        {/* ══════════════ LEFT COLUMN ══════════════ */}
+        <div className="min-w-0 space-y-6">
             <ProfileInfoCard
               profile={profile}
               editing={editing}
@@ -354,7 +364,7 @@ export default function ProfilePage() {
             {/* Public portfolio settings — handle, public toggle,
                 headline, socials. The portfolio itself lives at
                 /u/:handle and is auth-free for anyone with the URL. */}
-            <PortfolioSettingsCard />
+            <div data-reveal="up"><PortfolioSettingsCard /></div>
 
             <PasswordChangeSection
               showPassword={showPassword}
@@ -373,12 +383,7 @@ export default function ProfilePage() {
           </div>
 
           {/* ══════════════ RIGHT SIDEBAR ══════════════ */}
-          <motion.aside
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="space-y-6"
-          >
+          <aside className="min-w-0 space-y-6">
             <XPSidebar
               xp={xp}
               level={level}
@@ -396,8 +401,7 @@ export default function ProfilePage() {
 
             {/* ── Friends & Messages ── */}
             <FriendsSection />
-          </motion.aside>
-        </div>
+          </aside>
       </div>
     </div>
   );

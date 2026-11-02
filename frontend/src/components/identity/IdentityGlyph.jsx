@@ -42,6 +42,7 @@
 import { useEffect, useState } from "react";
 import { chat } from "@/lib/api";
 import { deriveSigil } from "@/lib/identity/sigil";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 const sigilCache = /** @type {Map<string, any>} */ (new Map());
 // Users whose /chat/keys/:id lookup already returned 404 in this
@@ -63,6 +64,7 @@ const missingKeyCache = /** @type {Set<string>} */ (new Set());
  */
 export default function IdentityGlyph({ sigil: sigilProp, userId, size = 40, inline = false, className = "", title }) {
   const [sigil, setSigil] = useState(sigilProp || null);
+  const lamp = useIsLamplight();
 
   useEffect(() => {
     if (sigilProp) { setSigil(sigilProp); return; }
@@ -96,7 +98,7 @@ export default function IdentityGlyph({ sigil: sigilProp, userId, size = 40, inl
   if (!sigil) {
     return (
       <span
-        className={`inline-block rounded-md bg-line/10 ${className}`}
+        className={lamp ? `inline-block rounded-lg border border-dashed border-[rgb(var(--rule))] ${className}` : `inline-block rounded-md bg-line/10 ${className}`}
         style={{ width: size, height: size }}
         aria-hidden
         title={title || "Identity not yet forged"}
@@ -110,9 +112,13 @@ export default function IdentityGlyph({ sigil: sigilProp, userId, size = 40, inl
 
   // Hexagonal clip for variants 6-7 — matches the app's existing
   // math-clip aesthetic (Button uses --clip-hex).
-  const clipStyle = sigil.variant >= 6
+  // Lamplight has no hexes: those variants become circles instead, which
+  // keeps the variant visually distinct without the clip-path notch.
+  const clipStyle = sigil.variant >= 6 && !lamp
     ? "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)"
     : undefined;
+  const round = lamp && sigil.variant >= 6;
+  const lampRing = lamp ? "inset 0 0 0 1px rgba(255,255,255,0.08), 0 4px 14px -6px rgba(0,0,0,0.6)" : undefined;
 
   // Corner accent for variants 4-5.
   const cornerAccent = sigil.variant === 4 || sigil.variant === 5;
@@ -128,8 +134,9 @@ export default function IdentityGlyph({ sigil: sigilProp, userId, size = 40, inl
           background: bgColor,
           color: fgColor,
           fontSize: size * 0.55,
-          borderRadius: clipStyle ? 0 : 6,
+          borderRadius: round ? "50%" : clipStyle ? 0 : lamp ? 8 : 6,
           clipPath: clipStyle,
+          boxShadow: lampRing,
           transform: `rotate(${sigil.rotation}deg)`,
           lineHeight: 1,
         }}
@@ -149,8 +156,9 @@ export default function IdentityGlyph({ sigil: sigilProp, userId, size = 40, inl
         width: size,
         height: size,
         background: bgColor,
-        borderRadius: clipStyle ? 0 : 8,
+        borderRadius: round ? "50%" : clipStyle ? 0 : lamp ? Math.max(8, size * 0.22) : 8,
         clipPath: clipStyle,
+        boxShadow: lampRing,
         transform: `rotate(${sigil.rotation}deg)`,
         overflow: "hidden",
       }}

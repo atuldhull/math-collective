@@ -16,7 +16,7 @@
 
 import { useEffect, useState } from "react";
 import { users } from "@/lib/api";
-import Card from "@/components/ui/Card";
+import { EmptyState } from "@/components/lamp";
 import Loader from "@/components/ui/Loader";
 import MutualFriendsStrip from "@/components/social/MutualFriendsStrip";
 import ActivityTimelineItem from "@/components/social/ActivityTimelineItem";
@@ -67,41 +67,38 @@ export default function OverviewTab({ userId, access }) {
 
   if (!showsMutual && !showsActivity) {
     return (
-      <Card variant="glass" className="py-10 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-text-dim">
-          Nothing to show here yet
-        </p>
-      </Card>
+      <EmptyState
+        compact
+        title="Nothing to show here yet"
+        body="Shared friends and recent activity will collect here as this member takes part."
+      />
     );
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div data-stagger="up" className="grid gap-4 md:grid-cols-2">
       {/* Mutual friends */}
       {showsMutual && (
-        <Card variant="glass">
-          <p className="mb-3 font-mono text-[10px] uppercase tracking-wider text-secondary">
+        <section className="lamp-panel p-5">
+          <h3 className="mb-3 text-lg text-text-primary">
             Mutual friends
-          </p>
+          </h3>
           <MutualFriendsStrip mutual={mutual.mutual} count={mutual.count} max={6} />
-        </Card>
+        </section>
       )}
 
       {/* Recent activity — always full-width on desktop if mutual is absent */}
       {showsActivity && (
-        <Card
-          variant="glass"
-          className={showsMutual ? "" : "md:col-span-2"}
-        >
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-primary">
+        <section className={`lamp-panel p-5 ${showsMutual ? "" : "md:col-span-2"}`}>
+          <h3 className="mb-2 text-lg text-text-primary">
             Recent activity
-          </p>
-          <div className="divide-y divide-line/10">
+          </h3>
+          <div className="divide-y divide-[rgb(var(--rule))]">
             {activity.map((item, i) => (
               <ActivityTimelineItem key={`${item.kind}-${i}`} item={item} />
             ))}
           </div>
-        </Card>
+        </section>
       )}
     </div>
   );

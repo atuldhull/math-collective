@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { defaultThemeId, hasChosenTheme, markThemeChosen } from "@/components/lamp/season";
 import "./themes.css";
 
 export const PUBLIC_THEMES = [
@@ -6,16 +7,20 @@ export const PUBLIC_THEMES = [
   { id: "arctic", name: "Arctic", note: "Ivory / ink / ice blue", hue: 214 },
   { id: "emerald", name: "Emerald Matrix", note: "Forest / mint / acid lime", hue: 151 },
   { id: "nebula", name: "Nebula", note: "Indigo / magenta / cyan", hue: 289 },
+  { id: "haunted", name: "Haunted", note: "Midnight / pumpkin / slime", hue: 24 },
 ];
 const ThemeContext = createContext(null);
 const KEY = "mc-public-theme";
+// A theme the visitor picked always wins; until they pick one, the
+// season decides (orange Haunted during Halloween).
 function initialTheme() {
   try {
     const saved = localStorage.getItem(KEY);
-    return PUBLIC_THEMES.some((item) => item.id === saved) ? saved : "obsidian";
+    if (hasChosenTheme() && PUBLIC_THEMES.some((item) => item.id === saved)) return saved;
   } catch {
-    return "obsidian";
+    /* fall through to the default */
   }
+  return defaultThemeId();
 }
 export function PublicThemeProvider({ children }) {
   const [theme, setTheme] = useState(initialTheme);
@@ -27,7 +32,7 @@ export function PublicThemeProvider({ children }) {
     }
   }, [theme]);
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme: (next) => { markThemeChosen(); setTheme(next); } }}>
       <div className="mc-public-theme" data-public-theme={theme}>
         {children}
       </div>

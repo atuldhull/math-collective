@@ -74,7 +74,7 @@ export default function InteractiveCursor({ enabled }) {
           width: expanded ? 18 : 12,
           height: expanded ? 18 : 12,
           opacity: isActive ? 1 : 0,
-          backgroundColor: expanded ? "rgba(var(--color-glow), 0.92)" : "rgba(var(--color-text-primary), 0.88)",
+          backgroundColor: expanded ? "rgb(var(--color-glow)/0.92)" : "rgb(var(--color-text-primary)/0.88)",
         }}
         transition={{ duration: 0.18, ease: "easeOut" }}
       />

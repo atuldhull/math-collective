@@ -1,15 +1,10 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { CalendarClock, Check, Search } from "lucide-react";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.5 },
-  }),
-};
+const labelCls = "mb-1.5 block text-[13px] font-medium text-text-muted";
+const fieldCls =
+  "w-full rounded-xl border border-[rgb(var(--rule))] bg-surface/60 px-4 py-3 text-sm text-text-primary placeholder-text-dim backdrop-blur outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/15 [color-scheme:dark]";
 
 export default function TestCreator({
   // Form state
@@ -32,158 +27,150 @@ export default function TestCreator({
   handleCreateTest,
 }) {
   return (
-    <motion.div custom={0} variants={fadeUp}>
-      <Card variant="glass">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">
-          Schedule
-        </p>
-        <h3 className="mt-2 font-display text-xl font-bold text-white">
-          Create Scheduled Test
-        </h3>
+    <section data-reveal="left" className="lamp-panel p-5 sm:p-6">
+      <div className="flex items-center gap-3">
+        <CalendarClock className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden="true" />
+        <h2 className="text-xl text-text-primary">Create scheduled test</h2>
+      </div>
 
-        <div className="mt-5 space-y-4">
-          {/* Title */}
+      <div className="mt-5 space-y-4">
+        <div>
+          <label htmlFor="test-title" className={labelCls}>Test title</label>
+          <input
+            id="test-title"
+            type="text"
+            placeholder="e.g. Weekly Challenge Set #5"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className={fieldCls}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="test-desc" className={labelCls}>Description</label>
+          <textarea
+            id="test-desc"
+            placeholder="Brief description of the test..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            className={`${fieldCls} resize-y`}
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
-              Test Title
-            </label>
+            <label htmlFor="test-start" className={labelCls}>Start date &amp; time</label>
             <input
-              type="text"
-              placeholder="e.g. Weekly Challenge Set #5"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-xl border border-line/15 bg-surface/50 px-4 py-3 text-sm text-white placeholder-text-dim backdrop-blur outline-none transition focus:border-primary/30"
+              id="test-start"
+              type="datetime-local"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className={fieldCls}
             />
           </div>
-
-          {/* Description */}
           <div>
-            <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
-              Description
-            </label>
-            <textarea
-              placeholder="Brief description of the test..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full resize-y rounded-xl border border-line/15 bg-surface/50 px-4 py-3 text-sm text-white placeholder-text-dim backdrop-blur outline-none transition focus:border-primary/30"
+            <label htmlFor="test-end" className={labelCls}>End date &amp; time</label>
+            <input
+              id="test-end"
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className={fieldCls}
             />
           </div>
+        </div>
 
-          {/* Date range */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
-                Start Date &amp; Time
-              </label>
-              <input
-                type="datetime-local"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-xl border border-line/15 bg-surface/50 px-4 py-3 text-sm text-white backdrop-blur outline-none transition focus:border-primary/30"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
-                End Date &amp; Time
-              </label>
-              <input
-                type="datetime-local"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-xl border border-line/15 bg-surface/50 px-4 py-3 text-sm text-white backdrop-blur outline-none transition focus:border-primary/30"
-              />
-            </div>
-          </div>
-
-          {/* Challenge selection */}
-          <div>
-            <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-text-dim">
-              Select Challenges ({selectedChallenges.length} selected)
-            </label>
+        <div>
+          <p className={labelCls}>
+            Select challenges (
+            <motion.span
+              key={selectedChallenges.length}
+              initial={{ y: -6, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="inline-block tabular-nums text-primary"
+            >
+              {selectedChallenges.length}
+            </motion.span>
+            {" "}selected)
+          </p>
+          <label className="relative mb-3 block">
+            <span className="sr-only">Search challenges</span>
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" strokeWidth={1.75} aria-hidden="true" />
             <input
               type="text"
               placeholder="Search challenges..."
               value={challengeSearch}
               onChange={(e) => setChallengeSearch(e.target.value)}
-              className="mb-3 w-full rounded-xl border border-line/15 bg-surface/50 px-4 py-2.5 text-sm text-white placeholder-text-dim backdrop-blur outline-none transition focus:border-primary/30"
+              className={`${fieldCls} py-2.5 pl-11`}
             />
+          </label>
 
-            {poolLoading ? (
-              <div className="space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-12 animate-pulse rounded-xl border border-line/10 bg-surface/30"
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
-                {filteredPool.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-text-dim">
-                    {challengeSearch ? "No challenges match" : "No challenges available"}
-                  </p>
-                ) : (
-                  filteredPool.map((c) => {
-                    const isSelected = selectedChallenges.includes(c._id);
-                    return (
-                      <button
-                        key={c._id}
-                        onClick={() => toggleChallenge(c._id)}
-                        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-left transition ${
-                          isSelected
-                            ? "border-primary/30 bg-primary/12 text-white"
-                            : "border-line/10 bg-black/10 text-text-muted hover:border-line/20 hover:text-white"
+          {poolLoading ? (
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-12 animate-pulse rounded-xl border border-[rgb(var(--rule))] bg-surface/30" />
+              ))}
+            </div>
+          ) : (
+            <div className="scrollbar-thin max-h-56 space-y-1.5 overflow-y-auto pr-1">
+              {filteredPool.length === 0 ? (
+                <p className="py-4 text-center text-sm text-text-dim">
+                  {challengeSearch ? "No challenges match" : "No challenges available"}
+                </p>
+              ) : (
+                filteredPool.map((c) => {
+                  const isSelected = selectedChallenges.includes(c._id);
+                  return (
+                    <motion.button
+                      key={c._id}
+                      type="button"
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => toggleChallenge(c._id)}
+                      aria-pressed={isSelected}
+                      className={`flex min-h-[48px] w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-left transition-colors ${
+                        isSelected
+                          ? "border-primary/35 bg-primary/10 text-text-primary"
+                          : "border-[rgb(var(--rule))] bg-black/10 text-text-muted hover:border-primary/25 hover:text-text-primary"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                          isSelected ? "border-primary bg-primary text-[rgb(var(--color-obsidian))]" : "border-[rgb(var(--rule))]"
                         }`}
                       >
-                        <span
-                          className={`flex h-5 w-5 items-center justify-center rounded-md border text-xs ${
-                            isSelected
-                              ? "border-primary bg-primary text-white"
-                              : "border-line/20 bg-transparent"
-                          }`}
-                        >
+                        <AnimatePresence>
                           {isSelected && (
-                            <svg
-                              className="h-3 w-3"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
+                            <motion.span initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}>
+                              <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+                            </motion.span>
                           )}
-                        </span>
-                        <div className="flex-1">
-                          <p className="text-sm">{c.title}</p>
-                          <p className="font-mono text-[10px] text-text-dim">
-                            {c.difficulty || "—"} &middot; {c.points ?? 0} pts
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-
-          <Button
-            onClick={handleCreateTest}
-            loading={creatingTest}
-            disabled={!title.trim() || selectedChallenges.length === 0}
-            size="sm"
-          >
-            Create Test
-          </Button>
+                        </AnimatePresence>
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm">{c.title}</p>
+                        <p className="mt-0.5 flex gap-3 text-[12px] text-text-dim">
+                          <span>{c.difficulty || "—"}</span>
+                          <span className="tabular-nums">{c.points ?? 0} pts</span>
+                        </p>
+                      </div>
+                    </motion.button>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
-      </Card>
-    </motion.div>
+
+        <Button
+          onClick={handleCreateTest}
+          loading={creatingTest}
+          disabled={!title.trim() || selectedChallenges.length === 0}
+          size="sm"
+        >
+          Create Test
+        </Button>
+      </div>
+    </section>
   );
 }

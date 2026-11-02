@@ -1,0 +1,237 @@
+/* Sign in / join under the Halloween treatment (HauntedAuth.jsx).
+   Scoped to .mc-auth-layout[data-haunted] so the normal public screen is
+   untouched. Colours come from the active public theme (--mc-*), plus a
+   fixed blood red. */
+
+.mc-public .mc-auth-layout[data-haunted] {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 5%;
+  align-items: start;
+  padding-top: 48px;
+}
+
+/* ── the scene ───────────────────────────────────────────────────── */
+.mc-haunt-scene {
+  position: relative;
+  min-height: 660px;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid var(--mc-line);
+  background:
+    radial-gradient(ellipse 70% 55% at 72% 18%, color-mix(in srgb, var(--mc-accent) 22%, transparent), transparent 70%),
+    linear-gradient(180deg, #120a1c 0%, #0b0610 55%, #050307 100%);
+  isolation: isolate;
+}
+.mc-haunt-copy {
+  position: relative;
+  z-index: 5;
+  padding: 40px 40px 0;
+  max-width: 34rem;
+}
+.mc-haunt-kicker {
+  font-size: 14px;
+  color: var(--mc-accent-2);
+  letter-spacing: 0.02em;
+}
+.mc-public .mc-haunt-title {
+  margin-top: 14px;
+  font-family: "Creepster", "Outfit", system-ui, sans-serif;
+  font-weight: 400;
+  font-size: clamp(46px, 5.6vw, 84px);
+  line-height: 0.98;
+  letter-spacing: 0.02em;
+  color: #f6ecde;
+  text-shadow: 0 0 28px color-mix(in srgb, var(--mc-accent) 45%, transparent), 0 3px 0 rgb(150 8 22 / 0.85);
+}
+.mc-haunt-title > span { display: inline-block; overflow: visible; }
+.mc-haunt-title [data-drip-word] { display: inline-block; }
+.mc-haunt-accent { color: var(--mc-accent); }
+.mc-haunt-sub {
+  margin-top: 18px;
+  max-width: 30rem;
+  color: #cbb9b0;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.mc-haunt-sky { position: absolute; inset: 0; z-index: 0; }
+.mc-haunt-star { position: absolute; border-radius: 50%; background: #f6ecde; box-shadow: 0 0 6px #fff; }
+
+.mc-haunt-moon-wrap { position: absolute; right: 13%; top: 16%; width: 170px; height: 170px; }
+.mc-haunt-moon {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 36% 34%, #fff3d6, #ffd08a 48%, color-mix(in srgb, var(--mc-accent) 90%, #000) 100%);
+  box-shadow: 0 0 70px 18px color-mix(in srgb, var(--mc-accent) 40%, transparent), 0 0 200px 70px color-mix(in srgb, var(--mc-accent) 16%, transparent);
+}
+.mc-haunt-crater { position: absolute; border-radius: 50%; background: rgb(150 80 30 / 0.28); box-shadow: inset 2px 2px 4px rgb(0 0 0 / 0.25); }
+.mc-haunt-orbit {
+  position: absolute; left: 50%; top: 50%; width: 0; height: 0;
+  transform: rotate(var(--start));
+}
+.mc-haunt-bat {
+  position: absolute; left: var(--r); top: 0; font-size: 26px;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 6px rgb(0 0 0 / 0.7)) brightness(0.55);
+}
+.mc-haunt-bat > span { display: inline-block; }
+.mc-haunt-cloud {
+  position: absolute; width: 260px; height: 54px; border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgb(60 46 70 / 0.85), transparent 70%);
+}
+
+.mc-haunt-land { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 62%; }
+.mc-haunt-hill { fill: #040205; }
+.mc-haunt-castle path { fill: #040205; }
+.mc-haunt-window { fill: var(--mc-accent); filter: drop-shadow(0 0 4px var(--mc-accent)); }
+.mc-haunt-tree line { stroke: #040205; }
+.mc-haunt-graves path { fill: #1a1320; stroke: #2c2234; stroke-width: 1; }
+.mc-haunt-rip { font: 700 11px Georgia, serif; fill: #4a3d52; text-anchor: middle; letter-spacing: 1px; }
+
+.mc-haunt-ghost {
+  position: absolute; left: 33%; bottom: 14%; font-size: 64px;
+  filter: drop-shadow(0 0 18px rgb(220 230 255 / 0.6)); opacity: 0;
+}
+.mc-haunt-pumpkin { position: absolute; right: 9%; bottom: 5%; font-size: 58px; line-height: 1; }
+.mc-haunt-pumpkin-glow {
+  position: absolute; inset: -40px; border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle, color-mix(in srgb, var(--mc-accent) 55%, transparent), transparent 65%);
+}
+.mc-haunt-eyes {
+  position: absolute; width: 26px; height: 8px;
+  background:
+    radial-gradient(ellipse 5px 4px at 6px 50%, var(--mc-accent-2) 90%, transparent),
+    radial-gradient(ellipse 5px 4px at 20px 50%, var(--mc-accent-2) 90%, transparent);
+  filter: drop-shadow(0 0 5px var(--mc-accent-2));
+}
+.mc-haunt-thread { position: absolute; left: 22%; top: 0; width: 1px; height: 150px; background: rgb(246 236 222 / 0.35); }
+.mc-haunt-spider { position: absolute; left: calc(22% - 13px); top: 0; font-size: 26px; }
+.mc-haunt-fog {
+  position: absolute; left: -20%; right: -20%; height: 30%; z-index: 4;
+  background: radial-gradient(ellipse 60% 60% at 50% 70%, rgb(200 190 210 / 0.16), transparent 70%);
+}
+
+/* ── the gravestone card ─────────────────────────────────────────── */
+.mc-haunt-card {
+  position: relative;
+  border-radius: 26px;
+  border: 1px solid color-mix(in srgb, var(--mc-accent) 30%, var(--mc-line));
+  background:
+    radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--mc-accent) 18%, transparent), transparent 60%),
+    linear-gradient(180deg, #1c1420, #120c14 70%);
+  box-shadow: 0 40px 90px -40px color-mix(in srgb, var(--mc-accent) 55%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.04);
+  overflow: visible;
+}
+.mc-public .mc-haunt-card svg[aria-hidden="true"],
+.mc-public .mc-haunt-card .mc-haunt-candle { display: block; }
+.mc-haunt-drips {
+  position: absolute; left: 14px; right: 14px; top: -1px; width: calc(100% - 28px); height: 46px;
+  pointer-events: none;
+}
+.mc-haunt-drips rect, .mc-haunt-drips ellipse { fill: rgb(150 8 22); }
+.mc-haunt-web {
+  position: absolute; right: 0; top: 0; width: 120px; height: 120px; pointer-events: none;
+  border-top-right-radius: 26px;
+}
+.mc-haunt-web line, .mc-haunt-web path { stroke: rgb(246 236 222 / 0.22); stroke-width: 0.8; }
+.mc-haunt-candle {
+  position: absolute; top: -34px; width: 14px; height: 34px; border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, #f2e6cc, #cbb894); pointer-events: none;
+}
+.mc-haunt-candle--l { left: 28px; }
+.mc-haunt-candle--r { right: 136px; height: 26px; top: -26px; }
+.mc-haunt-candle > span {
+  position: absolute; left: 50%; top: -20px; width: 10px; height: 18px; margin-left: -5px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: radial-gradient(circle at 50% 70%, #fff7da, var(--mc-accent) 60%, transparent 70%);
+  filter: drop-shadow(0 0 10px var(--mc-accent));
+  animation: mc-haunt-flame 0.18s steps(2) infinite alternate;
+}
+@keyframes mc-haunt-flame { to { transform: scale(0.85, 1.12) translateX(1px); opacity: 0.85; } }
+
+.mc-haunt-card-body { position: relative; padding: 56px 40px 36px; }
+
+/* Re-voice the shared form inside the card: readable labels, candle
+   glow fields, a pumpkin call to action. Text and behaviour are the
+   form's own. */
+.mc-public .mc-haunt-card h1,
+.mc-public .mc-haunt-card h2 {
+  font-family: "Creepster", "Outfit", system-ui, sans-serif !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.02em !important;
+  font-size: clamp(32px, 3vw, 44px) !important;
+  line-height: 1.05 !important;
+  color: #f6ecde !important;
+  text-shadow: 0 0 22px color-mix(in srgb, var(--mc-accent) 40%, transparent), 0 2px 0 rgb(150 8 22 / 0.85);
+}
+.mc-public .mc-haunt-card p { color: #cbb9b0; }
+.mc-public .mc-haunt-card :is(.font-mono, [class*="tracking-"]).uppercase:not(button),
+.mc-public .mc-haunt-card label > span:first-child {
+  font-family: "Outfit", system-ui, sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #e6d6c8 !important;
+}
+.mc-public .mc-haunt-card label > div {
+  border: 1px solid #3a2a36 !important;
+  border-radius: 14px !important;
+  background: #0d080e !important;
+  box-shadow: none !important;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.mc-public .mc-haunt-card label > div:focus-within {
+  border-color: var(--mc-accent) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--mc-accent) 18%, transparent), 0 0 30px -6px var(--mc-accent) !important;
+}
+.mc-public .mc-haunt-card input,
+.mc-public .mc-haunt-card textarea {
+  background: transparent !important;
+  border: 0 !important;
+  color: #f6ecde !important;
+}
+.mc-public .mc-haunt-card button {
+  font-family: "Outfit", system-ui, sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0.01em !important;
+  font-weight: 600 !important;
+  border-radius: 14px !important;
+  clip-path: none !important;
+}
+.mc-public .mc-haunt-card button[type="submit"] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mc-accent) 85%, #fff), var(--mc-accent) 55%, color-mix(in srgb, var(--mc-accent) 70%, #000)) !important;
+  color: #1a0904 !important;
+  border: 0 !important;
+  box-shadow: 0 16px 40px -14px var(--mc-accent), inset 0 1px 0 rgb(255 255 255 / 0.4) !important;
+  animation: mc-haunt-pulse 2.4s ease-in-out infinite;
+}
+@keyframes mc-haunt-pulse {
+  50% { box-shadow: 0 16px 60px -8px var(--mc-accent), inset 0 1px 0 rgb(255 255 255 / 0.4); }
+}
+.mc-public .mc-haunt-card button:not([type="submit"]) {
+  background: transparent !important;
+  border: 1px dashed color-mix(in srgb, var(--mc-accent) 55%, transparent) !important;
+  color: var(--mc-accent) !important;
+}
+.mc-public .mc-haunt-card a { color: var(--mc-accent); }
+
+@media (max-width: 1024px) {
+  .mc-public .mc-auth-layout[data-haunted] { grid-template-columns: 1fr; gap: 40px; padding-top: 32px; }
+  .mc-haunt-scene { min-height: 520px; }
+  .mc-haunt-card-body { padding: 52px 22px 28px; }
+  .mc-haunt-moon-wrap { width: 120px; height: 120px; right: 8%; top: 40%; }
+  .mc-haunt-candle--r { right: 110px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-haunt-candle > span, .mc-public .mc-haunt-card button[type="submit"] { animation: none; }
+  .mc-haunt-ghost { opacity: 0.7; }
+}
+
+/* Word spacing survives the inline-block word wrappers. */
+.mc-haunt-title > span { margin-right: 0.24em; }
+/* The heading's word masks would clip the glow into boxes; let it bleed. */
+.mc-public .mc-haunt-card :is(h1, h2) * { overflow: visible !important; }
+/* Keep the call to action legible, including while it waits for input. */
+.mc-public .mc-haunt-card button[type="submit"] * { color: inherit !important; }
+.mc-public .mc-haunt-card button[type="submit"]:disabled { opacity: 0.78 !important; filter: saturate(0.8); }

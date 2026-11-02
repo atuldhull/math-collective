@@ -5,23 +5,24 @@
  * (done/total), topic, difficulty, and the elevator-pitch summary.
  * Clicking a card → /roadmaps/:slug for the timeline.
  *
- * Visual hierarchy mirrors the problems catalogue: glass cards on a
- * scattered backdrop, monospace meta labels, primary colour reserved
- * for actionable elements.
+ * Visual hierarchy mirrors the problems catalogue: tilting lamp panels,
+ * the first featured roadmap lit and wider, progress bars that fill as
+ * the cards arrive.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Clock, Compass, Plus } from "lucide-react";
+import gsap from "@/lib/gsap-setup";
 import { roadmaps as roadmapsApi, bookmarks as bookmarksApi } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
 import BookmarkButton from "@/components/ui/BookmarkButton";
-
-const DIFFICULTY_TINT = {
-  beginner:     { border: "rgba(110, 231, 183, 0.35)", text: "#6ee7b7" },
-  intermediate: { border: "rgba(252, 211, 77, 0.35)",  text: "#fcd34d" },
-  advanced:     { border: "rgba(252, 165, 165, 0.4)",  text: "#fca5a5" },
-};
+import { PageHeader, TiltPanel, EmptyState } from "@/components/lamp";
+import { Flicker, ScrollCurve } from "@/components/motion/ScrollFx";
+import { DifficultyMeter } from "@/features/problems/components/ProblemMeta";
 
 export default function RoadmapsListPage() {
   const navigate = useNavigate();
@@ -82,33 +83,45 @@ export default function RoadmapsListPage() {
     return () => ctrl.abort();
   }, []);
 
+  // Progress bars fill as their cards scroll into view.
+  const root = useRef(null);
+  useGSAP(() => {
+    if (!list.length) return undefined;
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const bars = gsap.utils.toArray(root.current.querySelectorAll("[data-fill]"));
+      gsap.set(bars, { scaleX: 0 });
+      ScrollTrigger.batch(bars, {
+        start: "top 92%",
+        once: true,
+        onEnter: (batch) => gsap.to(batch, { scaleX: 1, duration: 1.4, ease: "expo.out", stagger: 0.08, delay: 0.25 }),
+      });
+    });
+    return () => mm.revert();
+  }, { scope: root, dependencies: [list.length], revertOnUpdate: true });
+
   return (
-    <div className="mx-auto w-full max-w-6xl pb-20 pt-8">
-      <motion.header
-        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mb-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
-      >
-        <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-dim">Learning</p>
-          <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl"
-              style={{ textWrap: "balance" }}>
-            Roadmaps
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm text-text-soft">
-            Sequenced paths from "I want to start" to "I shipped something defensible." Pick one,
-            tick off steps as you go, share the progress.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onCreate}
-          disabled={creating}
-          className="self-start rounded-lg border border-primary/40 bg-primary/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-white transition hover:bg-primary/20 disabled:opacity-50 sm:self-auto sm:py-2"
-        >
-          {creating ? "Creating…" : "+ Create roadmap"}
-        </button>
-      </motion.header>
+    <div ref={root} className="mx-auto w-full max-w-6xl pb-20">
+      <PageHeader
+        context="Roadmaps"
+        title="Paths worth *walking*."
+        description={'Sequenced paths from "I want to start" to "I shipped something defensible." Pick one, tick off steps as you go, share the progress.'}
+        actions={
+          <motion.button
+            type="button"
+            onClick={onCreate}
+            disabled={creating}
+            whileTap={{ scale: 0.96 }}
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-[rgb(var(--color-obsidian))] shadow-[0_10px_30px_-12px_rgb(var(--lamp)/0.8)] transition hover:brightness-110 disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.75} />
+            {creating ? "Creating…" : "Create roadmap"}
+          </motion.button>
+        }
+      />
+
+      {/* The trail draws itself as you walk down into the list. */}
+      <ScrollCurve className="mb-10 h-12 sm:h-16" start="top 92%" end="top 30%" />
 
       {loading && (
         <div className="flex min-h-[40vh] items-center justify-center">
@@ -117,21 +130,22 @@ export default function RoadmapsListPage() {
       )}
 
       {error && (
-        <div className="rounded-2xl border border-danger/30 bg-danger/8 p-6 text-sm text-danger">
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-sm text-danger">
           {error}
         </div>
       )}
 
       {!loading && !error && list.length === 0 && (
-        <p className="rounded-2xl border border-dashed border-line/15 bg-white/[0.02] p-8 text-center text-sm text-text-dim">
-          No roadmaps yet. Check back soon.
-        </p>
+        <EmptyState
+          title="No roadmaps yet."
+          body="Check back soon, or write the first one yourself."
+        />
       )}
 
       {/* Featured (admin-curated) */}
       {featured.length > 0 && (
         <Section title="Featured" subtitle="Hand-picked by Asymptotes">
-          <CardGrid items={featured} savedMap={savedMap} />
+          <CardGrid items={featured} savedMap={savedMap} featured />
         </Section>
       )}
 
@@ -156,23 +170,27 @@ export default function RoadmapsListPage() {
 
 function Section({ title, subtitle, children }) {
   return (
-    <section className="mt-10">
-      <div className="mb-3 flex items-end justify-between">
-        <div>
-          <h2 className="font-display text-lg font-semibold text-white">{title}</h2>
-          {subtitle && <p className="text-xs text-text-dim">{subtitle}</p>}
-        </div>
+    <section className="mt-12 first:mt-0">
+      <div className="mb-5">
+        <Flicker as="h2" className="text-2xl font-semibold text-text-primary">{title}</Flicker>
+        {subtitle && <p data-reveal="fade" className="mt-1 text-sm text-text-muted">{subtitle}</p>}
       </div>
       {children}
     </section>
   );
 }
 
-function CardGrid({ items, savedMap }) {
+function CardGrid({ items, savedMap, featured = false }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div data-stagger="fog" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((r, i) => (
-        <RoadmapCard key={r.id} r={r} delay={i * 0.04} saved={Boolean(savedMap[r.id])} />
+        <RoadmapCard
+          key={r.id}
+          r={r}
+          saved={Boolean(savedMap[r.id])}
+          lit={featured && i === 0}
+          wide={featured && i === 0 && items.length > 1}
+        />
       ))}
     </div>
   );
@@ -180,60 +198,67 @@ function CardGrid({ items, savedMap }) {
 
 /* ─────────────────────────────────────────────────────────── */
 
-function RoadmapCard({ r, delay, saved }) {
+const STATUS_TONE = {
+  draft:    "bg-white/[0.06] text-text-muted ring-[rgb(var(--rule))]",
+  pending:  "bg-warning/10 text-warning ring-warning/30",
+  rejected: "bg-danger/10 text-danger ring-danger/30",
+};
+
+function RoadmapCard({ r, saved, lit, wide }) {
   const pct = r.step_count > 0 ? Math.round((r.done_count / r.step_count) * 100) : 0;
-  const diff = DIFFICULTY_TINT[r.difficulty] || DIFFICULTY_TINT.intermediate;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] }}
-      className="relative"
-    >
+    <div className={"relative " + (wide ? "sm:col-span-2" : "")}>
       {/* Bookmark — absolutely positioned so the click doesn't
           bubble through to the Link. */}
       <div className="absolute right-3 top-3 z-10">
         <BookmarkButton type="roadmap" id={r.id} initial={saved} compact />
       </div>
-      <Link
+      <TiltPanel
+        as={Link}
+        lit={lit}
         to={`/roadmaps/${encodeURIComponent(r.slug)}`}
-        className="group block h-full rounded-2xl border border-line/15 bg-white/[0.025] p-5 transition hover:border-primary/40 hover:bg-white/[0.04]"
+        className="group flex h-full flex-col p-5 transition-colors hover:border-primary/35 sm:p-6"
       >
-        <div className="flex items-start justify-between gap-2 pr-9">
-          <span className="text-3xl leading-none" aria-hidden="true">{r.cover_emoji || "🧭"}</span>
-          <span
-            className="rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider"
-            style={{ borderColor: diff.border, color: diff.text }}
-          >
-            {r.difficulty}
+        <div className="flex items-center gap-3 pr-10">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/[0.05] text-[1.7rem] leading-none transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110" aria-hidden="true">
+            {r.cover_emoji || <Compass className="h-6 w-6 text-primary" strokeWidth={1.75} />}
           </span>
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-medium text-text-muted">{r.topic}</p>
+            <DifficultyMeter level={r.difficulty} />
+          </div>
         </div>
 
-        <h3 className="mt-3 font-display text-lg font-semibold tracking-tight text-white group-hover:text-primary transition"
-            style={{ textWrap: "balance" }}>
+        <h3
+          className={"mt-4 font-semibold leading-snug text-text-primary transition-colors group-hover:text-primary " + (wide ? "text-2xl" : "text-lg")}
+          style={{ textWrap: "balance" }}
+        >
           {r.title}
         </h3>
-        <p className="mt-2 text-sm leading-6 text-text-soft line-clamp-3">{r.summary}</p>
+        <p className="mt-2 line-clamp-3 text-sm leading-6 text-text-muted">{r.summary}</p>
 
-        <div className="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-text-dim">
-          <span>{r.topic}</span>
-          {r.est_hours ? <span>· ~{r.est_hours}h</span> : null}
-        </div>
-
-        <div className="mt-4">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.05]">
+        <div className="mt-auto pt-5">
+          <div className="mb-2 flex items-center justify-between gap-2 text-xs text-text-dim">
+            <span className="tabular-nums">
+              {r.done_count} of {r.step_count} steps
+              {r.est_hours ? <span className="ml-2 inline-flex items-center gap-1"><Clock className="inline h-3 w-3" strokeWidth={1.75} />{r.est_hours}h</span> : null}
+            </span>
+            {STATUS_TONE[r.submission_status] ? (
+              <span className={"rounded-md px-1.5 py-0.5 font-medium capitalize ring-1 " + STATUS_TONE[r.submission_status]}>{r.submission_status}</span>
+            ) : (
+              <span className={"lamp-numerals " + (pct > 0 ? "text-primary" : "")}>{pct}%</span>
+            )}
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
             <div
-              className="h-full rounded-full bg-primary/70 transition-all"
+              data-fill
+              className="h-full origin-left rounded-full bg-primary shadow-[0_0_10px_rgb(var(--lamp)/0.6)]"
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="mt-2 flex items-center justify-between font-mono text-[10px] text-text-dim">
-            <span>{r.done_count} / {r.step_count} steps</span>
-            <span>{pct}%</span>
-          </div>
         </div>
-      </Link>
-    </motion.div>
+      </TiltPanel>
+    </div>
   );
 }

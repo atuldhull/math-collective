@@ -25,7 +25,9 @@
 
 import { useRelationship } from "@/hooks/useRelationship";
 import { useUiStore } from "@/store/ui-store";
+import { MessageCircle } from "lucide-react";
 import Button from "@/components/ui/Button";
+import { useIsLamplight } from "@/components/lamp/SkinProvider";
 
 /**
  * @param {{
@@ -38,6 +40,7 @@ import Button from "@/components/ui/Button";
 export default function MessageButton({ userId, size = "sm", variant = "secondary", label = "Message" }) {
   const { state, loading } = useRelationship(userId);
   const openChatWith = useUiStore((s) => s.openChatWith);
+  const lamp = useIsLamplight();
 
   if (!userId)              return null;
   if (loading && !state)    return null;
@@ -52,8 +55,9 @@ export default function MessageButton({ userId, size = "sm", variant = "secondar
       variant={variant}
       onClick={() => openChatWith(userId)}
       aria-label={`Message this user`}
+      leading={lamp ? <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" /> : undefined}
     >
-      💬 {label}
+      {lamp ? label : <>💬 {label}</>}
     </Button>
   );
 }
