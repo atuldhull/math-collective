@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint-build-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright 1.59 has no install deps for Ubuntu 26 yet
 
     steps:
       - uses: actions/checkout@v4
