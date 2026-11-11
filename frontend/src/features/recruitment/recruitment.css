@@ -98,3 +98,27 @@
 @media (max-width: 900px) { .mc-recruit-layout { grid-template-columns: 1fr; } .mc-recruit-aside { display: none; } .mc-recruit-mobile-rules { display: block; } }
 @media (max-width: 600px) { .mc-recruit-wrap { padding: 28px 16px 75px; } .mc-recruit-intro { padding: 42px 0 35px; } .mc-recruit-intro > p:last-child { font-size: 14px; } .mc-recruit-card { padding: 20px; } .mc-recruit-grid, .mc-recruit-preferences { grid-template-columns: 1fr; } .mc-recruit-years { gap: 6px; } .mc-recruit-choice { min-height: 79px; padding: 10px; font-size: 15px; } .mc-recruit-choice-check { margin-top: -23px; } .mc-recruit-step { gap: 12px; margin-bottom: 21px; } }
 @media (prefers-reduced-motion: reduce) { .mc-recruitment *, .mc-recruitment *::before, .mc-recruitment *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+/* Branch and section are typed into rather than scrolled through: the list
+   below the box narrows as you type. The box itself reuses the select
+   styling so the two fields still look like the rest of the form. */
+.mc-recruit-combo { position: relative; }
+.mc-recruit-combo .mc-recruit-select input { width: 100%; padding-right: 40px; }
+.mc-recruit-options {
+  position: absolute; z-index: 20; inset-inline: 0; top: calc(100% + 4px);
+  max-height: 232px; overflow-y: auto; margin: 0; padding: 4px;
+  list-style: none; border: 1px solid var(--recruit-line); border-radius: 9px;
+  background: #221f1a; box-shadow: 0 16px 34px rgba(0, 0, 0, .45);
+}
+.mc-recruit-option {
+  padding: 9px 12px; border-radius: 6px; cursor: pointer;
+  color: var(--recruit-cream); font-size: 14px; line-height: 1.3;
+}
+.mc-recruit-option.is-active { background: rgba(238, 160, 91, .16); }
+.mc-recruit-option.is-chosen { color: var(--recruit-orange); font-weight: 500; }
+.mc-recruit-option--empty { color: var(--recruit-muted); cursor: default; font-size: 13px; }
+/* Visually hidden, still announced. */
+.mc-recruit-sr {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

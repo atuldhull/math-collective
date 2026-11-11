@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
+import FilterSelect from "./FilterSelect";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import http from "@/lib/http";
 import { recruitmentConfig, recruitmentErrors, recruitmentReady, recruitmentRulesAvailable } from "../../../../shared/recruitmentConfig.js";
 import "./recruitment.css";
@@ -172,13 +173,18 @@ export default function RecruitmentPage() {
                         onBlur={() => setTouched((current) => ({ ...current, usn: true }))} onChange={(event) => update("usn", event.target.value.toUpperCase())} placeholder="Your university seat number" /></Field>
                     {[["branch", "Branch", recruitmentConfig.branches], ["section", "Section", recruitmentConfig.sections]].map(([key, label, choices]) => (
                       <Field key={key} id={`recruit-${key}`} label={label} error={fieldError(key)}
-                        hint={`Select your official ${key} as shown on your college record.`}>
-                        <div className="mc-recruit-select"><select id={`recruit-${key}`} required value={form[key]}
-                          aria-invalid={Boolean(fieldError(key))} aria-describedby={`recruit-${key}-hint${fieldError(key) ? ` recruit-${key}-error` : ""}`}
-                          onBlur={() => setTouched((current) => ({ ...current, [key]: true }))} onChange={(event) => update(key, event.target.value)}>
-                          <option value="">Select your {key}</option>
-                          {choices.map((choice) => <option key={choice} value={choice}>{choice}</option>)}
-                        </select><ChevronDown size={17} aria-hidden="true" /></div>
+                        hint={`Start typing to filter the official ${key} list.`}>
+                        <FilterSelect
+                          id={`recruit-${key}`}
+                          label={label}
+                          options={choices}
+                          value={form[key]}
+                          invalid={Boolean(fieldError(key))}
+                          describedBy={`recruit-${key}-hint${fieldError(key) ? ` recruit-${key}-error` : ""}`}
+                          placeholder={`Type to filter ${label.toLowerCase()}`}
+                          onChange={(choice) => update(key, choice)}
+                          onBlur={() => setTouched((current) => ({ ...current, [key]: true }))}
+                        />
                       </Field>
                     ))}
                   </div>

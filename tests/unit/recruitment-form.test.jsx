@@ -88,14 +88,23 @@ describe("recruitment form", () => {
     expect(section).toBeRequired();
     expect(branch).toHaveValue("");
     expect(section).toHaveValue("");
-    expect(Array.from(branch.options, (option) => option.textContent)).toEqual([
-      "Select your branch", "CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS", "MECH",
-    ]);
-    expect(Array.from(section.options, (option) => option.textContent)).toEqual([
-      "Select your section", ...Array.from({ length: 15 }, (_, index) => String(index + 1)),
-    ]);
-    expect(screen.getByText("Select your official branch as shown on your college record.")).toBeInTheDocument();
-    expect(screen.getByText("Select your official section as shown on your college record.")).toBeInTheDocument();
+    // The approved list is what the box offers once it is opened. It is a
+    // combobox rather than a select now, so the options live in a listbox
+    // and narrow as the applicant types.
+    const optionsNow = () => screen.getAllByRole("option").map((o) => o.textContent);
+
+    fireEvent.focus(branch);
+    expect(optionsNow()).toEqual(["CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS", "MECH"]);
+    fireEvent.change(branch, { target: { value: "cs" } });
+    expect(optionsNow()).toEqual(["CSE", "CSBS"]);
+    fireEvent.keyDown(branch, { key: "Escape" });
+
+    fireEvent.focus(section);
+    expect(optionsNow()).toEqual(Array.from({ length: 15 }, (_, index) => String(index + 1)));
+    fireEvent.keyDown(section, { key: "Escape" });
+
+    expect(screen.getByText("Start typing to filter the official branch list.")).toBeInTheDocument();
+    expect(screen.getByText("Start typing to filter the official section list.")).toBeInTheDocument();
     fireEvent.blur(branch);
     fireEvent.blur(section);
     expect(screen.getByText("Select your branch.")).toBeInTheDocument();
