@@ -19,7 +19,7 @@ const ResetPasswordPage = lazy(() => import("@/features/auth/pages/ResetPassword
 export const authRoutes = (
   <Route element={<SessionAuthLayout />}>
     <Route path="login"          element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
-    <Route path="register"       element={<GuestOnlyRoute><RegisterPage /></GuestOnlyRoute>} />
+    <Route path="signup"         element={<GuestOnlyRoute><RegisterPage /></GuestOnlyRoute>} />
     <Route path="reset-password" element={<ResetPasswordPage />} />
   </Route>
 );

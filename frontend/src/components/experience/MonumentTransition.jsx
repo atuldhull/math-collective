@@ -11,7 +11,7 @@ const ROUTE_MONUMENTS = {
   "/events": "jungle",
   "/projects": "jungle",
   "/login": "city",
-  "/register": "city",
+  "/signup": "city",
   "/billing": "city",
   "/gallery": "abyss",
   "/profile": "sky",

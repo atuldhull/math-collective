@@ -222,7 +222,7 @@ export default function AuthLayout() {
 
   // Card flip between forms. Going to register turns the card one way,
   // coming back turns it the other.
-  const dir = pathname.endsWith("register") ? 1 : -1;
+  const dir = pathname.endsWith("signup") ? 1 : -1;
   const flip = {
     initial: (d) => (reduced ? { opacity: 0 } : { rotateY: -80 * d, opacity: 0, scale: 0.96 }),
     animate: { rotateY: 0, opacity: 1, scale: 1, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } },

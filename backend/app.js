@@ -254,6 +254,7 @@ export function createApp() {
   const BARE_AUTH_PATHS = {
     "/login":          "/app/login",
     "/register":       "/app/register",
+    "/signup":         "/app/signup",
     "/reset-password": "/app/reset-password",
   };
   app.get(Object.keys(BARE_AUTH_PATHS), (req, res) => {

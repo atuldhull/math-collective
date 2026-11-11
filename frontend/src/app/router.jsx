@@ -94,7 +94,7 @@ function layoutKey(pathname) {
   if (skinForPath(pathname, true) === "legacy") return pathname;
   const seg = pathname.split("/")[1];
   if (["teacher", "admin", "super-admin", "core"].includes(seg)) return seg;
-  if (["login", "register", "reset-password"].includes(seg)) return "auth";
+  if (["login", "signup", "reset-password"].includes(seg)) return "auth";
   return "main";
 }
 

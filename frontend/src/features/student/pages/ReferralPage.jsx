@@ -41,7 +41,7 @@ export default function ReferralPage() {
 
   const referralLink = useMemo(() => {
     if (!stats?.code) return "";
-    return `${window.location.origin}/app/register?ref=${stats.code}`;
+    return `${window.location.origin}/app/signup?ref=${stats.code}`;
   }, [stats?.code]);
 
   // Generate QR code as data URL using a simple canvas-based approach

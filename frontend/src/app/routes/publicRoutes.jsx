@@ -10,6 +10,7 @@ import { SessionMainLayout, SessionHome, SessionGallery, SessionContact, Session
 
 // Public pages
 const VerifyCertificatePage = lazy(() => import("@/features/public/pages/VerifyCertificatePage"));
+const RecruitmentPage     = lazy(() => import("@/features/recruitment/RecruitmentPage"));
 
 // Student pages (MainLayout, auth required)
 const ArenaPage          = lazy(() => import("@/features/arena/pages/ArenaPage"));
@@ -65,6 +66,7 @@ export const publicRoutes = (
     <Route path="events" element={<SessionEvents />} />
     <Route path="gallery" element={<SessionGallery />} />
     <Route path="contact" element={<SessionContact />} />
+    <Route path="register" element={<RecruitmentPage />} />
     {/* Public certificate verification — no auth, anyone with the
         token (scanned from QR on a printed cert) can confirm it's
         genuine. The token is in ?token=... query param. */}

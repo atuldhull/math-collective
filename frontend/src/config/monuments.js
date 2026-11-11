@@ -89,7 +89,7 @@ export const MONUMENTS = {
     fogDensity: 0.006,
     skyTint: "#FF2D78",
     groundColor: "#120030",
-    pages: ["/login", "/register", "/billing"],
+    pages: ["/login", "/signup", "/billing"],
   },
 
   abyss: {
@@ -166,7 +166,7 @@ export const PAGE_TO_MONUMENT = {
 
   // Neon — Auth & Billing
   "/login": "neon",
-  "/register": "neon",
+  "/signup": "neon",
   "/billing": "neon",
 
   // Abyss — Gallery & PANDA
