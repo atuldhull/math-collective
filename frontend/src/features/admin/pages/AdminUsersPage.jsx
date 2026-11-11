@@ -230,7 +230,7 @@ export default function AdminUsersPage() {
                     <select
                       aria-label={`Role for ${u.name || u.email}`}
                       value={u.role || "student"}
-                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                      onChange={(e) => handleRoleChange(u.user_id, e.target.value)}
                       className={`min-h-[36px] rounded-full border px-3 py-1 text-[12px] font-medium outline-none ${roleColors[u.role] || roleColors.student}`}
                     >
                       <option value="student">Student</option>
@@ -260,10 +260,10 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="col-span-2 border-t border-[rgb(var(--rule))] pt-3 md:table-cell md:border-0 md:px-5 md:py-3.5">
                     <div className="flex flex-wrap items-center gap-2 md:flex-nowrap md:justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => handleResetPassword(u.id)} leading={icon(KeyRound)}>
+                      <Button variant="ghost" size="sm" onClick={() => handleResetPassword(u.user_id)} leading={icon(KeyRound)}>
                         Reset PW
                       </Button>
-                      <Button variant="danger" size="sm" onClick={() => handleDelete(u.id)} leading={icon(Trash2)}>
+                      <Button variant="danger" size="sm" onClick={() => handleDelete(u.user_id)} leading={icon(Trash2)}>
                         Delete
                       </Button>
                     </div>
