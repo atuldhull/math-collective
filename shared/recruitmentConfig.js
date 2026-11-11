@@ -15,8 +15,8 @@ export const recruitmentConfig = {
     { id: "Technology & Systems", label: "Technology & Systems", description: "Building and managing the technology and systems used by the club." },
     { id: "Quantitative Strategy", label: "Quantitative Strategy", description: "Using mathematics and data to plan and improve club activities." },
   ],
-  branches: ["CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS"],
-  sections: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"],
+  branches: ["CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS", "MECH"],
+  sections: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
   rules: [
     "Please enter all details carefully and accurately.",
     "Providing incorrect information or misusing the registration may result in strict action.",

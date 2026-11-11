@@ -36,8 +36,8 @@ function fillDetails(email) {
   fireEvent.change(screen.getByLabelText(/Phone number/i), { target: { value: "9876543210" } });
   fireEvent.change(screen.getByLabelText(/email/i), { target: { value: email } });
   fireEvent.change(screen.getByLabelText(/USN/i), { target: { value: "24UG1BYAI038" } });
-  fireEvent.change(screen.getByRole("combobox", { name: /Branch/i }), { target: { value: "CSE" } });
-  fireEvent.change(screen.getByRole("combobox", { name: /Section/i }), { target: { value: "1" } });
+  fireEvent.change(screen.getByRole("combobox", { name: /Branch/i }), { target: { value: "MECH" } });
+  fireEvent.change(screen.getByRole("combobox", { name: /Section/i }), { target: { value: "15" } });
   fireEvent.click(screen.getByRole("button", { name: /Event Design/ }));
   fireEvent.click(screen.getByRole("button", { name: /Technology & Systems/ }));
 }
@@ -62,7 +62,7 @@ describe("recruitment form", () => {
     await waitFor(() => expect(http.post).toHaveBeenCalledTimes(1));
     expect(http.post).toHaveBeenCalledWith("/recruitment", expect.objectContaining({
       year, student_type: type, email, usn: "24UG1BYAI038",
-      branch: "CSE", section: "1",
+      branch: "MECH", section: "15",
       first_preference: "Event Design", second_preference: "Technology & Systems", rules_accepted: true,
     }));
     expect(await screen.findByText(/Your recruitment registration has been submitted/i)).toBeInTheDocument();
@@ -89,10 +89,10 @@ describe("recruitment form", () => {
     expect(branch).toHaveValue("");
     expect(section).toHaveValue("");
     expect(Array.from(branch.options, (option) => option.textContent)).toEqual([
-      "Select your branch", "CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS",
+      "Select your branch", "CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS", "MECH",
     ]);
     expect(Array.from(section.options, (option) => option.textContent)).toEqual([
-      "Select your section", ...Array.from({ length: 14 }, (_, index) => String(index + 1)),
+      "Select your section", ...Array.from({ length: 15 }, (_, index) => String(index + 1)),
     ]);
     expect(screen.getByText("Select your official branch as shown on your college record.")).toBeInTheDocument();
     expect(screen.getByText("Select your official section as shown on your college record.")).toBeInTheDocument();

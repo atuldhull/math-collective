@@ -11,8 +11,8 @@ const valid = {
 
 describe("recruitment intake validation", () => {
   it("uses only the approved branch and section values", () => {
-    expect(recruitmentConfig.branches).toEqual(["CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS"]);
-    expect(recruitmentConfig.sections).toEqual(Array.from({ length: 14 }, (_, index) => String(index + 1)));
+    expect(recruitmentConfig.branches).toEqual(["CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS", "MECH"]);
+    expect(recruitmentConfig.sections).toEqual(Array.from({ length: 15 }, (_, index) => String(index + 1)));
     for (const branch of recruitmentConfig.branches) {
       expect(recruitmentSchema.safeParse({ ...valid, branch }).success).toBe(true);
     }
@@ -21,8 +21,8 @@ describe("recruitment intake validation", () => {
     }
     expect(recruitmentErrors({ ...valid, branch: "" }).branch).toBe("Select your branch.");
     expect(recruitmentErrors({ ...valid, section: "" }).section).toBe("Select your section.");
-    expect(recruitmentErrors({ ...valid, branch: "MECH" }).branch).toBe("Choose a listed branch.");
-    expect(recruitmentErrors({ ...valid, section: "15" }).section).toBe("Choose a listed section.");
+    expect(recruitmentErrors({ ...valid, branch: "OTHER" }).branch).toBe("Choose a listed branch.");
+    expect(recruitmentErrors({ ...valid, section: "16" }).section).toBe("Choose a listed section.");
   });
 
   it("uses the five canonical recruitment domain names", () => {
