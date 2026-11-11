@@ -31,13 +31,14 @@ const { default: AdminUsersPage } = await import(
   "@/features/admin/pages/AdminUsersPage"
 );
 
-/* The two keys differ in production — that is the whole point. */
-const ROW_PK = "63853838-a328-4ef8-92d2-8172a731bee5";
-const AUTH_ID = "71b1eb0a-636b-4ed2-8211-e56baf7e96b6";
+/* Two different values, which is the whole point. Made-up ids on purpose:
+   real ones from the database do not belong in source. */
+const ROW_ID = "00000000-0000-4000-8000-000000000001";
+const MEMBER_ID = "00000000-0000-4000-8000-000000000002";
 
 const PERSON = {
-  id: ROW_PK,
-  user_id: AUTH_ID,
+  id: ROW_ID,
+  user_id: MEMBER_ID,
   name: "Ada Lovelace",
   email: "ada@bmsit.in",
   role: "student",
@@ -69,9 +70,9 @@ describe("admin user actions address the auth user, not the row id", () => {
     });
 
     await waitFor(() => expect(api.updateRole).toHaveBeenCalled());
-    expect(api.updateRole).toHaveBeenCalledWith(AUTH_ID, "admin");
+    expect(api.updateRole).toHaveBeenCalledWith(MEMBER_ID, "admin");
     // The row's own primary key must never be what goes out.
-    expect(api.updateRole).not.toHaveBeenCalledWith(ROW_PK, expect.anything());
+    expect(api.updateRole).not.toHaveBeenCalledWith(ROW_ID, expect.anything());
   });
 
   it("sends user_id when deleting someone", async () => {
@@ -80,7 +81,7 @@ describe("admin user actions address the auth user, not the row id", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^Delete$/i }));
     await waitFor(() => expect(api.deleteUser).toHaveBeenCalled());
-    expect(api.deleteUser).toHaveBeenCalledWith(AUTH_ID);
-    expect(api.deleteUser).not.toHaveBeenCalledWith(ROW_PK);
+    expect(api.deleteUser).toHaveBeenCalledWith(MEMBER_ID);
+    expect(api.deleteUser).not.toHaveBeenCalledWith(ROW_ID);
   });
 });
