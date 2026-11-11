@@ -192,20 +192,49 @@ describe("DELETE /users/:userId", () => {
 });
 
 describe("PATCH /users/:userId/role", () => {
-  it("refuses to demote a peer admin", async () => {
+  /* Role changes allow peers on purpose: running a club means handing
+     out staff access, and routing every promotion through the single
+     super_admin made that a bottleneck. Reaching UP is still refused,
+     and password resets and deletes still require outranking — those
+     take an account over rather than adjusting what it may do. */
+  it("lets an admin change a peer admin's role", async () => {
     state.targetRow = PEER;
+    const res = await request(buildApp("admin"))
+      .patch("/users/victim/role").send({ role: "student" });
+    expect(res.status).toBe(200);
+    expect(state.roleUpdates).toHaveLength(1);
+  });
+
+  it("lets an admin promote someone to admin", async () => {
+    state.targetRow = PUPIL;
+    const res = await request(buildApp("admin"))
+      .patch("/users/victim/role").send({ role: "admin" });
+    expect(res.status).toBe(200);
+    expect(state.roleUpdates).toHaveLength(1);
+  });
+
+  it("refuses to let an admin change a super_admin's role", async () => {
+    state.targetRow = SUPER;
     const res = await request(buildApp("admin"))
       .patch("/users/victim/role").send({ role: "student" });
     expect(res.status).toBe(404);
     expect(state.roleUpdates).toEqual([]);
   });
 
-  it("refuses to grant a rank the caller does not outrank", async () => {
+  it("refuses to let an admin grant super_admin", async () => {
     state.targetRow = PUPIL;
     const res = await request(buildApp("admin"))
-      .patch("/users/victim/role").send({ role: "admin" });
-    expect(res.status).toBe(403);
+      .patch("/users/victim/role").send({ role: "super_admin" });
+    expect(res.status).toBe(400);
     expect(state.roleUpdates).toEqual([]);
+  });
+
+  it("lets a super_admin change an admin's role", async () => {
+    state.targetRow = PEER;
+    const res = await request(buildApp("super_admin"))
+      .patch("/users/victim/role").send({ role: "teacher" });
+    expect(res.status).toBe(200);
+    expect(state.roleUpdates).toHaveLength(1);
   });
 
   it("promotes a student to teacher", async () => {

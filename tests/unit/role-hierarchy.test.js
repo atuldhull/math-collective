@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { outranks, rankOf } from "../../backend/lib/roleHierarchy.js";
+import { outranks, rankOf, canManageRole } from "../../backend/lib/roleHierarchy.js";
 
 describe("outranks", () => {
   it("refuses an admin acting on the super-admin", () => {
@@ -34,5 +34,40 @@ describe("outranks", () => {
     expect(rankOf("nonsense")).toBe(0);
     expect(outranks(undefined, "student")).toBe(false);
     expect(outranks("student", undefined)).toBe(true);
+  });
+});
+
+/**
+ * canManageRole governs role changes only, and is deliberately looser
+ * than outranks(): peers are allowed so an admin can hand out staff
+ * access without routing every promotion through the one super_admin.
+ * Reaching up is still refused.
+ */
+describe("canManageRole", () => {
+  it("lets an admin manage peers and everyone below", () => {
+    expect(canManageRole("admin", "admin")).toBe(true);
+    expect(canManageRole("admin", "teacher")).toBe(true);
+    expect(canManageRole("admin", "student")).toBe(true);
+  });
+
+  it("stops an admin reaching the super-admin", () => {
+    expect(canManageRole("admin", "super_admin")).toBe(false);
+  });
+
+  it("lets the super-admin manage anyone, including another super-admin", () => {
+    expect(canManageRole("super_admin", "super_admin")).toBe(true);
+    expect(canManageRole("super_admin", "admin")).toBe(true);
+  });
+
+  it("gives a student no reach at all", () => {
+    expect(canManageRole("student", "teacher")).toBe(false);
+    expect(canManageRole("student", "admin")).toBe(false);
+    expect(canManageRole(undefined, "student")).toBe(false);
+  });
+
+  it("stays stricter than outranks only where it must", () => {
+    // The one deliberate difference: peers.
+    expect(outranks("admin", "admin")).toBe(false);
+    expect(canManageRole("admin", "admin")).toBe(true);
   });
 });

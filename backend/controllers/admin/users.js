@@ -1,7 +1,7 @@
 import supabase from "../../config/supabase.js";
 import { logger } from "../../config/logger.js";
 import { toCsv, fetchAll, CSV_BOM } from "../../lib/exportHelpers.js";
-import { outranks } from "../../lib/roleHierarchy.js";
+import { outranks, canManageRole } from "../../lib/roleHierarchy.js";
 import { writeAudit, AuditAction } from "../../lib/audit.js";
 import { MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT } from "../../lib/passwordPolicy.js";
 
@@ -155,7 +155,7 @@ export const createUser = async (req, res) => {
    super-admin's user id should not be able to tell "exists but you may
    not touch them" from "no such user in your organisation".
 ═══════════════════════════════════════════ */
-async function resolveTarget(req, res, { action }) {
+async function resolveTarget(req, res, { action, peers = false }) {
   const { userId }  = req.params;
   const actorId     = req.session?.user?.id;
   const actorRole   = req.session?.user?.role;
@@ -177,7 +177,10 @@ async function resolveTarget(req, res, { action }) {
     return null;
   }
 
-  if (!outranks(actorRole, target.role)) {
+  const permitted = peers
+    ? canManageRole(actorRole, target.role)
+    : outranks(actorRole, target.role);
+  if (!permitted) {
     logger.warn(
       { actorId, actorRole, targetId: userId, targetRole: target.role, action },
       "Refused privileged action: target ranks equal or higher",
@@ -255,11 +258,11 @@ export const updateUserRole = async (req, res) => {
     // Same guard as the other two. Without it an admin could demote a
     // peer admin, which is the same takeover shape as resetting their
     // password. You also cannot grant a rank you do not outrank.
-    const target = await resolveTarget(req, res, { action: "update_role" });
+    const target = await resolveTarget(req, res, { action: "update_role", peers: true });
     if (!target) return undefined;
 
-    if (!outranks(req.session?.user?.role, role)) {
-      return res.status(403).json({ error: "You cannot grant a role equal to or above your own" });
+    if (!canManageRole(req.session?.user?.role, role)) {
+      return res.status(403).json({ error: "You cannot grant a role above your own" });
     }
 
     const { error } = await req.db

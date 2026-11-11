@@ -35,3 +35,24 @@ export function rankOf(role) {
 export function outranks(actorRole, targetRole) {
   return rankOf(actorRole) > rankOf(targetRole);
 }
+
+/**
+ * True when `actorRole` may change roles for someone of `targetRole`,
+ * and when it may hand out `targetRole` as a new role.
+ *
+ * Deliberately looser than outranks(): peers are allowed, so an admin can
+ * promote someone to admin and can change another admin's role. Running a
+ * club means handing out staff access, and requiring the single
+ * super_admin for every promotion made that a bottleneck.
+ *
+ * What it still refuses is reaching UP: an admin cannot change a
+ * super_admin's role, and cannot grant super_admin. That keeps the top of
+ * the hierarchy out of reach of a compromised admin session.
+ *
+ * Note this governs role changes only. Resetting a password or deleting
+ * an account still goes through outranks(), because those take over an
+ * account outright rather than adjusting what it may do.
+ */
+export function canManageRole(actorRole, targetRole) {
+  return rankOf(actorRole) >= rankOf(targetRole);
+}
