@@ -4,12 +4,27 @@ import { recruitmentConfig, recruitmentErrors } from "../../shared/recruitmentCo
 
 const valid = {
   year: 2, student_type: "normal", name: "A Student", phone: "9876543210",
-  email: "student@bmsit.in", usn: "24UG1BYAI038", branch: recruitmentConfig.branches[0] || "Test branch",
-  section: recruitmentConfig.sections[0] || "Test section", first_preference: "Technology & Systems",
+  email: "student@bmsit.in", usn: "24UG1BYAI038", branch: "CSE",
+  section: "1", first_preference: "Technology & Systems",
   second_preference: "Event Design", rules_accepted: true,
 };
 
 describe("recruitment intake validation", () => {
+  it("uses only the approved branch and section values", () => {
+    expect(recruitmentConfig.branches).toEqual(["CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS"]);
+    expect(recruitmentConfig.sections).toEqual(Array.from({ length: 14 }, (_, index) => String(index + 1)));
+    for (const branch of recruitmentConfig.branches) {
+      expect(recruitmentSchema.safeParse({ ...valid, branch }).success).toBe(true);
+    }
+    for (const section of recruitmentConfig.sections) {
+      expect(recruitmentSchema.safeParse({ ...valid, section }).success).toBe(true);
+    }
+    expect(recruitmentErrors({ ...valid, branch: "" }).branch).toBe("Select your branch.");
+    expect(recruitmentErrors({ ...valid, section: "" }).section).toBe("Select your section.");
+    expect(recruitmentErrors({ ...valid, branch: "MECH" }).branch).toBe("Choose a listed branch.");
+    expect(recruitmentErrors({ ...valid, section: "15" }).section).toBe("Choose a listed section.");
+  });
+
   it("uses the five canonical recruitment domain names", () => {
     expect(recruitmentConfig.options.map((option) => option.id)).toEqual([
       "Event Design",

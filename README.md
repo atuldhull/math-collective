@@ -81,13 +81,11 @@ The public club recruitment form is at `/app/register`. It does not require an
 account. Account creation remains at `/app/signup`; older `/app/register?ref=...`
 referral links redirect there.
 
-The approved recruitment rules are in `shared/recruitmentConfig.js`. Before
-accepting applications, fill the official branch/section lists there, then run
+The approved recruitment rules, branches, and sections are in
+`shared/recruitmentConfig.js`. Before accepting applications, run
 `backend/migrations/45_recruitment_registrations.sql` in the Supabase SQL Editor.
 The five recruitment choices are the domains in the shared configuration. The
-selected domain names are stored in the preference columns. Until the
-branch and section lists are configured, the form is visible but submission is
-closed.
+selected domain names are stored in the preference columns.
 Submitted personal details are written through `POST /api/recruitment` to a
 private `recruitment_registrations` table; there is no public list endpoint.
 

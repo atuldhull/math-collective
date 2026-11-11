@@ -172,19 +172,13 @@ export default function RecruitmentPage() {
                         onBlur={() => setTouched((current) => ({ ...current, usn: true }))} onChange={(event) => update("usn", event.target.value.toUpperCase())} placeholder="Your university seat number" /></Field>
                     {[["branch", "Branch", recruitmentConfig.branches], ["section", "Section", recruitmentConfig.sections]].map(([key, label, choices]) => (
                       <Field key={key} id={`recruit-${key}`} label={label} error={fieldError(key)}
-                        hint={!choices.length ? `Enter your official ${key} as shown on your college record.` : undefined}>
-                        {choices.length ? (
-                          <div className="mc-recruit-select"><select id={`recruit-${key}`} required value={form[key]}
-                            aria-invalid={Boolean(fieldError(key))} aria-describedby={fieldError(key) ? `recruit-${key}-error` : undefined}
-                            onBlur={() => setTouched((current) => ({ ...current, [key]: true }))} onChange={(event) => update(key, event.target.value)}>
-                            <option value="">Choose {label.toLowerCase()}</option>
-                            {choices.map((choice) => <option key={choice} value={choice}>{choice}</option>)}
-                          </select><ChevronDown size={17} aria-hidden="true" /></div>
-                        ) : (
-                          <input id={`recruit-${key}`} required maxLength={key === "branch" ? 100 : 40} value={form[key]}
-                            aria-invalid={Boolean(fieldError(key))} aria-describedby={`recruit-${key}-hint${fieldError(key) ? ` recruit-${key}-error` : ""}`}
-                            onBlur={() => setTouched((current) => ({ ...current, [key]: true }))} onChange={(event) => update(key, event.target.value)} placeholder={`Your ${key}`} />
-                        )}
+                        hint={`Select your official ${key} as shown on your college record.`}>
+                        <div className="mc-recruit-select"><select id={`recruit-${key}`} required value={form[key]}
+                          aria-invalid={Boolean(fieldError(key))} aria-describedby={`recruit-${key}-hint${fieldError(key) ? ` recruit-${key}-error` : ""}`}
+                          onBlur={() => setTouched((current) => ({ ...current, [key]: true }))} onChange={(event) => update(key, event.target.value)}>
+                          <option value="">Select your {key}</option>
+                          {choices.map((choice) => <option key={choice} value={choice}>{choice}</option>)}
+                        </select><ChevronDown size={17} aria-hidden="true" /></div>
                       </Field>
                     ))}
                   </div>

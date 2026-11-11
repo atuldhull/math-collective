@@ -4,14 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({ from: vi.fn(), insert: vi.fn() }));
 vi.mock("../../backend/config/supabase.js", () => ({ default: { from: db.from } }));
-vi.mock("../../shared/recruitmentConfig.js", async (importOriginal) => {
-  const actual = await importOriginal();
-  actual.recruitmentConfig.branches = ["TEST_BRANCH"];
-  actual.recruitmentConfig.sections = ["TEST_SECTION"];
-  actual.recruitmentConfig.rules = ["Test rule for automated checks."];
-  return { ...actual, recruitmentReady: true, recruitmentRulesAvailable: true };
-});
-
 const { default: recruitmentRoutes } = await import("../../backend/routes/recruitmentRoutes.js");
 const app = express();
 app.use(express.json());
@@ -19,7 +11,7 @@ app.use("/api/recruitment", recruitmentRoutes);
 
 const base = {
   name: "Test Student", phone: "9876543210", usn: "24UG1BYAI038",
-  branch: "TEST_BRANCH", section: "TEST_SECTION",
+  branch: "CSE", section: "1",
   first_preference: "Event Design", second_preference: "Marketing & Social Media", rules_accepted: true,
 };
 
@@ -45,6 +37,7 @@ describe("POST /api/recruitment", () => {
     expect(db.from).toHaveBeenCalledWith("recruitment_registrations");
     expect(db.insert).toHaveBeenCalledWith(expect.objectContaining({
       year, student_type, email, name: base.name, usn: base.usn,
+      branch: "CSE", section: "1",
       first_preference: base.first_preference, second_preference: base.second_preference,
       rules_accepted: true,
     }));
@@ -66,6 +59,8 @@ describe("POST /api/recruitment", () => {
     ["missing email", { email: "" }, "email"],
     ["missing branch", { branch: "" }, "branch"],
     ["missing section", { section: "" }, "section"],
+    ["unlisted branch", { branch: "MECH" }, "branch"],
+    ["unlisted section", { section: "15" }, "section"],
     ["invalid phone", { phone: "123" }, "phone"],
     ["invalid USN", { usn: "x" }, "usn"],
     ["unaccepted rules", { rules_accepted: false }, "rules_accepted"],

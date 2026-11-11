@@ -2,10 +2,9 @@
  * Recruitment intake configuration.
  *
  * The option IDs are the canonical domain names stored in registration rows.
- * Fill the official branch/section lists before opening submissions. Empty
- * lists leave branch and section as preview-only free-text fields. The rules
- * below are the approved wording, and submission stays closed until both
- * official lists are supplied.
+ * The branch and section lists below are the approved dropdown values.
+ * The rules below are the approved wording. Submission stays closed if
+ * any of these required lists are removed.
  * This file is intentionally safe to ship to the browser.
  */
 export const recruitmentConfig = {
@@ -16,8 +15,8 @@ export const recruitmentConfig = {
     { id: "Technology & Systems", label: "Technology & Systems", description: "Building and managing the technology and systems used by the club." },
     { id: "Quantitative Strategy", label: "Quantitative Strategy", description: "Using mathematics and data to plan and improve club activities." },
   ],
-  branches: [], // TODO: Add the official BMSIT branch names.
-  sections: [], // TODO: Add the official section names/letters.
+  branches: ["CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS"],
+  sections: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"],
   rules: [
     "Please enter all details carefully and accurately.",
     "Providing incorrect information or misusing the registration may result in strict action.",
@@ -59,11 +58,11 @@ export function recruitmentErrors(value) {
     errors.email = "Use your personal email address.";
   }
   if (!usnPattern.test(text("usn"))) errors.usn = "Enter your USN using 6–20 letters or numbers.";
-  if (!text("branch") || text("branch").length > 100) errors.branch = "Enter your branch.";
+  if (!text("branch") || text("branch").length > 100) errors.branch = "Select your branch.";
   else if (recruitmentConfig.branches.length && !recruitmentConfig.branches.includes(text("branch"))) {
     errors.branch = "Choose a listed branch.";
   }
-  if (!text("section") || text("section").length > 40) errors.section = "Enter your section.";
+  if (!text("section") || text("section").length > 40) errors.section = "Select your section.";
   else if (recruitmentConfig.sections.length && !recruitmentConfig.sections.includes(text("section"))) {
     errors.section = "Choose a listed section.";
   }

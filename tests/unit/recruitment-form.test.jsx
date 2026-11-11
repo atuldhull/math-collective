@@ -4,15 +4,6 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/http", () => ({ default: { post: vi.fn() } }));
-vi.mock("../../shared/recruitmentConfig.js", async (importOriginal) => {
-  const actual = await importOriginal();
-  // Test-only official-looking fixtures. The production config remains empty.
-  actual.recruitmentConfig.branches = ["TEST_BRANCH"];
-  actual.recruitmentConfig.sections = ["TEST_SECTION"];
-  actual.recruitmentConfig.rules = ["Test rule for automated checks."];
-  return { ...actual, recruitmentReady: true, recruitmentRulesAvailable: true };
-});
-
 import http from "@/lib/http";
 import RecruitmentPage from "../../frontend/src/features/recruitment/RecruitmentPage.jsx";
 
@@ -45,8 +36,8 @@ function fillDetails(email) {
   fireEvent.change(screen.getByLabelText(/Phone number/i), { target: { value: "9876543210" } });
   fireEvent.change(screen.getByLabelText(/email/i), { target: { value: email } });
   fireEvent.change(screen.getByLabelText(/USN/i), { target: { value: "24UG1BYAI038" } });
-  fireEvent.change(screen.getByLabelText(/Branch/i), { target: { value: "TEST_BRANCH" } });
-  fireEvent.change(screen.getByLabelText(/Section/i), { target: { value: "TEST_SECTION" } });
+  fireEvent.change(screen.getByRole("combobox", { name: /Branch/i }), { target: { value: "CSE" } });
+  fireEvent.change(screen.getByRole("combobox", { name: /Section/i }), { target: { value: "1" } });
   fireEvent.click(screen.getByRole("button", { name: /Event Design/ }));
   fireEvent.click(screen.getByRole("button", { name: /Technology & Systems/ }));
 }
@@ -71,7 +62,7 @@ describe("recruitment form", () => {
     await waitFor(() => expect(http.post).toHaveBeenCalledTimes(1));
     expect(http.post).toHaveBeenCalledWith("/recruitment", expect.objectContaining({
       year, student_type: type, email, usn: "24UG1BYAI038",
-      branch: "TEST_BRANCH", section: "TEST_SECTION",
+      branch: "CSE", section: "1",
       first_preference: "Event Design", second_preference: "Technology & Systems", rules_accepted: true,
     }));
     expect(await screen.findByText(/Your recruitment registration has been submitted/i)).toBeInTheDocument();
@@ -86,6 +77,30 @@ describe("recruitment form", () => {
     expect(screen.getByText(/Use your BMSIT email ending in @bmsit.in/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Submit registration/i })).toBeDisabled();
     expect(http.post).not.toHaveBeenCalled();
+  });
+
+  it("offers only the approved branches and sections and requires both selections", () => {
+    renderForm();
+    selectCategory(1);
+    const branch = screen.getByRole("combobox", { name: /Branch/i });
+    const section = screen.getByRole("combobox", { name: /Section/i });
+    expect(branch).toBeRequired();
+    expect(section).toBeRequired();
+    expect(branch).toHaveValue("");
+    expect(section).toHaveValue("");
+    expect(Array.from(branch.options, (option) => option.textContent)).toEqual([
+      "Select your branch", "CSE", "AIML", "CIVIL", "ECE", "EEE", "CSBS",
+    ]);
+    expect(Array.from(section.options, (option) => option.textContent)).toEqual([
+      "Select your section", ...Array.from({ length: 14 }, (_, index) => String(index + 1)),
+    ]);
+    expect(screen.getByText("Select your official branch as shown on your college record.")).toBeInTheDocument();
+    expect(screen.getByText("Select your official section as shown on your college record.")).toBeInTheDocument();
+    fireEvent.blur(branch);
+    fireEvent.blur(section);
+    expect(screen.getByText("Select your branch.")).toBeInTheDocument();
+    expect(screen.getByText("Select your section.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Submit registration/i })).toBeDisabled();
   });
 
   it("enforces exactly two ordered preferences and promotes the remaining choice", () => {
