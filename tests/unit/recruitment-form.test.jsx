@@ -79,6 +79,23 @@ describe("recruitment form", () => {
     expect(http.post).not.toHaveBeenCalled();
   });
 
+  it("keeps only the first ten digits in the phone field", () => {
+    renderForm();
+    selectCategory(1);
+    const phone = screen.getByRole("textbox", { name: /Phone number/i });
+    expect(phone).toHaveAttribute("inputmode", "numeric");
+    expect(phone).toHaveAttribute("pattern", "[0-9]{10}");
+    expect(phone).toHaveAttribute("maxlength", "10");
+    fireEvent.change(phone, { target: { value: "ab98765cd43210" } });
+    expect(phone).toHaveValue("9876543210");
+    fireEvent.change(phone, { target: { value: "12345678901" } });
+    expect(phone).toHaveValue("1234567890");
+    fireEvent.change(phone, { target: { value: "letters" } });
+    expect(phone).toHaveValue("");
+    fireEvent.input(phone, { target: { value: "9x876543210" } });
+    expect(phone).toHaveValue("9876543210");
+  });
+
   it("offers only the approved branches and sections and requires both selections", () => {
     renderForm();
     selectCategory(1);
@@ -162,7 +179,7 @@ describe("recruitment form", () => {
     fireEvent.blur(screen.getByLabelText(/Phone number/i));
     fireEvent.blur(screen.getByLabelText(/Personal email/i));
     fireEvent.blur(screen.getByLabelText(/USN/i));
-    expect(screen.getByText(/10–15 digits/)).toBeInTheDocument();
+    expect(screen.getByText(/10-digit phone number using numbers only/)).toBeInTheDocument();
     expect(screen.getByText(/Enter a valid email address/)).toBeInTheDocument();
     expect(screen.getByText(/6–20 letters or numbers/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Submit registration/i })).toBeDisabled();

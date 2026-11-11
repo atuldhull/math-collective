@@ -53,6 +53,13 @@ export default function RecruitmentPage() {
     setMessage("");
   }
 
+  function updatePhone(event) {
+    const input = event.currentTarget;
+    const digits = input.value.replace(/[^0-9]/g, "").slice(0, 10);
+    if (input.value !== digits) input.value = digits;
+    update("phone", digits);
+  }
+
   function fieldError(field) {
     return serverErrors[field] || ((attempted || touched[field]) ? validation[field] : undefined);
   }
@@ -156,10 +163,14 @@ export default function RecruitmentPage() {
                       ><input id="recruit-name" autoComplete="name" maxLength={120} required value={form.name}
                         aria-invalid={Boolean(fieldError("name"))} aria-describedby={fieldError("name") ? "recruit-name-error" : undefined}
                         onBlur={() => setTouched((current) => ({ ...current, name: true }))} onChange={(event) => update("name", event.target.value)} placeholder="As on your college record" /></Field>
-                    <Field id="recruit-phone" label="Phone number" error={fieldError("phone")}
-                      ><input id="recruit-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} required value={form.phone}
-                        aria-invalid={Boolean(fieldError("phone"))} aria-describedby={fieldError("phone") ? "recruit-phone-error" : undefined}
-                        onBlur={() => setTouched((current) => ({ ...current, phone: true }))} onChange={(event) => update("phone", event.target.value)} placeholder="Your contact number" /></Field>
+                    <Field id="recruit-phone" label="Phone number" hint="10 digits, numbers only." error={fieldError("phone")}
+                      ><input id="recruit-phone" type="tel" inputMode="numeric" autoComplete="tel-national" pattern="[0-9]{10}" maxLength={10} minLength={10} required value={form.phone}
+                        aria-invalid={Boolean(fieldError("phone"))} aria-describedby={`recruit-phone-hint${fieldError("phone") ? " recruit-phone-error" : ""}`}
+                        onBlur={() => setTouched((current) => ({ ...current, phone: true }))}
+                        onBeforeInput={(event) => {
+                          if (event.nativeEvent.inputType === "insertText" && event.data && /[^0-9]/.test(event.data)) event.preventDefault();
+                        }}
+                        onInput={updatePhone} onChange={updatePhone} placeholder="Your 10-digit phone number" /></Field>
                     <Field id="recruit-email" label={studentType === "normal" ? "BMSIT email" : "Personal email"}
                       hint={studentType === "normal" ? "Use your college address ending in @bmsit.in." : "Use an email address you check regularly, outside @bmsit.in."}
                       error={fieldError("email")}>

@@ -5,7 +5,7 @@ export const recruitmentSchema = z.object({
   year: z.number().int(),
   student_type: z.enum(["first-year", "normal", "lateral"]),
   name: z.string().trim().min(1).max(120),
-  phone: z.string().trim().min(10).max(20),
+  phone: z.string(),
   email: z.string().trim().email().max(254),
   usn: z.string().trim().min(6).max(20),
   branch: z.string().trim().min(1).max(100),

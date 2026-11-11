@@ -25,6 +25,14 @@ describe("recruitment intake validation", () => {
     expect(recruitmentErrors({ ...valid, section: "16" }).section).toBe("Choose a listed section.");
   });
 
+  it("requires exactly ten phone digits with no letters or separators", () => {
+    expect(recruitmentSchema.safeParse({ ...valid, phone: "9876543210" }).success).toBe(true);
+    for (const phone of ["123456789", "12345678901", "123456789a", "+919876543210", "98765 43210", " 9876543210 "]) {
+      expect(recruitmentSchema.safeParse({ ...valid, phone }).success).toBe(false);
+      expect(recruitmentErrors({ ...valid, phone }).phone).toBe("Enter a 10-digit phone number using numbers only.");
+    }
+  });
+
   it("uses the five canonical recruitment domain names", () => {
     expect(recruitmentConfig.options.map((option) => option.id)).toEqual([
       "Event Design",

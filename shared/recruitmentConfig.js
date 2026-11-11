@@ -30,7 +30,7 @@ export const recruitmentReady = recruitmentRulesAvailable &&
   recruitmentConfig.branches.length > 0 && recruitmentConfig.sections.length > 0;
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const phonePattern = /^\+?[0-9][0-9 -]*$/;
+const phonePattern = /^[0-9]{10}$/;
 const usnPattern = /^[A-Z0-9]{6,20}$/i;
 
 /** Field errors shared by the React form and the Express validator. */
@@ -47,8 +47,8 @@ export function recruitmentErrors(value) {
     errors.student_type = "Choose Normal or Lateral.";
   }
   if (!text("name") || text("name").length > 120) errors.name = "Enter your full name (up to 120 characters).";
-  if (!phonePattern.test(text("phone")) || !/^\d{10,15}$/.test(text("phone").replace(/\D/g, ""))) {
-    errors.phone = "Enter a phone number with 10–15 digits.";
+  if (!phonePattern.test(String(value.phone ?? ""))) {
+    errors.phone = "Enter a 10-digit phone number using numbers only.";
   }
   if (!emailPattern.test(text("email")) || text("email").length > 254) {
     errors.email = "Enter a valid email address.";
