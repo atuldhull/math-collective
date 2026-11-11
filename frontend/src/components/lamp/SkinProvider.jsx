@@ -21,9 +21,12 @@ import { useActiveSeason } from "./season";
 
 const SkinContext = createContext("lamplight");
 
-export function skinForPath(pathname, member) {
-  if (!member) return "public";
-  return pathname === "/" || pathname === "" ? "legacy" : "lamplight";
+export function skinForPath() {
+  // Every visitor and every member, on every route, gets the same
+  // lamplight design. The old "public" and "legacy" skins are gone: the
+  // first made signed-out visitors a different site, and the second left
+  // the home page behind on the pre-redesign shell.
+  return "lamplight";
 }
 
 export function useSkin() {

@@ -6,7 +6,25 @@
 import { lazy } from "react";
 import { Route, Navigate, useParams } from "react-router-dom";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { SessionMainLayout, SessionHome, SessionGallery, SessionContact, SessionEvents, SessionLeaderboard } from "@/features/guest/SessionPresentation";
+import { useAuthStore } from "@/store/auth-store";
+import { SessionMainLayout, SessionGallery, SessionContact, SessionEvents, SessionLeaderboard } from "@/features/guest/SessionPresentation";
+
+/**
+ * "/" is not a page of its own any more. A member goes to their
+ * dashboard, which is the app's real home; anyone else is asked to sign
+ * in. Waits for the session check to settle first, otherwise a member
+ * would be bounced to the sign-in page before /auth/me has answered.
+ *
+ * This reads the session to pick a DESTINATION, never to pick a design —
+ * so an expired session sends you to sign in, which is what it should
+ * do, instead of silently repainting the app around you.
+ */
+function HomeRedirect() {
+  const status = useAuthStore((s) => s.status);
+  const user = useAuthStore((s) => s.user);
+  if (status === "idle" || status === "loading") return null;
+  return <Navigate to={user ? "/dashboard" : "/login"} replace />;
+}
 
 // Public pages
 const VerifyCertificatePage = lazy(() => import("@/features/public/pages/VerifyCertificatePage"));
@@ -60,7 +78,7 @@ function StudentUserIdRedirect() {
 
 export const publicRoutes = (
   <Route element={<SessionMainLayout />}>
-    <Route index element={<SessionHome />} />
+    <Route index element={<HomeRedirect />} />
     <Route path="leaderboard" element={<SessionLeaderboard />} />
     <Route path="events" element={<SessionEvents />} />
     <Route path="gallery" element={<SessionGallery />} />

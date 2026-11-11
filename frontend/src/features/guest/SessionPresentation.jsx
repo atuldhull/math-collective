@@ -1,80 +1,67 @@
-import { lazy, Suspense } from "react";
-import { MotionConfig } from "framer-motion";
+/**
+ * One presentation for everyone.
+ *
+ * This module used to pick between two different designs depending on
+ * whether the auth store held a user: members got the app, signed-out
+ * visitors got a separate public site. That split caused three problems
+ * and no longer earns its keep:
+ *
+ *   - visitors and members saw different sites, which was not wanted;
+ *   - the app painted the visitor design before /auth/me resolved, so a
+ *     member watched it flip a second later on every load;
+ *   - any non-ignored 401 clears the auth store, which silently repainted
+ *     a signed-in member into the visitor design mid-browse.
+ *
+ * Everything below now renders the same thing for everyone. Access is
+ * unchanged: the route guards still decide what a visitor may open, and
+ * they redirect to sign-in exactly as before. This is presentation only.
+ */
+import { lazy } from "react";
 import { useAuthStore } from "@/store/auth-store";
 import MainLayout from "@/layouts/MainLayout";
 import AuthLayout from "@/layouts/AuthLayout";
 import ExperienceShell from "@/components/experience/ExperienceShell";
-import GuestAssistant from "./GuestAssistant";
-import HovercardRoot from "@/components/social/HovercardRoot";
-import PublicLayout, { PublicAuthLayout } from "./PublicLayout";
-import { PublicThemeProvider } from "./PublicTheme";
 import { AudioProvider } from "@/systems/AudioManager";
 
-const OriginalHome = lazy(() => import("@/features/home/pages/HomePage"));
-const PublicHome = lazy(() => import("./PublicHome"));
-const OriginalGallery = lazy(() => import("@/features/public/pages/GalleryPage"));
-const GuestGallery = lazy(() => import("./GuestGallery"));
-const OriginalContact = lazy(() => import("@/features/public/pages/ContactPage"));
-const GuestContact = lazy(() => import("./GuestContact"));
-const OriginalEvents = lazy(() => import("@/features/events/pages/EventsPage"));
-const OriginalLeaderboard = lazy(() => import("@/features/public/pages/LeaderboardPage"));
-const GuestEvents = lazy(() => import("./GuestEvents"));
-const GuestLeaderboard = lazy(() => import("./GuestLeaderboard"));
+const GalleryPage = lazy(() => import("@/features/public/pages/GalleryPage"));
+const ContactPage = lazy(() => import("@/features/public/pages/ContactPage"));
+const EventsPage = lazy(() => import("@/features/events/pages/EventsPage"));
+const LeaderboardPage = lazy(() => import("@/features/public/pages/LeaderboardPage"));
 
-export function SessionEvents() {
-  return useMemberPresentation() ? <OriginalEvents /> : <GuestEvents />;
-}
-export function SessionLeaderboard() {
-  return useMemberPresentation() ? <OriginalLeaderboard /> : <GuestLeaderboard />;
-}
-
-export function SessionGallery() {
-  return useMemberPresentation() ? <OriginalGallery /> : <GuestGallery />;
-}
-
-export function SessionContact() {
-  return useMemberPresentation() ? <OriginalContact /> : <GuestContact />;
-}
-
-// Presentation only: authentication, guards, redirects and API state stay
-// owned by the existing store and router. A retained user also protects the
-// original interface during session refreshes.
+/** Whether a member session is actually present. Kept for callers that
+ *  need the real answer — it no longer decides which design is shown. */
 export function useMemberPresentation() {
   return useAuthStore((state) => Boolean(state.user));
 }
 
 export function SessionMainLayout() {
-  return useMemberPresentation() ? <MainLayout /> : <PublicLayout />;
+  return <MainLayout />;
 }
 
 export function SessionAuthLayout() {
-  return useMemberPresentation() ? <AuthLayout /> : <PublicAuthLayout />;
+  return <AuthLayout />;
 }
 
-export function SessionHome() {
-  const member = useMemberPresentation();
-  return (
-    <Suspense fallback={<div style={{ minHeight: "90vh" }} aria-busy="true" />}>
-      {member ? <OriginalHome /> : <PublicHome />}
-    </Suspense>
-  );
+export function SessionEvents() {
+  return <EventsPage />;
+}
+
+export function SessionLeaderboard() {
+  return <LeaderboardPage />;
+}
+
+export function SessionGallery() {
+  return <GalleryPage />;
+}
+
+export function SessionContact() {
+  return <ContactPage />;
 }
 
 export function SessionExperience({ children }) {
-  const member = useMemberPresentation();
-  if (member)
-    return (
-      <AudioProvider>
-        <ExperienceShell>{children}</ExperienceShell>
-      </AudioProvider>
-    );
   return (
-    <PublicThemeProvider>
-      <MotionConfig reducedMotion="user">
-        {children}
-        <GuestAssistant />
-        <HovercardRoot />
-      </MotionConfig>
-    </PublicThemeProvider>
+    <AudioProvider>
+      <ExperienceShell>{children}</ExperienceShell>
+    </AudioProvider>
   );
 }
