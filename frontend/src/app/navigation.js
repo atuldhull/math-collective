@@ -2,7 +2,7 @@ import {
   Award, BadgeCheck, BarChart3, Bookmark, Building2, CalendarDays, CreditCard,
   Database, FileBadge, FolderKanban, Gift, History, Home, Images, KeyRound,
   LayoutDashboard, Lightbulb, Mail, Map, PlayCircle, Puzzle, Radio, ScanLine,
-  Settings, ShieldCheck, Swords, Timer, ToggleRight, Trophy, Users,
+  Settings, ShieldCheck, Swords, Timer, ToggleRight, Trophy, UserPlus, Users,
 } from "lucide-react";
 
 export const mainNavigation = [
@@ -126,6 +126,7 @@ export const adminRail = [
     { to: "/admin/challenges", label: "Challenges", icon: Lightbulb },
     { to: "/admin/events", label: "Events", icon: CalendarDays },
     { to: "/admin/moderation", label: "Moderation", icon: ShieldCheck },
+    { to: "/admin/recruitment", label: "Recruitment", icon: UserPlus },
   ] },
   { label: "System", items: [
     { to: "/admin/data", label: "Data", icon: Database },
