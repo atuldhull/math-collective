@@ -11,6 +11,7 @@ import {
 } from "../controllers/adminController.js";
 import { requireAdmin, checkFeatureFlag } from "../middleware/authMiddleware.js";
 import { exportUsers } from "../controllers/admin/users.js";
+import { listRecruitment, exportRecruitment } from "../controllers/admin/recruitment.js";
 import { getActiveUsers } from "../services/realtime.js";
 
 const router = express.Router();
@@ -29,6 +30,10 @@ router.post("/save",     saveAIQuestion);
 router.get("/stats",     getAdminStats);
 
 // Users
+// Recruitment intake — read-only. The public form is the only writer.
+router.get("/recruitment",        listRecruitment);
+router.get("/recruitment/export", exportRecruitment);
+
 router.get("/users",                         getAllUsers);
 router.get("/users/export",                  exportUsers);
 router.post("/users/create",                 createUser);          // ← NEW

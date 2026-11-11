@@ -50,6 +50,9 @@ export default defineConfig({
         "backend/lib/**",
         "backend/controllers/authController.js",
         "backend/controllers/healthController.js",
+        // Recruitment intake: the public write path and the admin read
+        // path both have request-level tests.
+        "backend/controllers/admin/recruitment.js",
         // Pure helpers inside controllers. Full controller bodies
         // aren't in this list (they need heavier integration-test
         // scaffolding); the pure exported functions have their own
