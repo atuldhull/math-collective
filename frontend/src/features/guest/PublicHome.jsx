@@ -102,7 +102,7 @@ export default function PublicHome() {
             </p>
             <div className="mc-hero-actions">
               <Link className="mc-button" to="/register">
-                Find your people <span aria-hidden="true">↗</span>
+                Register for recruitment <span aria-hidden="true">↗</span>
               </Link>
               <a className="mc-text-link" href="#collective">
                 Explore the collective <span aria-hidden="true">↓</span>
@@ -265,7 +265,7 @@ export default function PublicHome() {
         </h2>
         <p>Join the collective. Let’s see where your questions take you.</p>
         <Link className="mc-button" to="/register">
-          Join Asymptotes <span aria-hidden="true">↗</span>
+          Register for recruitment <span aria-hidden="true">↗</span>
         </Link>
         <Link className="mc-text-link" to="/login">
           Already one of us? Sign in

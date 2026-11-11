@@ -65,7 +65,7 @@ function Header() {
             Sign in <span aria-hidden="true">↗</span>
           </Link>
           <Link className="mc-button mc-button-small" to="/register">
-            Join the collective
+            Recruitment
           </Link>
           <button
             ref={toggle}
@@ -89,7 +89,7 @@ function Header() {
         ))}
         <Link to="/contact">Contact</Link>
         <Link to="/login">Sign in</Link>
-        <Link to="/register">Join the collective ↗</Link>
+        <Link to="/register">Recruitment registration ↗</Link>
       </nav>
     </header>
   );
