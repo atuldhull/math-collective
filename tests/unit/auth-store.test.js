@@ -30,7 +30,7 @@ vi.mock("@/lib/pushNotifications", () => ({
 }));
 
 const http = (await import("@/lib/http")).default;
-const { useAuthStore } = await import("@/store/auth-store");
+const { useAuthStore, rememberedMember } = await import("@/store/auth-store");
 
 // Reset store state + mocks before each test. Zustand's store is a
 // singleton so we need to set it back to the initial shape.
@@ -204,5 +204,98 @@ describe("clearError", () => {
     expect(s.error).toBeNull();
     expect(s.status).toBe("authenticated");     // untouched
     expect(s.user).toEqual({ id: "u1" });        // untouched
+  });
+});
+
+/**
+ * A 401 from one endpoint used to be taken as proof the session was gone,
+ * which logged members out at random: the dashboard alone calls seven
+ * endpoints that can 401 for their own reasons. The store now confirms
+ * with /auth/me before tearing anything down.
+ */
+describe("verifySessionOrExpire — one endpoint's 401 is not proof", () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: { id: "u1", name: "Ada" }, status: "authenticated", error: null });
+    try { localStorage.clear(); } catch { /* jsdom */ }
+    vi.clearAllMocks();
+  });
+
+  it("keeps the session when /auth/me says it is still alive", async () => {
+    http.get.mockResolvedValueOnce({ data: { loggedIn: true, user: { id: "u1", name: "Ada" } } });
+
+    await useAuthStore.getState().verifySessionOrExpire();
+
+    const s = useAuthStore.getState();
+    expect(s.status).toBe("authenticated");
+    expect(s.user).toMatchObject({ id: "u1" });
+    expect(s.error).toBeNull();
+  });
+
+  it("clears the session only when /auth/me confirms it is gone", async () => {
+    http.get.mockResolvedValueOnce({ data: { loggedIn: false } });
+
+    await useAuthStore.getState().verifySessionOrExpire();
+
+    const s = useAuthStore.getState();
+    expect(s.status).toBe("guest");
+    expect(s.user).toBeNull();
+    expect(s.error).toMatch(/expired/i);
+  });
+
+  it("treats an unanswerable /auth/me as a dead session", async () => {
+    http.get.mockRejectedValueOnce(new Error("network"));
+
+    await useAuthStore.getState().verifySessionOrExpire();
+
+    expect(useAuthStore.getState().status).toBe("guest");
+  });
+
+  it("asks /auth/me once when a page fires several failing requests at once", async () => {
+    http.get.mockImplementation(
+      () => new Promise((r) => setTimeout(() => r({ data: { loggedIn: true, user: { id: "u1" } } }), 10)),
+    );
+
+    const run = useAuthStore.getState().verifySessionOrExpire;
+    await Promise.all([run(), run(), run(), run()]);
+
+    expect(http.get).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * The first paint happens before /auth/me can answer. Answering "guest"
+ * at that moment is what made a returning member watch the visitor design
+ * for a second and then get swapped, so the store leaves a hint behind.
+ */
+describe("session hint — so the first paint does not guess wrong", () => {
+  beforeEach(() => {
+    try { localStorage.clear(); } catch { /* jsdom */ }
+    vi.clearAllMocks();
+  });
+
+  it("remembers a browser that signed in", async () => {
+    http.get.mockResolvedValueOnce({ data: { loggedIn: true, user: { id: "u1", name: "Ada" } } });
+    await useAuthStore.getState().checkSession();
+    expect(rememberedMember()).toBe(true);
+  });
+
+  it("forgets a browser the server says is a guest", async () => {
+    http.get.mockResolvedValueOnce({ data: { loggedIn: true, user: { id: "u1" } } });
+    await useAuthStore.getState().checkSession();
+    expect(rememberedMember()).toBe(true);
+
+    http.get.mockResolvedValueOnce({ data: { loggedIn: false } });
+    await useAuthStore.getState().checkSession();
+    expect(rememberedMember()).toBe(false);
+  });
+
+  it("forgets on an explicit sign-out", async () => {
+    http.get.mockResolvedValueOnce({ data: { loggedIn: true, user: { id: "u1" } } });
+    await useAuthStore.getState().checkSession();
+    expect(rememberedMember()).toBe(true);
+
+    http.post.mockResolvedValueOnce({ data: {} });
+    await useAuthStore.getState().logout();
+    expect(rememberedMember()).toBe(false);
   });
 });

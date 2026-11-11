@@ -2,10 +2,27 @@ import { create } from "zustand";
 import http from "@/lib/http";
 import { setupPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 
+// Whether this browser last had a session. Read on the very first paint,
+// before /auth/me can answer, so a returning member is not shown the
+// visitor design for a second and then swapped. It is a hint for
+// presentation only — never a substitute for the server's answer, which
+// always overrides it a moment later.
+const MEMBER_HINT = "mc.hadSession";
+export function rememberedMember() {
+  try { return localStorage.getItem(MEMBER_HINT) === "1"; } catch { return false; }
+}
+function setMemberHint(on) {
+  try { on ? localStorage.setItem(MEMBER_HINT, "1") : localStorage.removeItem(MEMBER_HINT); } catch { /* private mode */ }
+}
+
 // Best-effort, fire-and-forget. Never throw back to the auth flow.
 function tryPushSetup(opts) {
   setupPushNotifications(opts).catch(() => {});
 }
+
+// Guards the confirmation check below: a page that fires six requests at
+// once, all of which 401, must still only ask /auth/me once.
+let expiryCheckInFlight = false;
 
 export const useAuthStore = create((set, _get) => ({
   status: "idle", // idle | loading | authenticated | guest | error
@@ -18,17 +35,50 @@ export const useAuthStore = create((set, _get) => ({
       set({ status: "loading" });
       const { data } = await http.get("/auth/me");
       if (data.loggedIn && data.user) {
+        setMemberHint(true);
         set({ user: data.user, status: "authenticated", error: null });
         // If permission was granted on a previous visit, silently refresh
         // the push subscription so it stays bound to this session user.
         tryPushSetup({ promptIfDefault: false });
       } else {
+        setMemberHint(false);
         set({ user: null, status: "guest", error: null });
       }
     } catch {
       // 401 or network error = not logged in
+      setMemberHint(false);
       set({ user: null, status: "guest", error: null });
     }
+  },
+
+  /**
+   * A 401 from one endpoint is not proof the session is gone.
+   * /chat/relationships/batch, /user/stats and friends can each return
+   * 401 for their own reasons — a race against the CSRF token, a server
+   * restart, an endpoint a given role may not touch. Taking any of them
+   * at face value logged members out at random.
+   *
+   * So ask the one endpoint whose job is answering this. Only if it says
+   * the session is gone do we clear it; otherwise the 401 was that one
+   * call's problem and the session stands.
+   */
+  verifySessionOrExpire: async () => {
+    if (expiryCheckInFlight) return;
+    expiryCheckInFlight = true;
+    try {
+      const { data } = await http.get("/auth/me");
+      if (data.loggedIn && data.user) {
+        setMemberHint(true);
+        set({ user: data.user, status: "authenticated", error: null });
+        return;
+      }
+    } catch {
+      // fall through — treat an unanswerable session as gone
+    } finally {
+      expiryCheckInFlight = false;
+    }
+    setMemberHint(false);
+    set({ user: null, status: "guest", error: "Your session has expired. Please sign in again." });
   },
 
   login: async (email, password) => {
@@ -84,6 +134,7 @@ export const useAuthStore = create((set, _get) => ({
   },
 
   logout: async () => {
+    setMemberHint(false);
     // Tear down the push subscription BEFORE destroying the server session —
     // otherwise the unsubscribe POST would 401.
     try { await teardownPushNotifications(); } catch { /* non-fatal */ }
@@ -101,6 +152,7 @@ export const useAuthStore = create((set, _get) => ({
    * ProtectedRoute redirects to /login on the next render.
    */
   handleSessionExpired: () => {
+    setMemberHint(false);
     set({ user: null, status: "guest", error: "Your session has expired. Please sign in again." });
   },
 

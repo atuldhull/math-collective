@@ -103,30 +103,23 @@ for (const phone of PHONES) {
     });
 
     test("a menu control is reachable while logged out", async ({ page }) => {
-      // "/" redirects (member -> dashboard, visitor -> sign in), so it is
-      // no longer a page with navigation on it. /leaderboard is still open
-      // to a signed-out visitor and wears the same shell.
-      await page.goto("/app/leaderboard");
+      await page.goto("/app/");
       await page.waitForLoadState("networkidle");
 
-      // Navigation is no longer a hamburger in the header. The shell
-      // gives a phone a persistent dock pinned to the bottom of the
-      // screen, plus a "More" control that opens the rest. Accept either
-      // shape: what this guard is really about is that a signed-out
-      // visitor can reach navigation and actually tap it, rather than
-      // having it pushed off the right edge as it once was.
+      // Whatever it is called, SOMETHING in the header must open nav.
       const header = page.locator("header").first();
+      // The header also carries a theme disclosure, which is a
+      // button[aria-expanded] sitting before the menu control in the DOM.
+      // A selector list resolves in document order, so .first() used to pick
+      // the theme button, tap it, and then ask why no navigation appeared.
+      // Prefer a control that names itself a menu; fall back to the generic
+      // disclosure only when nothing does.
       const named = header.locator(
         'button[aria-label*="menu" i], [data-testid="menu-toggle"]',
       );
-      const dockToggle = page
-        .locator('nav[aria-label="Quick navigation"] button[aria-expanded]')
-        .or(page.locator("button[aria-expanded]").filter({ hasText: /more/i }));
       const toggle = (await named.count())
         ? named.first()
-        : (await dockToggle.count())
-          ? dockToggle.first()
-          : header.locator("button[aria-expanded]").first();
+        : header.locator("button[aria-expanded]").first();
 
       await expect(toggle).toBeVisible();
       const box = await toggle.boundingBox();

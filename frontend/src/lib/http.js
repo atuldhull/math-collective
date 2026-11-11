@@ -90,7 +90,9 @@ http.interceptors.response.use(
       import("@/store/auth-store").then(({ useAuthStore }) => {
         const state = useAuthStore.getState();
         if (state.status === "authenticated") {
-          state.handleSessionExpired?.();
+          // Confirm with /auth/me before tearing the session down — a
+          // single endpoint's 401 is not proof that the session is gone.
+          state.verifySessionOrExpire?.();
         }
       });
     }

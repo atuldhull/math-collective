@@ -15,7 +15,8 @@ import {
   useNavigationType,
 } from "react-router-dom";
 
-import { SessionExperience } from "@/features/guest/SessionPresentation";
+import { SessionExperience, useMemberPresentation } from "@/features/guest/SessionPresentation";
+import PublicNavigationMotion from "@/features/guest/PublicNavigationMotion";
 import PageTransition    from "@/components/experience/PageTransition";
 import MonumentTransition from "@/components/experience/MonumentTransition";
 import MonumentRouter    from "@/components/monument/MonumentRouter";
@@ -24,6 +25,7 @@ import RouteErrorBoundary from "@/components/RouteErrorBoundary";
 import SkinProvider, { skinForPath } from "@/components/lamp/SkinProvider";
 import LampRouteTransition from "@/components/lamp/LampRouteTransition";
 import WarpOverlay from "@/components/lamp/WarpOverlay";
+import SeasonAmbience from "@/components/lamp/SeasonAmbience";
 import { useAuthStore }  from "@/store/auth-store";
 
 import { publicRoutes }     from "./routes/publicRoutes";
@@ -98,12 +100,30 @@ function layoutKey(pathname) {
 
 function AnimatedRoutes() {
   const location = useLocation();
+  const member = useMemberPresentation();
 
-  // One tree for everyone. A visitor and a member see the same design;
-  // the only difference is that member-only routes send a visitor to
-  // sign in, which the route guards already handle. Nothing here reads
-  // the session, so a session that drops (or has not resolved yet)
-  // cannot repaint the app into a different design mid-browse.
+  // Signed-out visitors get the public tree as it ships upstream, plus
+  // the Halloween layer where it applies (useHaunted decides: every page
+  // but the home during the season, or anywhere with the Haunted theme).
+  if (!member) return (
+    <>
+    <SeasonAmbience front />
+    <WarpOverlay tree="public" />
+    <PublicNavigationMotion location={location}>
+      {(displayed) => (
+        <Suspense fallback={<RouteFallback />}>
+          <RouteErrorBoundary key={displayed.pathname}>
+            <Routes location={displayed}>
+              {publicRoutes}{authRoutes}{teacherRoutes}{adminRoutes}
+              {superAdminRoutes}{coreTeamRoutes}{errorRoutes}
+            </Routes>
+          </RouteErrorBoundary>
+        </Suspense>
+      )}
+    </PublicNavigationMotion>
+    </>
+  );
+
   const key = layoutKey(location.pathname);
   const legacy = skinForPath(location.pathname, true) === "legacy";
   const Transition = legacy ? PageTransition : LampRouteTransition;

@@ -53,8 +53,8 @@ test.describe("SPA loads", () => {
     });
 
     await page.goto("/");
-    // 302 to /app/, which then routes on ("/" redirects: member to dashboard, visitor to sign in).
-    await page.waitForURL(new RegExp("/app/"));
+    // 302 → /app/. Wait for the SPA shell to attach.
+    await page.waitForURL(/\/app\/?(\?|#|$)/);
     // Root mount point — every page renders inside #root
     await expect(page.locator("#root")).toBeAttached();
 

@@ -1,67 +1,94 @@
-/**
- * One presentation for everyone.
- *
- * This module used to pick between two different designs depending on
- * whether the auth store held a user: members got the app, signed-out
- * visitors got a separate public site. That split caused three problems
- * and no longer earns its keep:
- *
- *   - visitors and members saw different sites, which was not wanted;
- *   - the app painted the visitor design before /auth/me resolved, so a
- *     member watched it flip a second later on every load;
- *   - any non-ignored 401 clears the auth store, which silently repainted
- *     a signed-in member into the visitor design mid-browse.
- *
- * Everything below now renders the same thing for everyone. Access is
- * unchanged: the route guards still decide what a visitor may open, and
- * they redirect to sign-in exactly as before. This is presentation only.
- */
-import { lazy } from "react";
-import { useAuthStore } from "@/store/auth-store";
+import { lazy, Suspense } from "react";
+import { MotionConfig } from "framer-motion";
+import { Navigate } from "react-router-dom";
+import { useAuthStore, rememberedMember } from "@/store/auth-store";
 import MainLayout from "@/layouts/MainLayout";
 import AuthLayout from "@/layouts/AuthLayout";
 import ExperienceShell from "@/components/experience/ExperienceShell";
+import GuestAssistant from "./GuestAssistant";
+import HovercardRoot from "@/components/social/HovercardRoot";
+import PublicLayout, { PublicAuthLayout } from "./PublicLayout";
+import { PublicThemeProvider } from "./PublicTheme";
 import { AudioProvider } from "@/systems/AudioManager";
 
-const GalleryPage = lazy(() => import("@/features/public/pages/GalleryPage"));
-const ContactPage = lazy(() => import("@/features/public/pages/ContactPage"));
-const EventsPage = lazy(() => import("@/features/events/pages/EventsPage"));
-const LeaderboardPage = lazy(() => import("@/features/public/pages/LeaderboardPage"));
-
-/** Whether a member session is actually present. Kept for callers that
- *  need the real answer — it no longer decides which design is shown. */
-export function useMemberPresentation() {
-  return useAuthStore((state) => Boolean(state.user));
-}
-
-export function SessionMainLayout() {
-  return <MainLayout />;
-}
-
-export function SessionAuthLayout() {
-  return <AuthLayout />;
-}
+const PublicHome = lazy(() => import("./PublicHome"));
+const OriginalGallery = lazy(() => import("@/features/public/pages/GalleryPage"));
+const GuestGallery = lazy(() => import("./GuestGallery"));
+const OriginalContact = lazy(() => import("@/features/public/pages/ContactPage"));
+const GuestContact = lazy(() => import("./GuestContact"));
+const OriginalEvents = lazy(() => import("@/features/events/pages/EventsPage"));
+const OriginalLeaderboard = lazy(() => import("@/features/public/pages/LeaderboardPage"));
+const GuestEvents = lazy(() => import("./GuestEvents"));
+const GuestLeaderboard = lazy(() => import("./GuestLeaderboard"));
 
 export function SessionEvents() {
-  return <EventsPage />;
+  return useMemberPresentation() ? <OriginalEvents /> : <GuestEvents />;
 }
-
 export function SessionLeaderboard() {
-  return <LeaderboardPage />;
+  return useMemberPresentation() ? <OriginalLeaderboard /> : <GuestLeaderboard />;
 }
 
 export function SessionGallery() {
-  return <GalleryPage />;
+  return useMemberPresentation() ? <OriginalGallery /> : <GuestGallery />;
 }
 
 export function SessionContact() {
-  return <ContactPage />;
+  return useMemberPresentation() ? <OriginalContact /> : <GuestContact />;
+}
+
+// Presentation only: authentication, guards, redirects and API state stay
+// owned by the existing store and router.
+//
+// Before /auth/me has answered there is no user yet, and answering "guest"
+// at that moment is what made a member watch the visitor design for a
+// second and then get swapped. While the check is still running, fall back
+// to whether this browser last held a session. The server's answer
+// overrides it as soon as it lands, so a wrong guess costs nothing worse
+// than what used to happen every single time.
+export function useMemberPresentation() {
+  const user = useAuthStore((state) => state.user);
+  const status = useAuthStore((state) => state.status);
+  if (user) return true;
+  if (status === "idle" || status === "loading") return rememberedMember();
+  return false;
+}
+
+export function SessionMainLayout() {
+  return useMemberPresentation() ? <MainLayout /> : <PublicLayout />;
+}
+
+export function SessionAuthLayout() {
+  return useMemberPresentation() ? <AuthLayout /> : <PublicAuthLayout />;
+}
+
+export function SessionHome() {
+  const member = useMemberPresentation();
+  // A visitor gets the landing page. A member has no use for it — and the
+  // member home was the one screen the redesign never reached — so send
+  // them to the dashboard, which is their real home.
+  if (member) return <Navigate to="/dashboard" replace />;
+  return (
+    <Suspense fallback={<div style={{ minHeight: "90vh" }} aria-busy="true" />}>
+      <PublicHome />
+    </Suspense>
+  );
 }
 
 export function SessionExperience({ children }) {
+  const member = useMemberPresentation();
+  if (member)
+    return (
+      <AudioProvider>
+        <ExperienceShell>{children}</ExperienceShell>
+      </AudioProvider>
+    );
   return (
-    <AudioProvider>
-      <ExperienceShell>{children}</ExperienceShell>
-    </AudioProvider>
+    <PublicThemeProvider>
+      <MotionConfig reducedMotion="user">
+        {children}
+        <GuestAssistant />
+        <HovercardRoot />
+      </MotionConfig>
+    </PublicThemeProvider>
   );
 }
