@@ -67,18 +67,24 @@ vi.mock("../../backend/config/supabase.js", () => {
     };
     return chain;
   };
+  const authSurface = () => ({
+    signInWithPassword: async () => state.signIn,
+    signUp:             async () => ({ data: { user: null }, error: null }),
+    resend:             async () => ({ error: null }),
+    resetPasswordForEmail: async () => ({ error: null }),
+    getUser:            async () => ({ data: { user: null }, error: null }),
+    verifyOtp:          async () => ({ data: { user: null }, error: null }),
+    admin:              { updateUserById: async () => ({ error: null }) },
+  });
   return {
     default: {
       from: (table) => builder(table),
-      auth: {
-        signInWithPassword: async () => state.signIn,
-        signUp:             async () => ({ data: { user: null }, error: null }),
-        resend:             async () => ({ error: null }),
-        resetPasswordForEmail: async () => ({ error: null }),
-        getUser:            async () => ({ data: { user: null }, error: null }),
-        admin:              { updateUserById: async () => ({ error: null }) },
-      },
+      auth: authSurface(),
     },
+    // Sign-in and sign-up run on a detached client so the shared one is
+    // never left holding a member's session. Each call gets its own,
+    // mirroring createAuthClient() in backend/config/supabase.js.
+    createAuthClient: () => ({ auth: authSurface() }),
   };
 });
 

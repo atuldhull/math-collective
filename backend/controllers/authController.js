@@ -75,7 +75,10 @@ const register = async (req, res) => {
       invitation = inv;
     }
 
-    const { data, error } = await supabase.auth.signUp({
+    // Same reason as the sign-in path below: signUp can return a session,
+    // and it would stick to whichever client made the call.
+    const signUpClient = createAuthClient();
+    const { data, error } = await signUpClient.auth.signUp({
       email,
       password,
       options: { data: { name: name || email.split("@")[0] } },
@@ -156,7 +159,15 @@ const login = async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // Detached client, not the shared one. signInWithPassword stores the
+    // resulting session ON the client it is called against, so running it
+    // on the process-wide service-role singleton left that singleton
+    // signed in as whoever logged in last. Every query after it then went
+    // out carrying that member's JWT as role `authenticated` instead of
+    // service_role — which is why admin reads failed intermittently, and
+    // only ever after somebody signed in.
+    const loginClient = createAuthClient();
+    const { data, error } = await loginClient.auth.signInWithPassword({ email, password });
 
     if (error) {
       // Credential failure — count it toward the per-email lockout.
