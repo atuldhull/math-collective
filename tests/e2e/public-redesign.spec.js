@@ -40,9 +40,9 @@ test("responsive home, live totals, navigation and reduced motion", async ({ pag
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Open menu" })).toBeFocused();
   }
-  await page.getByRole("link", { name: "Find your people" }).click();
+  await page.getByRole("link", { name: "Register for recruitment" }).first().click();
   await expect(page).toHaveURL(/\/register$/);
-  await expect(page.getByLabel("Full Name", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Find your place in the collective/i })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -128,7 +128,9 @@ test("registration retains validation and request format", async ({ page }) => {
     submitted = route.request().postDataJSON();
     await route.fulfill({ json: { message: "Registered" } });
   });
-  await page.goto("/app/register", { waitUntil: "domcontentloaded" });
+  // Account signup moved to /signup when /register became the recruitment
+  // form. This test is about the signup contract, so it follows it there.
+  await page.goto("/app/signup", { waitUntil: "domcontentloaded" });
   await page.getByLabel("Full Name", { exact: true }).fill("Test Student");
   await page.getByLabel("Email", { exact: true }).fill("student@bmsit.in");
   await page.getByLabel("Password", { exact: true }).fill("Test-password-123!");
@@ -207,8 +209,8 @@ test("four public themes persist across routes and leave the member theme untouc
   }
   expect(new Set(palettes).size).toBe(4);
   await expect(page.locator("body")).not.toHaveAttribute("data-monument");
-  await page.getByRole("link", { name: "Find your people" }).click();
-  await expect(page.getByLabel("Full Name", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Register for recruitment" }).first().click();
+  await expect(page.getByRole("heading", { name: /Find your place in the collective/i })).toBeVisible();
   await expect(page.locator("[data-public-theme]")).toHaveAttribute("data-public-theme", "nebula");
   expect(await page.locator("html").getAttribute("data-theme")).toBe(originalTheme);
   expect(audioRequests).toEqual([]);
@@ -460,10 +462,12 @@ test("reduced motion removes cinematic pinning and restores readable static cont
   }));
   expect(Math.abs(sizes.journey - sizes.hero)).toBeLessThan(2);
   expect(sizes.position).not.toBe("sticky");
-  await expect(page.getByRole("link", { name: "Find your people" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Register for recruitment" }).first()).toBeVisible();
   await expect(page.locator(".mc-cinematic-copy")).toBeHidden();
   await page.locator(".mc-invitation").scrollIntoViewIfNeeded();
-  await expect(page.getByRole("link", { name: "Join Asymptotes", exact: true })).toBeVisible();
+  await expect(
+    page.locator(".mc-invitation").getByRole("link", { name: "Register for recruitment" }),
+  ).toBeVisible();
   await expect(page.locator(".mc-signature")).toBeVisible();
 });
 
