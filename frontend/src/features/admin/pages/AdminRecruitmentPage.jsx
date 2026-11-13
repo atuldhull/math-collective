@@ -16,6 +16,8 @@ import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { admin } from "@/lib/api";
 import { PageHeader, StatTile } from "@/components/lamp";
+import { recruitmentConfig } from "../../../../../shared/recruitmentConfig.js";
+import { filterRecruitmentRows } from "../../../../../shared/recruitmentAdminFilters.js";
 
 const icon = (Icon) => <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />;
 
@@ -31,6 +33,7 @@ export default function AdminRecruitmentPage() {
 
   const [search, setSearch] = useState("");
   const [year, setYear] = useState("all");
+  const [branch, setBranch] = useState("all");
   const [preference, setPreference] = useState("all");
 
   useEffect(() => {
@@ -52,31 +55,29 @@ export default function AdminRecruitmentPage() {
   }, []);
 
   // Every 1st preference that actually appears, so the filter never offers a
-  // team nobody applied to.
+  // domain nobody applied to.
   const preferences = useMemo(
     () => [...new Set(rows.map((r) => r.first_preference).filter(Boolean))].sort(),
     [rows],
   );
+  const branches = useMemo(
+    () => [...new Set([...recruitmentConfig.branches, ...rows.map((r) => r.branch)])].filter(Boolean),
+    [rows],
+  );
 
-  const visible = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (year !== "all" && String(r.year) !== year) return false;
-      if (preference !== "all" && r.first_preference !== preference) return false;
-      if (!needle) return true;
-      return [r.name, r.email, r.usn, r.branch, r.section, r.phone]
-        .some((f) => String(f ?? "").toLowerCase().includes(needle));
-    });
-  }, [rows, search, year, preference]);
+  const visible = useMemo(
+    () => filterRecruitmentRows(rows, { search, year, branch, preference }),
+    [rows, search, year, branch, preference],
+  );
 
   async function downloadCsv() {
     setExporting(true);
     try {
-      const res = await admin.exportRecruitment();
+      const res = await admin.exportRecruitment({ search, year, branch, preference });
       const url = URL.createObjectURL(new Blob([res.data], { type: "text/csv;charset=utf-8" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `recruitment-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `recruitment-${branch === "all" ? "" : `${branch.toLowerCase()}-`}${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -103,11 +104,11 @@ export default function AdminRecruitmentPage() {
             size="sm"
             variant="secondary"
             loading={exporting}
-            disabled={rows.length === 0}
+            disabled={visible.length === 0}
             leading={icon(Download)}
             onClick={downloadCsv}
           >
-            Export CSV
+            {visible.length === rows.length ? "Export CSV" : "Export filtered CSV"}
           </Button>
         )}
       />
@@ -137,18 +138,50 @@ export default function AdminRecruitmentPage() {
         </div>
       )}
 
+      {summary && rows.length > 0 && (
+        <section className="lamp-panel mb-6 p-5 sm:p-6" aria-labelledby="recruitment-departments-title">
+          <h2 id="recruitment-departments-title" className="text-lg text-text-primary">Registrations by department</h2>
+          <p className="mt-1 text-[13px] text-text-muted">All registrations. Select a department to filter the list below.</p>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {branches.map((name) => {
+              const count = summary.byBranch?.[name] || 0;
+              const pct = Math.round((count / summary.total) * 100);
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  aria-pressed={branch === name}
+                  aria-label={`${name}: ${count} ${count === 1 ? "registration" : "registrations"}. ${branch === name ? "Clear department filter" : "Filter by department"}`}
+                  onClick={() => setBranch((current) => current === name ? "all" : name)}
+                  className={`min-h-20 rounded-xl border p-3 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${branch === name ? "border-primary bg-primary/10" : "border-[rgb(var(--rule))] bg-surface/50 hover:border-primary/60"}`}
+                >
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium text-text-primary">{name}</span>
+                    <span className="text-lg font-semibold tabular-nums text-text-primary">{count}</span>
+                  </span>
+                  <span className="mt-3 block h-1.5 overflow-hidden rounded-full bg-surface">
+                    <span className="block h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                  </span>
+                  <span className="mt-1 block text-xs tabular-nums text-text-muted">{pct}% of total</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {summary && Object.keys(summary.byFirstPreference).length > 0 && (
         <section className="lamp-panel p-5 sm:p-6 mb-6">
           <h2 className="text-lg text-text-primary">Demand by 1st preference</h2>
-          <p className="mt-1 text-[13px] text-text-muted">How many picked each team first — use it to size interview slots.</p>
+          <p className="mt-1 text-[13px] text-text-muted">How many picked each domain first — use it to size interview slots.</p>
           <ul className="mt-4 flex flex-col gap-2">
             {Object.entries(summary.byFirstPreference)
               .sort((a, b) => b[1] - a[1])
-              .map(([team, count]) => {
+              .map(([domain, count]) => {
                 const pct = summary.total ? Math.round((count / summary.total) * 100) : 0;
                 return (
-                  <li key={team} className="flex items-center gap-3">
-                    <span className="w-48 shrink-0 truncate text-sm text-text-primary">{team}</span>
+                  <li key={domain} className="flex items-center gap-3">
+                    <span className="w-48 shrink-0 truncate text-sm text-text-primary">{domain}</span>
                     <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface">
                       <span className="block h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
                     </span>
@@ -193,13 +226,25 @@ export default function AdminRecruitmentPage() {
           </label>
 
           <label className="flex flex-col gap-1">
+            <span className="text-[13px] text-text-muted">Department</span>
+            <select
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              className="rounded-xl border border-[rgb(var(--rule))] bg-surface/50 px-3 py-2 text-sm text-text-primary"
+            >
+              <option value="all">All departments</option>
+              {branches.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1">
             <span className="text-[13px] text-text-muted">1st preference</span>
             <select
               value={preference}
               onChange={(e) => setPreference(e.target.value)}
               className="rounded-xl border border-[rgb(var(--rule))] bg-surface/50 px-3 py-2 text-sm text-text-primary"
             >
-              <option value="all">All teams</option>
+              <option value="all">All domains</option>
               {preferences.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </label>

@@ -81,6 +81,7 @@ describe("GET /api/admin/recruitment", () => {
 
     expect(res.body.summary.total).toBe(3);
     expect(res.body.summary.byYear).toEqual({ "Year 1": 1, "Year 2": 2 });
+    expect(res.body.summary.byBranch).toEqual({ CSE: 2, ISE: 1 });
     expect(res.body.summary.byFirstPreference["Event Design"]).toBe(2);
     expect(res.body.summary.byFirstPreference["Quantitative Strategy"]).toBe(1);
     expect(res.body.summary.byStudentType).toEqual({ "first-year": 1, normal: 1, lateral: 1 });
@@ -95,6 +96,7 @@ describe("GET /api/admin/recruitment", () => {
     expect(res.body.tableReady).toBe(false);
     expect(res.body.registrations).toEqual([]);
     expect(res.body.summary.total).toBe(0);
+    expect(res.body.summary.byBranch).toEqual({});
   });
 
   it("reports a real database failure as a failure", async () => {
@@ -138,6 +140,20 @@ describe("GET /api/admin/recruitment/export", () => {
     const res = await request(app).get("/api/admin/recruitment/export");
 
     expect(res.text).toContain('"CSE, AI & ML"');
+  });
+
+  it("exports only rows matching the department and other active filters", async () => {
+    respondWith({ data: rows, error: null });
+    const res = await request(app)
+      .get("/api/admin/recruitment/export")
+      .query({ branch: "CSE", year: "2", preference: "Quantitative Strategy", search: "grace" });
+
+    expect(res.status).toBe(200);
+    const lines = res.text.replace(/^﻿/, "").trim().split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContain("Grace Hopper");
+    expect(res.text).not.toContain("Ada Lovelace");
+    expect(res.text).not.toContain("Alan Turing");
   });
 
   it("still returns a usable CSV before the table exists", async () => {

@@ -17,6 +17,7 @@
 import supabase from "../../config/supabase.js";
 import { logger } from "../../config/logger.js";
 import { toCsv, CSV_BOM } from "../../lib/exportHelpers.js";
+import { filterRecruitmentRows } from "../../../shared/recruitmentAdminFilters.js";
 
 const COLUMNS =
   "id, year, student_type, name, phone, email, usn, branch, section, " +
@@ -66,7 +67,7 @@ export const exportRecruitment = async (req, res) => {
   try {
     const { data, error } = await query();
     if (error && !tableMissing(error)) throw error;
-    const rows = error ? [] : data || [];
+    const rows = filterRecruitmentRows(error ? [] : data || [], req.query);
     const csv = toCsv(rows, [
       "name",
       { key: "year", label: "year", value: (r) => `Year ${r.year}` },
@@ -97,16 +98,19 @@ export const exportRecruitment = async (req, res) => {
 };
 
 function emptySummary() {
-  return { total: 0, byYear: {}, byFirstPreference: {}, byStudentType: {} };
+  return { total: 0, byYear: {}, byBranch: {}, byFirstPreference: {}, byStudentType: {} };
 }
 
-/** Counts for the header strip: how many applied, and demand per team. */
+/** Counts for the header strip, departments, and domain demand. */
 function summarise(rows) {
   const summary = emptySummary();
   summary.total = rows.length;
   for (const row of rows) {
     const year = `Year ${row.year}`;
     summary.byYear[year] = (summary.byYear[year] || 0) + 1;
+    if (row.branch) {
+      summary.byBranch[row.branch] = (summary.byBranch[row.branch] || 0) + 1;
+    }
     if (row.first_preference) {
       summary.byFirstPreference[row.first_preference] =
         (summary.byFirstPreference[row.first_preference] || 0) + 1;
